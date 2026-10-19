@@ -1,0 +1,89 @@
+{
+ "canvas": [
+  360,
+  640
+ ],
+ "layers": [
+  {
+   "name": "plate",
+   "file": "plate",
+   "order": 0,
+   "heat": false
+  },
+  {
+   "name": "heat_band",
+   "file": "heat_band",
+   "order": 2,
+   "heat": true
+  }
+ ],
+ "sheets": {
+  "tumbleweed": {
+   "file": "tumbleweed",
+   "cell": [
+    28,
+    28
+   ],
+   "frames": 8,
+   "fps": 12,
+   "pivot": [
+    14,
+    27
+   ]
+  },
+  "vulture": {
+   "file": "vulture",
+   "cell": [
+    15,
+    8
+   ],
+   "frames": 4,
+   "fps": 5,
+   "pivot": [
+    7,
+    4
+   ]
+  }
+ },
+ "props": [],
+ "clouds": [],
+ "tumbleweed": {
+  "sheet": "tumbleweed",
+  "laneY": [
+   448,
+   509
+  ],
+  "order": 78
+ },
+ "vulture": {
+  "sheet": "vulture",
+  "center": [
+   211,
+   76
+  ],
+  "radius": [
+   52,
+   12
+  ],
+  "order": 12
+ },
+ "anchors": {
+  "banditFeet": [
+   278,
+   437
+  ],
+  "heroBottomLeft": [
+   133,
+   622
+  ],
+  "vanishingPoint": [
+   241,
+   381
+  ],
+  "sun": [
+   250,
+   104
+  ]
+ },
+ "source": "v3: user-generated plate processed by Tools/ArtGen/v3/build_v3.py"
+}

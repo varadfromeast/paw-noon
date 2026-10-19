@@ -1,0 +1,194 @@
+{
+ "dust_mote": {
+  "file": "dust_mote",
+  "size": [
+   4,
+   2
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "cell": [
+   2,
+   2
+  ],
+  "frames": 2,
+  "fps": 0,
+  "loop": false,
+  "note": "frame 0 = 1px sand0, frame 1 = 2x2 cream0; pick per particle, not an animation"
+ },
+ "dust_puff": {
+  "file": "dust_puff",
+  "size": [
+   144,
+   12
+  ],
+  "pivot": [
+   24,
+   44
+  ],
+  "cell": [
+   48,
+   48
+  ],
+  "frames": 6,
+  "fps": 12,
+  "loop": false
+ },
+ "flash_ring": {
+  "file": "flash_ring",
+  "size": [
+   192,
+   48
+  ],
+  "pivot": [
+   24,
+   24
+  ],
+  "cell": [
+   48,
+   48
+  ],
+  "frames": 4,
+  "fps": 24,
+  "loop": false
+ },
+ "hit_puff": {
+  "file": "hit_puff",
+  "size": [
+   160,
+   32
+  ],
+  "pivot": [
+   28,
+   28
+  ],
+  "cell": [
+   56,
+   56
+  ],
+  "frames": 5,
+  "fps": 16,
+  "loop": false
+ },
+ "muzzle_front": {
+  "file": "muzzle_front",
+  "size": [
+   96,
+   32
+  ],
+  "pivot": [
+   22,
+   22
+  ],
+  "cell": [
+   44,
+   44
+  ],
+  "frames": 3,
+  "fps": 24,
+  "loop": false
+ },
+ "muzzle_side": {
+  "file": "muzzle_side",
+  "size": [
+   72,
+   24
+  ],
+  "pivot": [
+   7,
+   28
+  ],
+  "cell": [
+   56,
+   56
+  ],
+  "frames": 3,
+  "fps": 24,
+  "loop": false
+ },
+ "shadow_bandit": {
+  "file": "shadow_bandit",
+  "size": [
+   28,
+   6
+  ],
+  "pivot": [
+   14,
+   3
+  ]
+ },
+ "shell": {
+  "file": "shell",
+  "size": [
+   16,
+   4
+  ],
+  "pivot": [
+   2,
+   2
+  ],
+  "cell": [
+   4,
+   4
+  ],
+  "frames": 4,
+  "fps": 16,
+  "loop": true
+ },
+ "smoke_puff": {
+  "file": "smoke_puff",
+  "size": [
+   96,
+   16
+  ],
+  "pivot": [
+   20,
+   30
+  ],
+  "cell": [
+   40,
+   40
+  ],
+  "frames": 6,
+  "fps": 12,
+  "loop": false
+ },
+ "spark": {
+  "file": "spark",
+  "size": [
+   32,
+   8
+  ],
+  "pivot": [
+   4,
+   4
+  ],
+  "cell": [
+   8,
+   8
+  ],
+  "frames": 4,
+  "fps": 20,
+  "loop": false
+ },
+ "sweat_drop": {
+  "file": "sweat_drop",
+  "size": [
+   18,
+   8
+  ],
+  "pivot": [
+   3,
+   0
+  ],
+  "cell": [
+   6,
+   8
+  ],
+  "frames": 3,
+  "fps": 8,
+  "loop": false
+ }
+}

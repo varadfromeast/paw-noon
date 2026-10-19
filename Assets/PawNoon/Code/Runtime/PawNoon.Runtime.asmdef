@@ -1,0 +1,23 @@
+{
+    "name": "PawNoon.Runtime",
+    "rootNamespace": "PawNoon.Runtime",
+    "references": [
+        "PawNoon.Core",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0.0",
+            "define": "PAWNOON_INPUT_SYSTEM"
+        }
+    ],
+    "noEngineReferences": false
+}

@@ -1,0 +1,105 @@
+{
+ "cell": [
+  295,
+  275
+ ],
+ "pivot": [
+  130,
+  274
+ ],
+ "anims": {
+  "idle": {
+   "file": "hero_idle",
+   "frames": 4,
+   "fps": 3,
+   "loop": true
+  },
+  "ready": {
+   "file": "hero_ready",
+   "frames": 2,
+   "fps": 2,
+   "loop": true
+  },
+  "draw_fire": {
+   "file": "hero_draw_fire",
+   "frames": 6,
+   "fps": 22,
+   "loop": false,
+   "events": {
+    "fire": 2
+   },
+   "muzzle": [
+    [
+     -1,
+     -1
+    ],
+    [
+     239,
+     50
+    ],
+    [
+     239,
+     50
+    ],
+    [
+     239,
+     50
+    ],
+    [
+     239,
+     50
+    ],
+    [
+     239,
+     50
+    ]
+   ]
+  },
+  "aim": {
+   "file": "hero_aim",
+   "frames": 2,
+   "fps": 2,
+   "loop": true,
+   "muzzle": [
+    [
+     239,
+     50
+    ],
+    [
+     239,
+     50
+    ]
+   ]
+  },
+  "hit": {
+   "file": "hero_hit",
+   "frames": 3,
+   "fps": 14,
+   "loop": false
+  },
+  "down": {
+   "file": "hero_down",
+   "frames": 3,
+   "fps": 7,
+   "loop": false
+  },
+  "win": {
+   "file": "hero_win",
+   "frames": 4,
+   "fps": 2,
+   "loop": true
+  },
+  "foul": {
+   "file": "hero_foul",
+   "frames": 4,
+   "fps": 10,
+   "loop": false
+  }
+ },
+ "hitPoint": [
+  134,
+  123
+ ],
+ "portrait": "hero_portrait",
+ "portraitHurt": "hero_portrait_hurt"
+}

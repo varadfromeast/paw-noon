@@ -1,0 +1,105 @@
+{
+ "cell": [
+  117,
+  120
+ ],
+ "pivot": [
+  60,
+  119
+ ],
+ "anims": {
+  "idle": {
+   "file": "bandit_idle",
+   "frames": 4,
+   "fps": 3,
+   "loop": true
+  },
+  "ready": {
+   "file": "bandit_ready",
+   "frames": 2,
+   "fps": 2,
+   "loop": true
+  },
+  "draw_fire": {
+   "file": "bandit_draw_fire",
+   "frames": 6,
+   "fps": 22,
+   "loop": false,
+   "events": {
+    "fire": 2
+   },
+   "muzzle": [
+    [
+     -1,
+     -1
+    ],
+    [
+     64,
+     40
+    ],
+    [
+     64,
+     40
+    ],
+    [
+     64,
+     40
+    ],
+    [
+     64,
+     40
+    ],
+    [
+     64,
+     40
+    ]
+   ]
+  },
+  "aim": {
+   "file": "bandit_aim",
+   "frames": 2,
+   "fps": 2,
+   "loop": true,
+   "muzzle": [
+    [
+     64,
+     40
+    ],
+    [
+     64,
+     40
+    ]
+   ]
+  },
+  "hit": {
+   "file": "bandit_hit",
+   "frames": 3,
+   "fps": 14,
+   "loop": false
+  },
+  "down": {
+   "file": "bandit_down",
+   "frames": 3,
+   "fps": 7,
+   "loop": false
+  },
+  "win": {
+   "file": "bandit_win",
+   "frames": 4,
+   "fps": 2,
+   "loop": true
+  },
+  "foul": {
+   "file": "bandit_foul",
+   "frames": 4,
+   "fps": 10,
+   "loop": false
+  }
+ },
+ "hitPoint": [
+  60,
+  53
+ ],
+ "portrait": "bandit_portrait",
+ "portraitHurt": "bandit_portrait_hurt"
+}

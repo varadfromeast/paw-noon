@@ -1,0 +1,27 @@
+PAW NOON - audio credits and licenses
+=====================================
+
+Gunshots: SFX/sfx_gun_hero_1..3.wav, SFX/sfx_gun_bandit_1..3.wav
+  Derived from The Free Firearm Sound Library (Smith & Wesson 642 recordings
+  V_22P.wav and V_27P.wav, as prepared in Revolver1-3.wav).
+  Recorded by Ben Jaszczak, Brian Nelson, Kevin Heras and Matthew Nanney.
+  Source: https://opengameart.org/content/the-free-firearm-sound-library
+  License: CC0 1.0 Universal (public domain dedication)
+           https://creativecommons.org/publicdomain/zero/1.0/
+  Project edits: onset trim, re-pitch, EQ, transient shaping, synthesized sub-thump,
+  saturation (hero); band-limiting and early reflections (bandit); both followed by
+  synthesized canyon echoes (discrete, progressively darker slapbacks + synthetic
+  reverb); limiting and -1 dBFS peak normalisation.
+  The prepared source files are kept in Tools/AudioGen/source/.
+
+Classic music: Music/Classic/Lobby.mp3, Music/Classic/Standoff.mp3
+  Supplied by the user and copied without modification. No authorship or
+  third-party license is inferred; the user is responsible for their rights.
+
+Everything else - Music/music_title, music_standoff, music_duel_a, music_duel_hold,
+music_duel_result, sting_win, sting_lose, sting_round; Loops/amb_wind, amb_town, amb_duel, heartbeat, tumbleweed_roll; and every other
+SFX/*.wav - is original to the Paw Noon project: composed and synthesized from
+scratch (Karplus-Strong guitars, additive whistle/harmonica/bowed voices, band-limited
+sawtooth strings, bells,
+filtered noise, synthetic convolution reverb) by Tools/AudioGen/*.py. No samples
+or third-party recordings are used in them.

@@ -1,0 +1,19 @@
+{
+    "name": "PawNoon.Editor",
+    "rootNamespace": "PawNoon.EditorTools",
+    "references": [
+        "PawNoon.Core",
+        "PawNoon.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

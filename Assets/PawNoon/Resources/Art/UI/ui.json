@@ -1,0 +1,753 @@
+{
+ "banner_lose": {
+  "file": "banner_lose",
+  "size": [
+   250,
+   47
+  ],
+  "pivot": [
+   125,
+   23
+  ]
+ },
+ "banner_win": {
+  "file": "banner_win",
+  "size": [
+   250,
+   47
+  ],
+  "pivot": [
+   125,
+   23
+  ]
+ },
+ "btn_icon": {
+  "file": "btn_icon",
+  "size": [
+   30,
+   30
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "contentOffset": [
+   0,
+   -1
+  ]
+ },
+ "btn_icon_pressed": {
+  "file": "btn_icon_pressed",
+  "size": [
+   30,
+   30
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "contentOffset": [
+   0,
+   1
+  ]
+ },
+ "btn_large": {
+  "file": "btn_large",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   -1
+  ]
+ },
+ "btn_large_alt": {
+  "file": "btn_large_alt",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   -1
+  ]
+ },
+ "btn_large_alt_pressed": {
+  "file": "btn_large_alt_pressed",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   1
+  ]
+ },
+ "btn_large_pressed": {
+  "file": "btn_large_pressed",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   1
+  ]
+ },
+ "cue_1": {
+  "file": "cue_1",
+  "size": [
+   43,
+   68
+  ],
+  "pivot": [
+   18,
+   29
+  ]
+ },
+ "cue_2": {
+  "file": "cue_2",
+  "size": [
+   49,
+   68
+  ],
+  "pivot": [
+   21,
+   29
+  ]
+ },
+ "cue_3": {
+  "file": "cue_3",
+  "size": [
+   49,
+   68
+  ],
+  "pivot": [
+   21,
+   29
+  ]
+ },
+ "cue_burst": {
+  "file": "cue_burst",
+  "size": [
+   800,
+   200
+  ],
+  "pivot": [
+   100,
+   100
+  ],
+  "cell": [
+   200,
+   200
+  ],
+  "frames": 4,
+  "fps": 12,
+  "loop": true
+ },
+ "cue_draw": {
+  "file": "cue_draw",
+  "size": [
+   208,
+   63
+  ],
+  "pivot": [
+   104,
+   31
+  ]
+ },
+ "get_ready": {
+  "file": "get_ready",
+  "size": [
+   140,
+   28
+  ],
+  "pivot": [
+   70,
+   14
+  ]
+ },
+ "grade_good": {
+  "file": "grade_good",
+  "size": [
+   62,
+   60
+  ],
+  "pivot": [
+   31,
+   30
+  ]
+ },
+ "grade_great": {
+  "file": "grade_great",
+  "size": [
+   62,
+   60
+  ],
+  "pivot": [
+   31,
+   30
+  ]
+ },
+ "grade_lightning": {
+  "file": "grade_lightning",
+  "size": [
+   62,
+   59
+  ],
+  "pivot": [
+   31,
+   29
+  ]
+ },
+ "grade_perfect": {
+  "file": "grade_perfect",
+  "size": [
+   62,
+   59
+  ],
+  "pivot": [
+   31,
+   29
+  ]
+ },
+ "grade_slow": {
+  "file": "grade_slow",
+  "size": [
+   62,
+   60
+  ],
+  "pivot": [
+   31,
+   30
+  ]
+ },
+ "grade_slowpoke": {
+  "file": "grade_slowpoke",
+  "size": [
+   62,
+   61
+  ],
+  "pivot": [
+   31,
+   30
+  ]
+ },
+ "holster_zone": {
+  "file": "holster_zone",
+  "size": [
+   128,
+   40
+  ],
+  "pivot": [
+   32,
+   40
+  ],
+  "cell": [
+   64,
+   40
+  ],
+  "frames": 2,
+  "fps": 0,
+  "loop": false,
+  "note": "frame 0 idle, frame 1 grip glowing (thumb resting); select by state"
+ },
+ "hp_fill": {
+  "file": "hp_fill",
+  "size": [
+   62,
+   8
+  ],
+  "pivot": [
+   0,
+   0
+  ]
+ },
+ "hp_fill_low": {
+  "file": "hp_fill_low",
+  "size": [
+   62,
+   8
+  ],
+  "pivot": [
+   0,
+   0
+  ]
+ },
+ "hp_frame": {
+  "file": "hp_frame",
+  "size": [
+   86,
+   18
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "inner": [
+   12,
+   5,
+   62,
+   8
+  ]
+ },
+ "hp_ghost": {
+  "file": "hp_ghost",
+  "size": [
+   62,
+   8
+  ],
+  "pivot": [
+   0,
+   0
+  ]
+ },
+ "hud_badge": {
+  "file": "hud_badge",
+  "size": [
+   152,
+   136
+  ],
+  "pivot": [
+   76,
+   59
+  ],
+  "numeralWindow": [
+   24,
+   27,
+   104,
+   64
+  ],
+  "timerWindow": [
+   22,
+   102,
+   108,
+   20
+  ],
+  "inner": [
+   24,
+   27,
+   104,
+   64
+  ]
+ },
+ "ico_back": {
+  "file": "ico_back",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_gear": {
+  "file": "ico_gear",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_haptic_off": {
+  "file": "ico_haptic_off",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_haptic_on": {
+  "file": "ico_haptic_on",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_home": {
+  "file": "ico_home",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_motion": {
+  "file": "ico_motion",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_music_off": {
+  "file": "ico_music_off",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_music_on": {
+  "file": "ico_music_on",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_retry": {
+  "file": "ico_retry",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_sound_off": {
+  "file": "ico_sound_off",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_sound_on": {
+  "file": "ico_sound_on",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "logo": {
+  "file": "logo",
+  "size": [
+   234,
+   60
+  ],
+  "pivot": [
+   117,
+   30
+  ]
+ },
+ "name_plate": {
+  "file": "name_plate",
+  "size": [
+   18,
+   14
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "panel_paper": {
+  "file": "panel_paper",
+  "size": [
+   24,
+   24
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   7,
+   7,
+   7,
+   7
+  ]
+ },
+ "panel_wood": {
+  "file": "panel_wood",
+  "size": [
+   24,
+   24
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   7,
+   7,
+   7,
+   7
+  ]
+ },
+ "portrait_backdrop": {
+  "file": "portrait_backdrop",
+  "size": [
+   36,
+   36
+  ],
+  "pivot": [
+   0,
+   0
+  ]
+ },
+ "portrait_frame": {
+  "file": "portrait_frame",
+  "size": [
+   44,
+   44
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "inner": [
+   4,
+   4,
+   36,
+   36
+  ]
+ },
+ "round_sign": {
+  "file": "round_sign",
+  "size": [
+   56,
+   18
+  ],
+  "pivot": [
+   28,
+   0
+  ],
+  "inner": [
+   4,
+   3,
+   48,
+   12
+  ]
+ },
+ "seg_off": {
+  "file": "seg_off",
+  "size": [
+   16,
+   20
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   5,
+   5,
+   5,
+   6
+  ]
+ },
+ "seg_on": {
+  "file": "seg_on",
+  "size": [
+   16,
+   20
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "stamp_no_shot": {
+  "file": "stamp_no_shot",
+  "size": [
+   55,
+   24
+  ],
+  "pivot": [
+   27,
+   12
+  ]
+ },
+ "stamp_too_early": {
+  "file": "stamp_too_early",
+  "size": [
+   148,
+   30
+  ],
+  "pivot": [
+   74,
+   15
+  ]
+ },
+ "swipe_arrow": {
+  "file": "swipe_arrow",
+  "size": [
+   48,
+   20
+  ],
+  "pivot": [
+   6,
+   10
+  ],
+  "cell": [
+   12,
+   20
+  ],
+  "frames": 4,
+  "fps": 8,
+  "loop": true
+ },
+ "tap_hint": {
+  "file": "tap_hint",
+  "size": [
+   32,
+   16
+  ],
+  "pivot": [
+   8,
+   15
+  ],
+  "cell": [
+   16,
+   16
+  ],
+  "frames": 2,
+  "fps": 3,
+  "loop": true
+ },
+ "toggle_off": {
+  "file": "toggle_off",
+  "size": [
+   22,
+   12
+  ],
+  "pivot": [
+   11,
+   6
+  ]
+ },
+ "toggle_on": {
+  "file": "toggle_on",
+  "size": [
+   22,
+   12
+  ],
+  "pivot": [
+   11,
+   6
+  ]
+ },
+ "logo_v3": {
+  "file": "logo_v3",
+  "size": [
+   234,
+   60
+  ],
+  "pivot": [
+   117,
+   30
+  ]
+ },
+ "result_card": {
+  "file": "result_card",
+  "size": [
+   228,
+   95
+  ],
+  "pivot": [
+   114,
+   47
+  ]
+ },
+ "heart_beat": {
+  "file": "heart_beat",
+  "cell": [
+   58,
+   48
+  ],
+  "frames": 4,
+  "fps": 0,
+  "loop": false,
+  "pivot": [
+   29,
+   24
+  ]
+ }
+}
