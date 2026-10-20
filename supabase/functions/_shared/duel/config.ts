@@ -22,6 +22,10 @@ export interface DuelConfig {
   gradeGreatMs: number;
   gradeGoodMs: number;
   gradeSlowMs: number;
+  /** Sudden death "LAST LIGHT" (SPEC_V2 §8.4): see sudden_death.ts. */
+  suddenDeathEnabled: boolean;
+  suddenDeathHp: number;
+  suddenDeathDamageMultiplier: number;
 }
 
 export function defaultConfig(): DuelConfig {
@@ -43,6 +47,9 @@ export function defaultConfig(): DuelConfig {
     gradeGreatMs: 320,
     gradeGoodMs: 420,
     gradeSlowMs: 700,
+    suddenDeathEnabled: true,
+    suddenDeathHp: 20,
+    suddenDeathDamageMultiplier: 2.0,
   };
 }
 
@@ -94,6 +101,16 @@ function int(root: Json, key: string, def: number): number {
   return roundHalfEven(num(root, key, def));
 }
 
+/** PnJson.Bool: bools as-is, numbers != 0, strings "true" / "1", anything else (or null) = def. */
+function bool(root: Json, key: string, def: boolean): boolean {
+  if (!(key in root)) return def;
+  const v = root[key];
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v === "string") return v === "true" || v === "1";
+  return def;
+}
+
 function numArray(root: Json, key: string): number[] | null {
   const a = root[key];
   if (!Array.isArray(a)) return null;
@@ -126,6 +143,9 @@ export function configFromJson(input: unknown): DuelConfig {
   c.gradeGreatMs = num(root, "gradeGreatMs", c.gradeGreatMs);
   c.gradeGoodMs = num(root, "gradeGoodMs", c.gradeGoodMs);
   c.gradeSlowMs = num(root, "gradeSlowMs", c.gradeSlowMs);
+  c.suddenDeathEnabled = bool(root, "suddenDeathEnabled", c.suddenDeathEnabled);
+  c.suddenDeathHp = num(root, "suddenDeathHp", c.suddenDeathHp);
+  c.suddenDeathDamageMultiplier = num(root, "suddenDeathDamageMultiplier", c.suddenDeathDamageMultiplier);
   sanitize(c);
   return c;
 }
@@ -142,6 +162,9 @@ export function sanitize(c: DuelConfig): void {
   if (c.tieWindowMs < 0) c.tieWindowMs = 0;
   if (c.reportSlackMs < 0) c.reportSlackMs = 0;
   if (c.maxHp < 1) c.maxHp = 1;
+  if (Number.isNaN(c.suddenDeathHp) || c.suddenDeathHp < 0) c.suddenDeathHp = 0;
+  if (Number.isNaN(c.suddenDeathDamageMultiplier) || c.suddenDeathDamageMultiplier < 0) c.suddenDeathDamageMultiplier = 1.0;
+  if (c.suddenDeathDamageMultiplier > 10) c.suddenDeathDamageMultiplier = 10;
 }
 
 // ---------------------------------------------------------------- derived (DuelConfig properties)

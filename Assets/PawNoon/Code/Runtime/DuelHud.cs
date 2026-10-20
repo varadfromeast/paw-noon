@@ -393,8 +393,28 @@ namespace PawNoon.Runtime
             if (n == roundShown) return;
             roundShown = n;
             roundText.SetText("ROUND " + n);
+            roundText.Color = Pal.Cream0;
+            roundText.MarkDirty();
             signPop = reducedMotion ? 0f : 0.35f; // Reduced Motion: the sign just changes
         }
+
+        /// <summary>
+        /// A named round instead of "ROUND N" (sudden death: "LAST LIGHT", signal yellow). The next SetRound(n) restores
+        /// the numbered sign. Pops like a round change once per label.
+        /// </summary>
+        public void SetRoundLabel(string label)
+        {
+            const int Named = int.MinValue;
+            if (roundShown == Named && labelShown == label) return;
+            roundShown = Named;
+            labelShown = label;
+            roundText.SetText(label);
+            roundText.Color = Pal.SigYellow;
+            roundText.MarkDirty();
+            signPop = reducedMotion ? 0f : 0.35f;
+        }
+
+        private string labelShown;
 
         /// <summary>Difficulty tag beside the round sign (set when a match's rules are applied).</summary>
         public void SetDifficulty(bool easy)

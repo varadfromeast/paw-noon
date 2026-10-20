@@ -651,6 +651,8 @@ namespace PawNoon.Runtime
         public Grade grade;
         public double dealt;
         public double taken;
+        /// <summary>Reaction replay strip under the card (SPEC_V2 §8.1); default (invalid) = no strip.</summary>
+        public ReplayMarks replay;
     }
 
     public sealed class ResultPanel : ScreenBase
@@ -662,6 +664,7 @@ namespace PawNoon.Runtime
         private BitmapText youLabel, youTime, botLabel, botTime, gap, dmg, note;
         private BitmapText diffTag;   // "EASY" / "HARD" after the note line (text only, no art)
         private PopSprite stamp;
+        private ReplayStrip replay;
         private RectInt rect;
         private float stampDelay;
         private string stampName;
@@ -694,6 +697,7 @@ namespace PawNoon.Runtime
             diffTag = InkText("Difficulty", kit.Small, O + 2, TextAlign.Left);
             SetDifficulty(false);
             stamp = new PopSprite("Grade", transform, O + 4);
+            replay = new ReplayStrip(transform, kit.Small, O + 1);
         }
 
         protected override void Layout()
@@ -720,7 +724,16 @@ namespace PawNoon.Runtime
             dmg.At(x + ix, y + iy + 50);
             note.At(x + ix, y + h - iy - 8);
             PlaceTag();
+            if (replay != null) replay.PlaceAt(CenterX - ReplayStripMath.Width / 2, y + h + ReplayGapPx);
         }
+
+        private const int ReplayGapPx = 2;
+
+        /// <summary>The replay strip is showing under the card.</summary>
+        public bool ReplayVisible { get { return replay != null && replay.Visible && IsOpen; } }
+
+        /// <summary>Canvas y just below the replay strip at rest (after the slide-in).</summary>
+        public int ReplayBottom { get { return rect.yMax + ReplayGapPx + ReplayStripMath.Height; } }
 
         /// <summary>Difficulty the match is played on (shown as a small tag on the card).</summary>
         public void SetDifficulty(bool easy)
@@ -780,6 +793,7 @@ namespace PawNoon.Runtime
             StampSound = v.grade == Grade.Lightning ? "sfx_lightning" : null;
             stamp.Hide();
             stampDelay = 0.35f;
+            replay.Show(v.replay, v.youName, v.botName, PawSettings.ReducedMotion);
         }
 
         public static string GradeSprite(Grade g)
@@ -807,6 +821,7 @@ namespace PawNoon.Runtime
                 if (dy != slideDy) { slideDy = dy; Layout(); }
             }
             stamp.Tick(dt);
+            replay.Tick(dt);
             if (stampName != null && stampDelay > 0f)
             {
                 stampDelay -= dt;

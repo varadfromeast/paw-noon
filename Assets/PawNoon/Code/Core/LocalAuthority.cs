@@ -99,6 +99,8 @@ namespace PawNoon.Core
         /// <summary>Both shots landed inside the tie window ("TOO CLOSE"): no round winner.</summary>
         public bool isTie;
         public int winnerSlot = -1;
+        /// <summary>Damage multiplier this round was played under (1 = normal, 2 = LAST LIGHT). Fixed at StartCountdown.</summary>
+        public double damageMultiplier = 1.0;
         public readonly SlotRecord[] slots = { new SlotRecord(), new SlotRecord() };
 
         public void Clear()
@@ -111,6 +113,7 @@ namespace PawNoon.Core
             isVoid = false;
             isTie = false;
             winnerSlot = -1;
+            damageMultiplier = 1.0;
             slots[0].Clear();
             slots[1].Clear();
         }
@@ -142,6 +145,7 @@ namespace PawNoon.Core
         private Random rng;
         private int nextRoundId = 1;
         private bool forceCue;
+        private double pendingDamageMultiplier = 1.0;
         private readonly Queue<DuelEvent> events = new Queue<DuelEvent>(16);
 
         public readonly MatchState Match;
@@ -170,8 +174,22 @@ namespace PawNoon.Core
             events.Clear();
             transport.Clear();
             forceCue = false;
+            pendingDamageMultiplier = 1.0;
             Phase = RoundPhase.Standoff;
         }
+
+        /// <summary>
+        /// Damage multiplier for the NEXT round (taken at StartCountdown, so a round in flight never changes).
+        /// The match driver sets it from SuddenDeath.MultiplierFor before each standoff; StartMatch resets it to 1.
+        /// NaN, infinite or negative values mean 1.
+        /// </summary>
+        public void SetDamageMultiplier(double multiplier)
+        {
+            pendingDamageMultiplier = (double.IsNaN(multiplier) || double.IsInfinity(multiplier) || multiplier < 0) ? 1.0 : multiplier;
+        }
+
+        /// <summary>The multiplier the next StartCountdown will use.</summary>
+        public double PendingDamageMultiplier { get { return pendingDamageMultiplier; } }
 
         /// <summary>Standoff -> Countdown. The countdown starts "now" ("3" appears).</summary>
         public bool StartCountdown()
@@ -183,6 +201,7 @@ namespace PawNoon.Core
             Round.roundNumber = Match.RoundNumber;
             Round.schedule = RoundSchedule.Create(cfg, rng);
             Round.countdownStartNs = now;
+            Round.damageMultiplier = pendingDamageMultiplier;
             forceCue = false;
             Phase = RoundPhase.Countdown;
 
@@ -381,7 +400,8 @@ namespace PawNoon.Core
 
         private double DamageFor(long reactionNs)
         {
-            return DamageCurve.Evaluate(cfg, DuelConfig.NsToMs(reactionNs));
+            // the round's multiplier (LAST LIGHT) is applied here and only here: one multiply per shot
+            return DamageCurve.Evaluate(cfg, DuelConfig.NsToMs(reactionNs)) * Round.damageMultiplier;
         }
 
         private void Fire(int slot, bool simultaneous)

@@ -179,6 +179,7 @@ namespace PawNoon.Runtime
             Director = new DuelDirector(Config, Layout, Clock, authority, player, bot, Input, hero, bandit, particles, cues, hud,
                 resultPanel, Audio, Pipeline, seed);
             Director.MatchFinished = OnMatchFinished;
+            Director.SetStreet(Street);   // LAST LIGHT dawn crossfade
 
             Audio.StartAmbience();
             ApplySettings();

@@ -137,6 +137,23 @@ def load_config(path=CONFIG_PATH):
     c.tieWindowMs = max(0.0, c.tieWindowMs)
     c.reportSlackMs = max(0.0, c.reportSlackMs)
     c.maxHp = max(1.0, c.maxHp)
+    # sudden death "LAST LIGHT" (PnJson.Bool / Num + Sanitize)
+    sd = root.get("suddenDeathEnabled", True)
+    if isinstance(sd, bool):
+        c.suddenDeathEnabled = sd
+    elif isinstance(sd, (int, float)):
+        c.suddenDeathEnabled = sd != 0
+    elif isinstance(sd, str):
+        c.suddenDeathEnabled = sd in ("true", "1")
+    else:
+        c.suddenDeathEnabled = True
+    c.suddenDeathHp = float(root.get("suddenDeathHp", 20.0))
+    if math.isnan(c.suddenDeathHp) or c.suddenDeathHp < 0:
+        c.suddenDeathHp = 0.0
+    c.suddenDeathDamageMultiplier = float(root.get("suddenDeathDamageMultiplier", 2.0))
+    if math.isnan(c.suddenDeathDamageMultiplier) or c.suddenDeathDamageMultiplier < 0:
+        c.suddenDeathDamageMultiplier = 1.0
+    c.suddenDeathDamageMultiplier = min(10.0, c.suddenDeathDamageMultiplier)
     c.beatNs = sec_to_ns(c.beatSeconds)
     c.noShotNs = sec_to_ns(c.noShotTimeoutSeconds)
     c.graceNs = ms_to_ns(c.commitGraceMs)
@@ -195,6 +212,18 @@ def grade(cfg, ms):
     return "Slowpoke"
 
 
+# --------------------------------------------------------------------------- SuddenDeath (LAST LIGHT)
+
+def sudden_death_triggers(cfg, hp0, hp1):
+    if not cfg.suddenDeathEnabled:
+        return False
+    return hp0 > 0 and hp1 > 0 and hp0 <= cfg.suddenDeathHp and hp1 <= cfg.suddenDeathHp
+
+
+def sudden_death_multiplier(cfg, match):
+    return cfg.suddenDeathDamageMultiplier if (not match.over and sudden_death_triggers(cfg, match.hp[0], match.hp[1])) else 1.0
+
+
 # --------------------------------------------------------------------------- MatchState + LocalAuthority
 
 class Match:
@@ -251,6 +280,7 @@ class Authority:
         self.match = Match(cfg.maxHp)
         self.phase = "Standoff"
         self.next_round_id = 1
+        self.pending_mult = 1.0
         self.clear_round()
 
     def clear_round(self):
@@ -263,12 +293,17 @@ class Authority:
         self.is_void = False
         self.is_tie = False
         self.winner_slot = -1
+        self.mult = 1.0
         self.slots = [SlotRec(), SlotRec()]
 
     def start_match(self):
         self.match.reset(self.cfg.maxHp)
         self.clear_round()
+        self.pending_mult = 1.0
         self.phase = "Standoff"
+
+    def set_damage_multiplier(self, m):
+        self.pending_mult = 1.0 if (math.isnan(m) or math.isinf(m) or m < 0) else m
 
     def start_countdown(self, now):
         if self.phase != "Standoff" or self.match.over:
@@ -279,6 +314,7 @@ class Authority:
         self.round_number = self.match.round_number
         self.schedule = create_schedule(self.cfg, self.rng)
         self.countdown_start = now
+        self.mult = self.pending_mult
         self.phase = "Countdown"
         return True
 
@@ -398,7 +434,7 @@ class Authority:
             return
 
     def damage_for(self, reaction_ns):
-        return damage(self.cfg, ns_to_ms(reaction_ns))
+        return damage(self.cfg, ns_to_ms(reaction_ns)) * self.mult
 
     def fire(self, slot, simultaneous):
         s = self.slots[slot]
@@ -537,6 +573,7 @@ def play_match_case(cfg, case):
         if k >= len(a):
             end = "player_exhausted"
             break
+        auth.set_damage_multiplier(sudden_death_multiplier(cfg, auth.match))
         now = run_exchange(auth, now, a[k], b[k])
         attempts.append(round_view(auth))
         if not auth.is_void:
@@ -623,6 +660,12 @@ MATCH_CASES = [
     ("three_ties_hp_decides", 987654321, [S(231), S(265), S(244)], [S(230), S(266), S(250)]),
     ("ghost_wins", 5, [S(300), S(280), S(260)], [S(240), S(250), S(230)]),
     ("max_attempts", 2, [EARLY, EARLY, EARLY, EARLY, EARLY], [EARLY, EARLY, EARLY, EARLY, EARLY], 4),
+    # LAST LIGHT (SPEC_V2 §8.4): 100 -> 60 -> 20 each, round 3 doubles a 400 ms shot (16 -> 32) into a KO
+    ("last_light_ko", 11, [S(110), S(110), S(400)], [S(140), S(140), NOSHOT]),
+    # void at 20/20 replays as LAST LIGHT too; x2 tie 250 vs 260 (60 / 57.6) is a double KO
+    ("last_light_void_then_tie", 12, [S(110), S(110), EARLY, S(250)], [S(140), S(140), EARLY, S(260)]),
+    # only one cat at or below 20 HP: no LAST LIGHT, x1
+    ("one_low_no_last_light", 13, [S(110), S(300), S(400)], [S(140), S(140), S(600)]),
 ]
 MATCH_ROUNDS = 3
 MATCH_MAX_ATTEMPTS = 9  # rounds * 3, same as the server default
@@ -639,6 +682,8 @@ def build(cfg):
         "commitGraceMs": cfg.commitGraceMs, "maxHp": cfg.maxHp,
         "holdMinSeconds": cfg.holdMinSeconds, "holdMaxSeconds": cfg.holdMaxSeconds,
         "countdownBeats": cfg.countdownBeats, "beatNs": cfg.beatNs,
+        "suddenDeathEnabled": cfg.suddenDeathEnabled, "suddenDeathHp": cfg.suddenDeathHp,
+        "suddenDeathDamageMultiplier": cfg.suddenDeathDamageMultiplier,
     }]
     sch = []
     for seed in SEEDS:

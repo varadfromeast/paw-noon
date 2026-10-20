@@ -91,6 +91,13 @@
   "banterHoldSeconds": 1.6,
   "banterLowHp": 30,
   "banterMatchEndSeconds": 2.0,
+  "suddenDeathEnabled": true,
+  "suddenDeathHp": 20,
+  "suddenDeathDamageMultiplier": 2.0,
+  "suddenDeathFlatLineSeconds": 1.2,
+  "suddenDeathMusicDuckDb": 6.0,
+  "suddenDeathHeartbeatGain": 1.1,
+  "replayStripSeconds": 0.35,
   "blackpawLines": {
     "matchStart": [
       "Yer hand's shakin', kid.",

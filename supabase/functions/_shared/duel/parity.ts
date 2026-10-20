@@ -59,6 +59,9 @@ export function checkMeta(cfg: DuelConfig, v: Any): string[] {
     holdMaxSeconds: cfg.holdMaxSeconds,
     countdownBeats: cfg.countdownBeats,
     beatNs: beatNs(cfg),
+    suddenDeathEnabled: cfg.suddenDeathEnabled,
+    suddenDeathHp: cfg.suddenDeathHp,
+    suddenDeathDamageMultiplier: cfg.suddenDeathDamageMultiplier,
   };
   const { source: _s, generator: _g, ...expected } = m;
   compare("meta", expected, actual, out);

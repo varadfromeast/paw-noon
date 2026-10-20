@@ -222,6 +222,18 @@ namespace PawNoon.Runtime
             numeral.Show(kit.Ui.Get("cue_" + n), layout.Cue, Amp(-10f), FlashT(0.05f));
         }
 
+        /// <summary>
+        /// Sudden death standoff: the heart monitor replaces GET READY, runs flat for <paramref name="seconds"/>,
+        /// then one big spike (OnHeartBeat fires on it) and the rhythm resumes. The next numeral hides it.
+        /// </summary>
+        public void ShowFlatLine(float seconds)
+        {
+            ready.Hide();
+            numeral.Hide();
+            SetHoldMood(true);
+            if (ecg != null) ecg.FlatLine(seconds);
+        }
+
         public void ShowGetReady(bool on)
         {
             if (on) ready.Show(kit.Ui.Get("get_ready"), layout.Cue, Amp(-6f), 0f);

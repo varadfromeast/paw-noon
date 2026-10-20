@@ -128,6 +128,8 @@ namespace PawNoon.Core
         public double tieSlowMoScale = 0.2;
         public double tieSlowMoSeconds = 0.9;
         public double tieDesaturate = 0.3;
+        /// <summary>Reaction replay strip on the round card (SPEC_V2 §8.1): build-in time (s); Reduced Motion = instant.</summary>
+        public double replayStripSeconds = 0.35;
 
         // --- Blackpaw talks (presentation only)
         /// <summary>Chance per round that he says something (match start and "last one" always speak).</summary>
@@ -140,6 +142,22 @@ namespace PawNoon.Core
         /// <summary>How long his match-win line stays up over the result.</summary>
         public double banterMatchEndSeconds = 2.0;
         public BanterLines blackpawLines = new BanterLines();
+
+        // --- sudden death "LAST LIGHT" (SPEC_V2 §8.4). RULES: the round's damage multiplier is decided by the
+        // match driver (DuelDirector offline, recorded_match.ts on the server) from SuddenDeath.MultiplierFor
+        // before each countdown, and applied once by LocalAuthority. Keep the server port in sync (DECISIONS.md).
+        /// <summary>Master switch for LAST LIGHT (rule and presentation).</summary>
+        public bool suddenDeathEnabled = true;
+        /// <summary>LAST LIGHT when BOTH duelists are at or below this HP (and alive) as a standoff starts.</summary>
+        public double suddenDeathHp = 20;
+        /// <summary>Damage multiplier for a LAST LIGHT round (both shooters).</summary>
+        public double suddenDeathDamageMultiplier = 2.0;
+        /// <summary>Presentation: ECG flat line before the single big spike (s).</summary>
+        public double suddenDeathFlatLineSeconds = 1.2;
+        /// <summary>Presentation: extra music duck during the LAST LIGHT hold (dB below the normal hold duck).</summary>
+        public double suddenDeathMusicDuckDb = 6.0;
+        /// <summary>Presentation: volume multiplier on the hold heartbeat one-shots during LAST LIGHT.</summary>
+        public double suddenDeathHeartbeatGain = 1.1;
 
         // --- difficulty (SPEC_V2 §1): Hard = duel_config.json alone, Easy = duel_config.easy.json merged on top
         public const string DifficultyHard = "hard";
@@ -312,12 +330,19 @@ namespace PawNoon.Core
             c.tieSlowMoScale = PnJson.Num(root, "tieSlowMoScale", c.tieSlowMoScale);
             c.tieSlowMoSeconds = PnJson.Num(root, "tieSlowMoSeconds", c.tieSlowMoSeconds);
             c.tieDesaturate = PnJson.Num(root, "tieDesaturate", c.tieDesaturate);
+            c.replayStripSeconds = PnJson.Num(root, "replayStripSeconds", c.replayStripSeconds);
             c.banterChance = PnJson.Num(root, "banterChance", c.banterChance);
             c.banterLeadSeconds = PnJson.Num(root, "banterLeadSeconds", c.banterLeadSeconds);
             c.banterHoldSeconds = PnJson.Num(root, "banterHoldSeconds", c.banterHoldSeconds);
             c.banterLowHp = PnJson.Num(root, "banterLowHp", c.banterLowHp);
             c.banterMatchEndSeconds = PnJson.Num(root, "banterMatchEndSeconds", c.banterMatchEndSeconds);
             c.blackpawLines = BanterLines.FromJson(PnJson.Obj(root, "blackpawLines"));
+            c.suddenDeathEnabled = PnJson.Bool(root, "suddenDeathEnabled", c.suddenDeathEnabled);
+            c.suddenDeathHp = PnJson.Num(root, "suddenDeathHp", c.suddenDeathHp);
+            c.suddenDeathDamageMultiplier = PnJson.Num(root, "suddenDeathDamageMultiplier", c.suddenDeathDamageMultiplier);
+            c.suddenDeathFlatLineSeconds = PnJson.Num(root, "suddenDeathFlatLineSeconds", c.suddenDeathFlatLineSeconds);
+            c.suddenDeathMusicDuckDb = PnJson.Num(root, "suddenDeathMusicDuckDb", c.suddenDeathMusicDuckDb);
+            c.suddenDeathHeartbeatGain = PnJson.Num(root, "suddenDeathHeartbeatGain", c.suddenDeathHeartbeatGain);
             c.Sanitize();
             return c;
         }
@@ -370,11 +395,22 @@ namespace PawNoon.Core
             if (tieSlowMoScale > 1) tieSlowMoScale = 1;
             if (tieSlowMoSeconds < 0) tieSlowMoSeconds = 0;
             tieDesaturate = Clamp01(tieDesaturate);
+            if (double.IsNaN(replayStripSeconds) || replayStripSeconds < 0) replayStripSeconds = 0;
+            if (replayStripSeconds > 2) replayStripSeconds = 2;
             banterChance = Clamp01(banterChance);
             if (banterLeadSeconds < 0) banterLeadSeconds = 0;
             if (banterHoldSeconds < 0.2) banterHoldSeconds = 0.2;
             if (banterMatchEndSeconds < 0.2) banterMatchEndSeconds = 0.2;
             if (blackpawLines == null) blackpawLines = new BanterLines();
+            if (double.IsNaN(suddenDeathHp) || suddenDeathHp < 0) suddenDeathHp = 0;
+            if (double.IsNaN(suddenDeathDamageMultiplier) || suddenDeathDamageMultiplier < 0) suddenDeathDamageMultiplier = 1.0;
+            if (suddenDeathDamageMultiplier > 10) suddenDeathDamageMultiplier = 10;
+            if (double.IsNaN(suddenDeathFlatLineSeconds) || suddenDeathFlatLineSeconds < 0) suddenDeathFlatLineSeconds = 0;
+            if (suddenDeathFlatLineSeconds > 5) suddenDeathFlatLineSeconds = 5;
+            if (double.IsNaN(suddenDeathMusicDuckDb) || suddenDeathMusicDuckDb < 0) suddenDeathMusicDuckDb = 0;
+            if (suddenDeathMusicDuckDb > 40) suddenDeathMusicDuckDb = 40;
+            if (double.IsNaN(suddenDeathHeartbeatGain) || suddenDeathHeartbeatGain < 0) suddenDeathHeartbeatGain = 0;
+            if (suddenDeathHeartbeatGain > 2) suddenDeathHeartbeatGain = 2;
         }
     }
 }

@@ -9,7 +9,7 @@ namespace PawNoon.Runtime
     /// </summary>
     public static class ReviewDirector
     {
-        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty" };
+        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight" };
 
         private static PawGame Game()
         {
@@ -63,6 +63,11 @@ namespace PawNoon.Runtime
                     case "choice":
                         g.ShowDifficultyChoice(false);
                         break;
+                    case "lastlight":
+                    case "suddendeath":
+                        g.EnterReviewDuel();
+                        g.Director.ReviewLastLight();
+                        break;
                     default:
                         return "error: unknown state '" + state + "' (use " + string.Join(", ", States) + ")";
                 }
@@ -103,6 +108,31 @@ namespace PawNoon.Runtime
             return "ok: difficulty " + s + (now ? " (active now)" : " (from the next match)") +
                    " active: botMeanStart=" + g.Config.botMeanStartMs.ToString("0", CultureInfo.InvariantCulture) +
                    " holdMax=" + g.Config.holdMaxSeconds.ToString("0.0", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// "SetHp hero bandit" (one string, e.g. "20 20"): sets both HP during a running duel, between exchanges,
+        /// to force LAST LIGHT (sudden death, both at or below suddenDeathHp). In the standoff it applies at once
+        /// (the standoff restarts), on the result card from the next standoff.
+        /// </summary>
+        public static string SetHp(string heroAndBandit)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            var parts = (heroAndBandit ?? "").Trim().Split(new[] { ' ', ',', '/' }, System.StringSplitOptions.RemoveEmptyEntries);
+            double h, b;
+            if (parts.Length != 2 ||
+                !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out h) ||
+                !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out b))
+                return "error: expected two numbers \"<hero> <bandit>\", e.g. \"20 20\"";
+            try
+            {
+                return g.Director.ReviewSetHp(h, b);
+            }
+            catch (System.Exception e)
+            {
+                return "error: " + e.GetType().Name + ": " + e.Message;
+            }
         }
 
         public static string StartDuel()

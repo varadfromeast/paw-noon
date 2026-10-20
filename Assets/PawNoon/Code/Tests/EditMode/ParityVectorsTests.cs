@@ -129,6 +129,12 @@ namespace PawNoon.Tests
                 M("three_ties_hp_decides", 987654321, new[] { S(231), S(265), S(244) }, new[] { S(230), S(266), S(250) }),
                 M("ghost_wins", 5, new[] { S(300), S(280), S(260) }, new[] { S(240), S(250), S(230) }),
                 M("max_attempts", 2, new[] { Early, Early, Early, Early, Early }, new[] { Early, Early, Early, Early, Early }, 4),
+                // LAST LIGHT (SPEC_V2 §8.4): 100 -> 60 -> 20 each, round 3 doubles a 400 ms shot (16 -> 32) into a KO
+                M("last_light_ko", 11, new[] { S(110), S(110), S(400) }, new[] { S(140), S(140), NoShot }),
+                // void at 20/20 replays as LAST LIGHT too; x2 tie 250 vs 260 (60 / 57.6) is a double KO
+                M("last_light_void_then_tie", 12, new[] { S(110), S(110), Early, S(250) }, new[] { S(140), S(140), Early, S(260) }),
+                // only one cat at or below 20 HP: no LAST LIGHT, x1
+                M("one_low_no_last_light", 13, new[] { S(110), S(300), S(400) }, new[] { S(140), S(140), S(600) }),
             };
         }
 
@@ -187,7 +193,9 @@ namespace PawNoon.Tests
                 .Add("noShotTimeoutSeconds", cfg.noShotTimeoutSeconds).Add("reportSlackMs", cfg.reportSlackMs)
                 .Add("commitGraceMs", cfg.commitGraceMs).Add("maxHp", cfg.maxHp)
                 .Add("holdMinSeconds", cfg.holdMinSeconds).Add("holdMaxSeconds", cfg.holdMaxSeconds)
-                .Add("countdownBeats", cfg.countdownBeats).Add("beatNs", cfg.BeatNs);
+                .Add("countdownBeats", cfg.countdownBeats).Add("beatNs", cfg.BeatNs)
+                .Add("suddenDeathEnabled", cfg.suddenDeathEnabled).Add("suddenDeathHp", cfg.suddenDeathHp)
+                .Add("suddenDeathDamageMultiplier", cfg.suddenDeathDamageMultiplier);
             sections.Add(Section("meta", new[] { meta }));
 
             var sch = new List<J>();
@@ -328,6 +336,7 @@ namespace PawNoon.Tests
                 if (k >= c.maxAttempts) { end = "max_attempts"; break; }
                 if (k >= c.b.Length) { end = "opponent_exhausted"; break; }
                 if (k >= c.a.Length) { end = "player_exhausted"; break; }
+                a.SetDamageMultiplier(SuddenDeath.MultiplierFor(cfg, a.Match));   // LAST LIGHT, as DuelDirector.BeginStandoff
                 RunExchange(a, clock, net, c.a[k], c.b[k]);
                 attempts.Add(AttemptView(a, true));
                 if (!a.Round.isVoid) resolved++;
