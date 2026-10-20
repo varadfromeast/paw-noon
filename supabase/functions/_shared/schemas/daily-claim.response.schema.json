@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/daily-claim.response.schema.json",
+  "title": "200 from daily-claim",
+  "type": "object",
+  "required": ["claimed", "alreadyClaimed", "winsToday", "winsRequired", "reward", "coins", "streak", "day", "timeZone"],
+  "properties": {
+    "claimed": { "type": "boolean", "description": "true only on the call that paid out" },
+    "alreadyClaimed": { "type": "boolean" },
+    "winsToday": { "type": "integer" },
+    "winsRequired": { "type": "integer" },
+    "reward": { "type": "integer" },
+    "coins": { "type": "integer", "description": "balance after the call" },
+    "streak": { "type": "integer" },
+    "day": { "type": "string", "format": "date" },
+    "timeZone": { "type": "string" }
+  }
+}

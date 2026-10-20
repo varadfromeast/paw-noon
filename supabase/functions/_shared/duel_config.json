@@ -1,0 +1,178 @@
+{
+  "countdownBeats": 3,
+  "beatSeconds": 0.7,
+  "holdMinSeconds": 1.0,
+  "holdMaxSeconds": 4.0,
+  "noShotTimeoutSeconds": 1.5,
+  "anticipationMs": 100.0,
+  "tieWindowMs": 15.0,
+  "commitGraceMs": 25.0,
+  "reportSlackMs": 50.0,
+  "presentLatencyFrames": 1.0,
+  "presentLatencyExtraMs": 0.0,
+  "maxHp": 100,
+  "damageMs": [
+    150,
+    200,
+    250,
+    300,
+    400,
+    600,
+    1000,
+    1500
+  ],
+  "damageValue": [
+    40,
+    36,
+    30,
+    24,
+    16,
+    8,
+    4,
+    2
+  ],
+  "gradeLightningMs": 200,
+  "gradePerfectMs": 250,
+  "gradeGreatMs": 320,
+  "gradeGoodMs": 420,
+  "gradeSlowMs": 700,
+  "botName": "BLACKPAW",
+  "botMeanStartMs": 300,
+  "botMeanEndMs": 220,
+  "botSdStartMs": 50,
+  "botSdEndMs": 30,
+  "botAdaptRounds": 3,
+  "botMinMs": 170,
+  "botMaxMs": 900,
+  "botFoulChance": 0.04,
+  "botFoulMinRound": 2,
+  "botFeintChance": 0.35,
+  "botFeintChancePerItch": 0.25,
+  "botFeintMaxChance": 0.85,
+  "botSecondFeintChance": 0.25,
+  "botSecondFeintPerItch": 0.2,
+  "botSecondFeintMaxChance": 0.6,
+  "botFeintMinBeforeCueMs": 350,
+  "botFeintMinAfterHoldMs": 250,
+  "botFeintGapMinMs": 450,
+  "botFeintGapMaxMs": 1000,
+  "botItchPerEarlyDraw": 1.0,
+  "botItchDecay": 0.6,
+  "botItchMax": 3.0,
+  "botTellChance": 0.2,
+  "botTellLeadMs": 150,
+  "hitStopMs": 70,
+  "drawHitStopFrames": 1,
+  "killSlowMoScale": 0.35,
+  "killSlowMoSeconds": 0.6,
+  "resultAutoAdvanceSeconds": 2.2,
+  "resultSettleSeconds": 0.5,
+  "holdZoom": 1.035,
+  "holdAmbientScale": 0.0,
+  "holdVignette": 0.1,
+  "duelVignette": 0.12,
+  "beatVignette": 0.05,
+  "holdSweatChance": 0.4,
+  "feintAnimSpeed": 0.6,
+  "shakeShot": 2.0,
+  "shakeHit": 3.0,
+  "heroRecoilPx": 3.0,
+  "recoilSeconds": 0.12,
+  "knockBanditPx": 4.0,
+  "knockHeroPx": 3.0,
+  "knockSeconds": 0.16,
+  "banditShotVignette": 0.22,
+  "vignettePulseSeconds": 0.25,
+  "tieSlowMoScale": 0.2,
+  "tieSlowMoSeconds": 0.9,
+  "tieDesaturate": 0.3,
+  "banterChance": 0.55,
+  "banterLeadSeconds": 1.2,
+  "banterHoldSeconds": 1.6,
+  "banterLowHp": 30,
+  "banterMatchEndSeconds": 2.0,
+  "blackpawLines": {
+    "matchStart": [
+      "Yer hand's shakin', kid.",
+      "This town's too small, kid.",
+      "Draw when yer ready."
+    ],
+    "lastOne": [
+      "Last one, pardner.",
+      "One more and we're done.",
+      "This one counts, kid."
+    ],
+    "lightning": [
+      "...Who taught you that?",
+      "Huh. Quick paws.",
+      "Well, I'll be."
+    ],
+    "playerEarly": [
+      "Jumpy, ain't ya?",
+      "Easy on that trigger.",
+      "Wait for it, kid."
+    ],
+    "botWon": [
+      "Too slow, pardner.",
+      "Keep up, kid.",
+      "That all ya got?"
+    ],
+    "botLost": [
+      "Lucky shot.",
+      "Beginner's luck.",
+      "Won't happen twice."
+    ],
+    "matchWin": [
+      "Sleep tight, kid.",
+      "Come back with more whiskers."
+    ]
+  },
+  "layout": {
+    "canvas": [
+      360,
+      640
+    ],
+    "core": [
+      270,
+      480
+    ],
+    "cue": [
+      180,
+      190
+    ],
+    "timer": [
+      180,
+      243
+    ],
+    "resultPanel": [
+      180,
+      150
+    ],
+    "resultPanelSize": [
+      220,
+      104
+    ],
+    "hint": [
+      262,
+      528
+    ],
+    "logo": [
+      180,
+      150
+    ],
+    "playButton": [
+      180,
+      470
+    ],
+    "banditFeet": [
+      278,
+      437
+    ],
+    "heroBottomLeft": [
+      133,
+      622
+    ],
+    "hudMargin": 4,
+    "badgeWidth": 72
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/recording.schema.json",
+  "title": "Recording (SPEC_V2 §4.2)",
+  "description": "One player's side of a recorded duel. All *Ns values are integer nanoseconds on the recording phone's monotonic clock (TIMING.md), safe integers (< 2^53). rounds[k] is the k-th countdown ATTEMPT in play order: a void attempt (both fouled) is recorded and repeats the roundNumber. Twin of _shared/recording.ts (parseRecording).",
+  "type": "object",
+  "required": ["version", "seed", "difficulty", "character", "loadout", "rounds", "device", "clientBuild", "submittedAt"],
+  "properties": {
+    "version": { "const": 1 },
+    "seed": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647, "description": "The seed issued by match-start." },
+    "difficulty": { "const": "hard" },
+    "character": { "enum": ["whiskers", "blackpaw"] },
+    "loadout": {
+      "type": "object",
+      "required": ["gun"],
+      "properties": { "gun": { "enum": ["standard", "peacemaker"] } }
+    },
+    "rounds": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "$ref": "#/$defs/round" } },
+    "device": {
+      "type": "object",
+      "required": ["model", "os", "refreshHz"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "os": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "refreshHz": { "type": "number" }
+      }
+    },
+    "clientBuild": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "submittedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "ns": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+    "round": {
+      "type": "object",
+      "required": ["roundNumber", "kind", "reactionNs", "cuePresentedNs", "inputNs", "inputSource", "frameQuantized"],
+      "properties": {
+        "roundNumber": { "type": "integer", "minimum": 1 },
+        "kind": {
+          "enum": ["shot", "anticipation", "early", "noshot"],
+          "description": "shot: reaction >= anticipationMs. anticipation: reaction < anticipationMs. early: pressed after \"3\" and before the cue was presented. noshot: no press within noShotTimeoutSeconds."
+        },
+        "reactionNs": { "$ref": "#/$defs/ns", "description": "shot/anticipation: inputNs - cuePresentedNs (0..noShotTimeout). early: 0 without a cue, else inputNs - cuePresentedNs (negative). noshot: 0." },
+        "cuePresentedNs": { "$ref": "#/$defs/ns", "description": "0 when the cue was never presented (early)." },
+        "inputNs": { "$ref": "#/$defs/ns", "description": "0 for noshot." },
+        "countdownStartNs": { "$ref": "#/$defs/ns", "description": "Recommended: when \"3\" appeared. Enables the hold-length consistency check." },
+        "inputSource": { "enum": ["unknown", "touch", "mouse", "keyboard", "bot", "injected", "remote"] },
+        "frameQuantized": { "type": "boolean" },
+        "samples": {
+          "type": "array",
+          "maxItems": 16,
+          "description": "Ranked: raw OS touch samples around the swipe threshold, for audit.",
+          "items": {
+            "type": "object",
+            "required": ["tNs", "x", "y", "phase"],
+            "properties": {
+              "tNs": { "$ref": "#/$defs/ns" },
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "phase": { "type": "string", "maxLength": 16 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

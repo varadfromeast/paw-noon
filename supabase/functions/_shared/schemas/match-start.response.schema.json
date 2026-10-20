@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/match-start.response.schema.json",
+  "title": "200 from match-start (MatchStartResponse in _shared/match_types.ts)",
+  "type": "object",
+  "required": ["matchId", "mode", "season", "difficulty", "seed", "rounds", "maxAttempts", "gunsNormalised", "issuedAt", "deadlineAt", "you", "opponent"],
+  "properties": {
+    "matchId": { "type": "string", "format": "uuid" },
+    "mode": { "enum": ["casual", "ranked"] },
+    "season": { "type": ["integer", "null"] },
+    "difficulty": { "const": "hard" },
+    "seed": { "type": "integer", "description": "new System.Random(seed) in LocalAuthority: same holds the opponent had." },
+    "rounds": { "type": "integer", "description": "Resolved rounds per match (3)." },
+    "maxAttempts": { "type": "integer", "description": "Cap on countdowns including void replays (9)." },
+    "gunsNormalised": { "type": "boolean", "description": "true in ranked: both guns use the standard damage curve." },
+    "issuedAt": { "type": "string", "format": "date-time" },
+    "deadlineAt": { "type": "string", "format": "date-time", "description": "match-submit after this voids the match." },
+    "you": {
+      "type": "object",
+      "required": ["mmr", "rd"],
+      "properties": { "mmr": { "type": "integer" }, "rd": { "type": "integer" } }
+    },
+    "opponent": {
+      "type": "object",
+      "required": ["recordingId", "displayName", "character", "loadout", "mmr", "isHouse", "rounds"],
+      "properties": {
+        "recordingId": { "type": "string", "format": "uuid" },
+        "displayName": { "type": "string" },
+        "character": { "type": "string" },
+        "loadout": { "type": "object", "required": ["gun"], "properties": { "gun": { "enum": ["standard", "peacemaker"] } } },
+        "mmr": { "type": "integer" },
+        "isHouse": { "type": "boolean", "description": "A shipped house ghost: label it as such." },
+        "rounds": { "type": "array", "items": { "$ref": "attempt.schema.json" } }
+      }
+    }
+  }
+}

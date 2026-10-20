@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/attempt.schema.json",
+  "title": "Playable attempt (what an opponent replays)",
+  "type": "object",
+  "required": ["roundNumber", "kind", "reactionNs"],
+  "properties": {
+    "roundNumber": { "type": "integer", "minimum": 1, "description": "The recording owner's own round number (informational)." },
+    "kind": { "enum": ["shot", "anticipation", "early", "noshot"] },
+    "reactionNs": { "type": "integer", "minimum": 0, "description": "shot/anticipation reaction; 0 otherwise. The ghost fires this long after YOUR presented cue." },
+    "inputOffsetNs": { "type": "integer", "description": "early only (when known): when the ghost jumped the gun, after \"3\"." }
+  }
+}

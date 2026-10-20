@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/match-submit.request.schema.json",
+  "title": "POST /functions/v1/match-submit",
+  "type": "object",
+  "required": ["matchId", "recording"],
+  "properties": {
+    "matchId": { "type": "string", "format": "uuid" },
+    "recording": { "$ref": "recording.schema.json" }
+  }
+}

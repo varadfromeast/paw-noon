@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/match-submit.response.schema.json",
+  "title": "200 from match-submit (MatchSubmitResponse in _shared/match_types.ts). The server's own recompute.",
+  "type": "object",
+  "required": ["matchId", "status", "mode", "winner", "endReason", "hp", "roundWins", "rounds", "rating", "recordingId"],
+  "properties": {
+    "matchId": { "type": "string", "format": "uuid" },
+    "status": { "const": "completed" },
+    "mode": { "enum": ["casual", "ranked"] },
+    "winner": { "enum": ["you", "opponent", "draw"] },
+    "endReason": { "enum": ["ko", "double_ko", "rounds", "max_attempts", "opponent_exhausted"] },
+    "hp": { "$ref": "#/$defs/pair" },
+    "roundWins": { "$ref": "#/$defs/pair" },
+    "rounds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["attempt", "roundNumber", "holdNs", "void", "tie", "winner", "you", "opponent", "hpAfter"],
+        "properties": {
+          "attempt": { "type": "integer", "minimum": 1 },
+          "roundNumber": { "type": "integer", "minimum": 1 },
+          "holdNs": { "type": "integer" },
+          "void": { "type": "boolean" },
+          "tie": { "type": "boolean" },
+          "winner": { "enum": ["you", "opponent", null] },
+          "you": { "$ref": "#/$defs/slot" },
+          "opponent": { "$ref": "#/$defs/slot" },
+          "hpAfter": { "$ref": "#/$defs/pair" }
+        }
+      }
+    },
+    "rating": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["season", "before", "after", "delta", "rd"],
+          "properties": {
+            "season": { "type": "integer" }, "before": { "type": "integer" }, "after": { "type": "integer" },
+            "delta": { "type": "integer" }, "rd": { "type": "integer" }
+          }
+        }
+      ]
+    },
+    "recordingId": { "type": ["string", "null"], "description": "Your recording, now in the pool (null when the match did not complete 3 rounds or a KO)." }
+  },
+  "$defs": {
+    "pair": {
+      "type": "object",
+      "required": ["you", "opponent"],
+      "properties": { "you": { "type": "number" }, "opponent": { "type": "number" } }
+    },
+    "slot": {
+      "type": "object",
+      "required": ["outcome", "reactionNs", "damage", "grade"],
+      "properties": {
+        "outcome": { "enum": ["Shot", "Foul", "Anticipation", "NoShot", "Stopped"] },
+        "reactionNs": { "type": ["integer", "null"] },
+        "damage": { "type": "number" },
+        "grade": { "enum": ["None", "Lightning", "Perfect", "Great", "Good", "Slow", "Slowpoke"] }
+      }
+    }
+  }
+}

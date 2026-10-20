@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/match-start.request.schema.json",
+  "title": "POST /functions/v1/match-start",
+  "type": "object",
+  "required": ["mode", "clientBuild"],
+  "properties": {
+    "mode": { "enum": ["casual", "ranked"] },
+    "clientBuild": { "type": "string", "minLength": 1, "maxLength": 64 }
+  }
+}

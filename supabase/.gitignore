@@ -1,0 +1,6 @@
+# Supabase CLI
+.branches
+.temp
+.env
+functions/.env
+functions/.env.local
