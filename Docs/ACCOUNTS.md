@@ -241,8 +241,16 @@ KEEP YOUR BOUNTY appears after 1.4 s and `Status` shows `bounty=offered`.
 
 PlayerPrefs: `pn_auth_access|refresh|expires|user` (M4) + `pn_auth_anon`, `pn_auth_providers`, `pn_auth_mock`,
 `pn_profile_cache` (last profile JSON), `pn_guest_no`, `pn_bounty_offered`, `pn_mock_name` (mock only).
-DELETE ACCOUNT clears all of these, plus the submit queue and the all-time best. It keeps the device settings
-(sound, haptics, motion, difficulty).
+DELETE ACCOUNT clears all of these, plus the submit queue and the all-time best, the daily bounty state
+(`pawnoon.bounty`) and the shop's server verification of owned guns (review pass 2: guns stay owned for solo; PvP
+uses the standard gun until RESTORE verifies them for the new account). SWITCH (to an already linked account) resets
+the bounty state and the verification the same way. It keeps the device settings (sound, haptics, motion,
+difficulty) and pending store receipts (`pn_iap_pending`).
+
+Not done yet (review pass 2, deferred): Sign in with Apple token revocation on delete (Apple asks apps that offer
+SIWA to call `https://appleid.apple.com/auth/revoke`). Plan: DELETE asks for one more Apple sheet when the account is
+linked to Apple, sends its `authCode` to `account-delete`, which exchanges it (client secret = ES256 JWT from the SIWA
+key) and revokes the refresh token before deleting the user.
 
 ## Files
 

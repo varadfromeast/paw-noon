@@ -144,8 +144,11 @@ Otherwise UnityWebRequest refuses the request and PVP shows NO SIGNAL. For injec
 `SimulateSwipe`) the functions need `PN_ALLOW_INJECTED=true` in `supabase/functions/.env.local`.
 
 Stored on the device:
-- PlayerPrefs keys `pn_auth_access`, `pn_auth_refresh`, `pn_auth_expires`, `pn_auth_user`.
-- `Application.persistentDataPath/pn_submit_queue.json`. This holds undelivered match-submits, at most 20.
+- PlayerPrefs keys `pn_auth_access`, `pn_auth_refresh`, `pn_auth_expires`, `pn_auth_user` (+ M6 `pn_auth_anon`,
+  `pn_auth_providers`, `pn_auth_mock`). Only one refresh / guest sign-up runs at a time; parallel calls wait for it.
+- `Application.persistentDataPath/pn_submit_queue.json`. This holds undelivered match-submits, at most 20. A submit
+  is queued (and kept in the queue) whenever the answer was not definitive (`ApiResult.RetryLater`: no answer, no
+  session, 401, 408, 429, any 5xx such as 503 `busy`); only a definitive 4xx (409, 422, 404, 400) or a 200 removes it.
   The server accepts a recording until the match deadline (match duration + 60 s). A later one is answered
   `422 late` (void, not counted against the player) and is dropped from the queue.
 
@@ -215,8 +218,9 @@ call PawNoon.Runtime.ReviewDirector.Status                # ... linked=no pvpMod
 
 ## Known limits
 
-- The opponent always looks like the bandit art (Blackpaw), and the player's recording says `character:
-  "whiskers"`, until character select (M2) lands. The rival card shows the recorded cat's name.
+- The opponent always looks like the bandit art (Pawtruth), and the player's recording says `character:
+  "whiskers"`, until character select (M2) lands. The rival card shows the recorded cat's name. The server's persona
+  id is `pawtruth` since review pass 2; `blackpaw` is still accepted and normalised on both sides.
 - The local presentation always uses the standard damage curve. In casual a Peacemaker ghost would score
   differently on the server, and the server's verdict is what the card shows. Nobody owns the gun before M7.
 - Abandoning a PvP match (there is no in-match menu) leaves it open. The next match-start expires it,
