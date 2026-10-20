@@ -18,7 +18,11 @@ namespace PawNoon.Runtime
         private readonly IDuelClock clock;
         private readonly LocalAuthority authority;
         private readonly DuelClient player;
-        private readonly BotClient bot;
+        private readonly BotClient soloBot;
+        // slot 1: the bot (solo) or a GhostOpponent (recorded PvP), see SetOpponent
+        private IOpponent opponent;
+        private RecordedMatchRules rules;   // null = solo rules (play until KO)
+        private string opponentName;        // null = cfg.botName
         private readonly SwipeDraw input;
         private readonly DuelActor hero;
         private readonly DuelActor bandit;
@@ -32,7 +36,12 @@ namespace PawNoon.Runtime
         public Pres State { get; private set; }
         public LocalAuthority Authority { get { return authority; } }
         public DuelClient Player { get { return player; } }
-        public BotClient Bot { get { return bot; } }
+        public BotClient Bot { get { return soloBot; } }
+        /// <summary>Who is in slot 1 now (the bot unless a PvP match set a ghost).</summary>
+        public IOpponent Opponent { get { return opponent; } }
+        /// <summary>Recorded-match rules of the current match, or null in solo.</summary>
+        public RecordedMatchRules MatchRules { get { return rules; } }
+        private string OpponentLabel { get { return OpponentName; } }
 
         /// <summary>Raised once when the match result should be shown (player won?, drawn match = double KO in a tie?).</summary>
         public System.Action<bool, bool> MatchFinished;
@@ -100,7 +109,7 @@ namespace PawNoon.Runtime
         private bool prevHeroEarly;
 
         // SPEC_V2 §8.2 / §8.6 / §8.7 (presentation only): opponent persona, stamp haptics, match intro
-        private CharacterProfile opponent;
+        private CharacterProfile persona;
         private string foulMessage = "PAWTRUTH JUMPED THE GUN!";
         private int[] stampHaptic;
         private readonly MatchIntro intro;
@@ -114,7 +123,8 @@ namespace PawNoon.Runtime
             this.clock = clock;
             this.authority = authority;
             this.player = player;
-            this.bot = bot;
+            this.soloBot = bot;
+            this.opponent = bot;
             this.input = input;
             this.hero = hero;
             this.bandit = bandit;
@@ -160,17 +170,31 @@ namespace PawNoon.Runtime
         public MatchIntro Intro { get { return intro; } }
 
         /// <summary>Persona of the cat across the street (name plate, result card, banter, meow). Null = config fallback.</summary>
-        public CharacterProfile Opponent { get { return opponent; } }
+        public CharacterProfile Persona { get { return persona; } }
 
-        public void SetOpponent(CharacterProfile p)
+        public void SetPersona(CharacterProfile p)
         {
-            opponent = p;
+            persona = p;
             foulMessage = OpponentName + " JUMPED THE GUN!";
             if (hud != null) hud.SetName(1, OpponentName);
         }
 
-        private string OpponentName { get { return opponent != null && !string.IsNullOrEmpty(opponent.name) ? opponent.name : cfg.botName; } }
-        private BanterLines OpponentLines { get { return opponent != null && opponent.lines != null ? opponent.lines : cfg.blackpawLines; } }
+        private string OpponentName { get { return opponentName ?? (persona != null && !string.IsNullOrEmpty(persona.name) ? persona.name : cfg.botName); } }
+        private BanterLines OpponentLines { get { return persona != null && persona.lines != null ? persona.lines : cfg.blackpawLines; } }
+
+        /// <summary>
+        /// PvP seam (SPEC_V2 §4.6): from the next StartMatch, slot 1 is <paramref name="o"/> and the match
+        /// ends under <paramref name="r"/> (3 resolved rounds / 9 attempts / ghost exhausted, HP decides).
+        /// SetOpponent(null, null, null) restores the bot and the solo rules.
+        /// </summary>
+        public void SetOpponent(IOpponent o, RecordedMatchRules r, string displayName)
+        {
+            opponent = o ?? soloBot;
+            rules = o != null ? r : null;
+            opponentName = o != null && !string.IsNullOrEmpty(displayName) ? displayName : null;
+            foulMessage = OpponentName + " JUMPED THE GUN!";
+            hud.SetName(1, OpponentName);
+        }
 
         public int Seed { get { return seed; } }
 
@@ -196,7 +220,8 @@ namespace PawNoon.Runtime
             pipe.SetTension(0f);
             if (State == Pres.Off) duelVignetteT = 0f;
             authority.Reseed(seed);
-            bot.Reseed(seed * 7919 + 13);
+            opponent.StartMatch(seed * 7919 + 13);
+            if (rules != null) rules.Reset();
             acting.Reseed(seed * 104729 + 71);
             banter.Reseed(seed * 15485863 + 7);
             seed++;
@@ -205,7 +230,7 @@ namespace PawNoon.Runtime
             actingRoundId = -1;
             authority.StartMatch();
             player.Reset();
-            bot.Client.Reset();
+            opponent.Client.Reset();
             input.Clear();
             matchOver = false;
             hud.SetVisible(true);
@@ -305,7 +330,7 @@ namespace PawNoon.Runtime
             HideBubble();
             banterLine = null;
             banterAt = -1f;
-            if (!dead[1] && talk != BanterContext.None)
+            if (!dead[1] && talk != BanterContext.None && opponent.HostActing)
             {
                 banterLine = banter.Pick(OpponentLines, talk, cfg.banterChance);
                 if (banterLine != null)
@@ -358,12 +383,12 @@ namespace PawNoon.Runtime
 
         private void Say(string line, float seconds)
         {
-            if (string.IsNullOrEmpty(line) || dead[1]) return;
+            if (string.IsNullOrEmpty(line) || dead[1] || !opponent.HostActing) return;
             var b = EnsureBubble();
             b.MinY = HudBottom();
             var p = bandit.CanvasFromCell(BanterMouthCell);
             b.Show(line, new Vector2Int(Mathf.RoundToInt(p.x), Mathf.RoundToInt(p.y)), false, seconds);
-            if (opponent != null) audio.PlayMeow(opponent.meow);   // his "meow signature" (SPEC_V2 §8.2)
+            if (persona != null) audio.PlayMeow(persona.meow);   // his "meow signature" (SPEC_V2 §8.2)
         }
 
         private void HideBubble()
@@ -375,6 +400,8 @@ namespace PawNoon.Runtime
         public void VoidForLifecycle()
         {
             if (State != Pres.Live) return;
+            // recorded PvP: never void (the server cannot see it); the attempt plays on and records a no-shot
+            if (rules != null) return;
             if (authority.VoidRound())
             {
                 DrainEvents();
@@ -396,10 +423,11 @@ namespace PawNoon.Runtime
             }
             long lat = PresentLatencyNs;
 
+            opponent.PreAuthorityTick(frameStartNs);
             authority.Tick();
             hud.SetResting(input.FingerResting && State == Pres.Live && !cuePresented);
-            bot.PlayerRoundWins = authority.Match.RoundWins[0];
-            bot.Tick(frameStartNs, lat);
+            opponent.SetPlayerRoundWins(authority.Match.RoundWins[0]);
+            opponent.Tick(frameStartNs, lat);
             TickActing(frameStartNs);
 
             switch (State)
@@ -414,9 +442,11 @@ namespace PawNoon.Runtime
                     }
                     if (stateTimer <= 0f)
                     {
+                        if (rules != null && rules.Check(authority.Match) != RecordedEnd.None) { EndByRules(); break; }
                         cues.ShowGetReady(false);
                         if (authority.StartCountdown())
                         {
+                            if (rules != null) rules.AttemptStarted();
                             State = Pres.Live;
                             TickLive(frameStartNs, lat);
                         }
@@ -597,10 +627,10 @@ namespace PawNoon.Runtime
         {
             var r = authority.Round;
             if (State == Pres.Live && r.schedule != null && r.cueDecidedNs < 0 && !r.isVoid && actingRoundId != r.roundId &&
-                bot.Client.InRound && bot.Client.RoundId == r.roundId)
+                opponent.Client.InRound && opponent.Client.RoundId == r.roundId)
             {
                 actingRoundId = r.roundId;
-                if (bot.FoulPlanned || dead[1]) acting.Clear();
+                if (!opponent.HostActing || opponent.FoulPlanned || dead[1]) acting.Clear();
                 else acting.Plan(r.countdownStartNs + r.schedule.CountdownNs, r.countdownStartNs + r.schedule.CueOffsetNs, itch);
             }
             BotActKind k;
@@ -865,7 +895,7 @@ namespace PawNoon.Runtime
                         if (heroFouledThisRound) itch = BotActing.NextItch(cfg, itch, true);
                         heroFouledThisRound = false;
                         player.Reset();
-                        bot.Client.Reset();
+                        opponent.Client.Reset();
                         holdPresented = false;
                         sweatT = -1f;
                         acting.Clear();
@@ -885,6 +915,7 @@ namespace PawNoon.Runtime
                         prevHeroEarly = heroFouledThisRound || authority.Round.slots[0].IsFoul;
                         if (e.simultaneous) tieRound = true;
                         resolved = true;
+                        if (rules != null) rules.AttemptResolved();
                         settleT = (float)cfg.resultSettleSeconds;
                         itch = BotActing.NextItch(cfg, itch, heroFouledThisRound);
                         acting.Clear();
@@ -1059,6 +1090,13 @@ namespace PawNoon.Runtime
             if (panel.ReplayVisible && panel.ReplayBottom > layout.Timer.y - 2) cues.HideTimer();   // card + strip say it already
             audio.Duck(1f);
 
+            // recorded PvP: 3 resolved rounds / attempt cap end the match on HP (a KO already ended it)
+            if (rules != null && rules.Check(authority.Match) != RecordedEnd.None && !matchOver)
+            {
+                authority.Match.Finish(RecordedMatchRules.Winner(authority.Match));
+                matchOver = true;
+            }
+
             if (matchOver)
             {
                 State = Pres.MatchEnd;
@@ -1111,6 +1149,17 @@ namespace PawNoon.Runtime
             // TOO EARLY error, NO SHOT warning
             if (stampHaptic != null) PawHaptics.Pattern(stampHaptic);
             else PawHaptics.Impact(1);
+        }
+
+        /// <summary>Recorded PvP ended between attempts (after a void): no round panel, straight to the match end.</summary>
+        private void EndByRules()
+        {
+            authority.Match.Finish(RecordedMatchRules.Winner(authority.Match));
+            matchOver = true;
+            cues.HideAll();
+            hud.ShowHint(false);
+            State = Pres.MatchEnd;
+            FinishMatchSoon();
         }
 
         private float finishTimer;
@@ -1280,7 +1329,8 @@ namespace PawNoon.Runtime
                    " autoTapMs=" + (autoTapNs < 0 ? "off" : (autoTapNs / 1e6).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)) +
                    " seed=" + seed + " rejected=" + authority.RejectedReports +
                    " lastLight=" + lastLight + " dmgMult=" + authority.Round.damageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
-                   "/next " + authority.PendingDamageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+                   "/next " + authority.PendingDamageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture); +
+                   (rules != null ? " pvp=attempts:" + rules.Attempts + ",resolved:" + rules.Resolved + ",end:" + RecordedMatchRules.ToWire(rules.EndReason) : "");
         }
     }
 

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace PawNoon.Runtime
 {
-    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard }
+    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend }
 
     /// <summary>Common base: a root object that can be shown/hidden, laid out against the pipeline rects.</summary>
     public abstract class ScreenBase : MonoBehaviour
@@ -111,6 +111,12 @@ namespace PawNoon.Runtime
         private SheetDef logoDef;
         private PixelButton play;
         private PixelButton gear;
+        // online (M4): PVP under PLAY (same wood sign); FRIEND beside it only when net_config "friendDuel" is on
+        private const int PvpH = 30;
+        private PixelButton pvp;
+        private PixelButton friend;
+        private bool friendShown;
+        private bool onlineBusy;
         private BitmapText best;
         private float t;
 
@@ -140,6 +146,8 @@ namespace PawNoon.Runtime
             // wooden sign button; one sprite for both states, the label sinks 1 px when pressed
             play = new PixelButton(kit, transform, "panel_wood", "panel_wood", "PLAY", null, new RectInt(0, 0, 152, 36), 240);
             gear = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_gear", new RectInt(0, 0, 30, 30), 240);
+            pvp = new PixelButton(kit, transform, "panel_wood", "panel_wood", "PVP", null, new RectInt(0, 0, 152, PvpH), 240);
+            friend = new PixelButton(kit, transform, "panel_wood", "panel_wood", "FRIEND", null, new RectInt(0, 0, 56, PvpH), 240);
             best = LightText("Best", kit.Medium, 242, TextAlign.Center);
             best.SetColors(Pal.Sun1, Pal.Ink, Pal.Ink2);
 
@@ -188,11 +196,19 @@ namespace PawNoon.Runtime
             var safe = pipe.Safe;
             int cx = CenterX;
             PlaceCentered(logo, logoDef, cx, LogoY() + Mathf.RoundToInt(Mathf.Sin(t * 1.6f) * 1.5f));
-            // PLAY lives in the thumb zone (bottom quarter of the safe area); the difficulty toggle right under
-            // it, BEST under the toggle (36 + 5 + 20 + 5 + 10 = 76 px, fits the 84 px reserved below playTop)
-            int playTop = Mathf.Min(layout.PlayButton.y - 18, safe.yMax - 84);
+            // PLAY lives in the thumb zone (bottom quarter of the safe area); PVP right under it, then the
+            // difficulty toggle, BEST under the toggle (36 + 4 + 30 + 5 + 20 + 5 + 10 = 110 px, fits the 118 px
+            // reserved below playTop)
+            int playTop = Mathf.Min(layout.PlayButton.y - 18, safe.yMax - 118);
             play.SetRect(new RectInt(cx - 76, playTop, 152, 36));
-            int segY = playTop + 36 + 5;
+            int pvpY = playTop + 36 + 4;
+            if (friendShown)
+            {
+                pvp.SetRect(new RectInt(cx - 76, pvpY, 92, PvpH));
+                friend.SetRect(new RectInt(cx + 20, pvpY, 56, PvpH));
+            }
+            else pvp.SetRect(new RectInt(cx - 76, pvpY, 152, PvpH));
+            int segY = pvpY + PvpH + 5;
             segEasyRect = new RectInt(cx - SegGap / 2 - SegW, segY, SegW, SegH);
             segHardRect = new RectInt(segEasyRect.xMax + SegGap, segY, SegW, SegH);
             int ty = segY + (SegH - kit.Small.LineHeight) / 2 + 1;
@@ -264,10 +280,31 @@ namespace PawNoon.Runtime
         private void ApplyChoiceVisibility()
         {
             choiceRoot.gameObject.SetActive(choiceOpen);
-            play.SetVisible(!choiceOpen);
-            diffRoot.gameObject.SetActive(!choiceOpen);
-            best.Visible = !choiceOpen;
-            gear.SetVisible(!choiceOpen);
+            bool controls = !choiceOpen && !onlineBusy;
+            play.SetVisible(controls);
+            pvp.SetVisible(controls);
+            friend.SetVisible(controls && friendShown);
+            // PvP is always Hard: the EASY / HARD toggle is hidden while an online card is up
+            diffRoot.gameObject.SetActive(controls);
+            best.Visible = controls;
+            gear.SetVisible(controls);
+        }
+
+        /// <summary>Shows the FRIEND button (room codes, M5) beside PVP. Off unless net_config.json "friendDuel" is true.</summary>
+        public void SetFriendDuel(bool on)
+        {
+            if (friendShown == on) return;
+            friendShown = on;
+            Layout();
+            ApplyChoiceVisibility();
+        }
+
+        /// <summary>While an online card (finding a rival, opponent, error) is over the title: hide its controls.</summary>
+        public void SetOnlineBusy(bool busy)
+        {
+            if (onlineBusy == busy) return;
+            onlineBusy = busy;
+            ApplyChoiceVisibility();
         }
 
         /// <summary>Closes the first-launch card (after the game stored the pick).</summary>
@@ -292,8 +329,11 @@ namespace PawNoon.Runtime
                 if (UiPointer.Down) UiPointer.Consumed = true;
                 return UiAction.None;
             }
+            if (onlineBusy) return UiAction.None;
             if (gear.Tick()) return UiAction.OpenSettings;
             if (play.Tick()) return UiAction.Play;
+            if (pvp.Tick()) return UiAction.Pvp;
+            if (friend.Tick()) return UiAction.Friend;
             if (UiPointer.Down && !UiPointer.Consumed)
             {
                 bool easy = PawSettings.Difficulty == DuelConfig.DifficultyEasy;
@@ -905,6 +945,22 @@ namespace PawNoon.Runtime
             rematch.SetRect(new RectInt(cx - BtnW / 2, rematchY, BtnW, BtnH));
             menu.SetRect(new RectInt(cx - BtnW / 2, menuY, BtnW, BtnH));
         }
+
+        /// <summary>REMATCH label (PvP: "NEW RIVAL"; null restores REMATCH).</summary>
+        public void SetRematchLabel(string label) { rematch.SetLabel(string.IsNullOrEmpty(label) ? "REMATCH" : label); }
+
+        /// <summary>First free canvas y under the stats panel and the new-best line (online result card goes here).</summary>
+        public int ContentBottom
+        {
+            get
+            {
+                var bd = kit.Ui.Get(win ? "banner_win" : "banner_lose");
+                return Top() + bd.Cell.y + 8 + 62 + 4 + 12;
+            }
+        }
+
+        /// <summary>Top of the REMATCH button (the online card must stay above it).</summary>
+        public int ButtonsTop { get { return rematch.Rect.y; } }
 
         public void Show(bool playerWon, bool isDeadHeat, long bestNs, long avgNs, long allTimeNs, bool isNewBest)
         {

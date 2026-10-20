@@ -209,7 +209,80 @@ namespace PawNoon.Runtime
                    " fps=" + UnityEngine.Application.targetFrameRate + " virtual=" + g.Pipeline.VirtualW + "x" + g.Pipeline.VirtualH +
                    " preciseInput=" + g.Input.HasPreciseTimestamps +
                    " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
-                   " opponent=" + (g.Director.Opponent != null ? g.Director.Opponent.id : "cfg");
+                   " opponent=" + (g.Director.Persona != null ? g.Director.Persona.id : "cfg") +
+                   " " + (g.Online != null ? g.Online.Status() : "online=none");
+        }
+
+        // ------------------------------------------------------------------ online PvP (M4)
+
+        /// <summary>
+        /// Plays a recorded (ghost) PvP match right now on the given seed against the built-in fake recording
+        /// (Marshal Mittens, see NetMock). No network: the verdict is the local recompute (what the server does).
+        /// Combine with SetAutoTap for a hands-free run.
+        /// </summary>
+        public static string StartGhostDuel(string seed)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            int v;
+            if (!int.TryParse((seed ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out v))
+                v = Net.NetMock.RandomSeed();
+            try
+            {
+                g.Online.StartGhostDuel(v);
+            }
+            catch (System.Exception e)
+            {
+                return "error: " + e.GetType().Name + ": " + e.Message;
+            }
+            return "ok: ghost duel started (seed " + v + ", rival Marshal Mittens, " + Net.NetMock.FakeRecording().Length + " recorded attempts)";
+        }
+
+        /// <summary>"on": the PVP button plays the built-in mock (fake match-start + local verdict). "off": net_config.json decides.</summary>
+        public static string SetNetMock(string onOff)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            string s = (onOff ?? "").Trim().ToLowerInvariant();
+            if (s != "on" && s != "off" && s != "true" && s != "false" && s != "1" && s != "0")
+                return "error: expected on or off";
+            bool on = s == "on" || s == "true" || s == "1";
+            g.Online.SetMock(on);
+            return "ok: net mock " + (on ? "on" : "off") + " (" + g.Online.Status() + ")";
+        }
+
+        /// <summary>Same as tapping PVP on the title (goes to the title first). Uses the server unless mock is on.</summary>
+        public static string StartPvp()
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            try
+            {
+                g.ShowTitle();
+                g.Online.BeginQuickDuel();
+            }
+            catch (System.Exception e)
+            {
+                return "error: " + e.GetType().Name + ": " + e.Message;
+            }
+            return "ok: " + g.Online.Status();
+        }
+
+        /// <summary>Drops the stored guest session; the next PVP signs in as a new guest (so it can be matched against your previous recording).</summary>
+        public static string NetSignOut()
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            g.Online.SignOut();
+            return "ok: signed out, next online call is a new guest";
+        }
+
+        /// <summary>The player's last PvP recording as JSON (what match-submit sent).</summary>
+        public static string LastRecording()
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            return g.Online.LastRecordingJson();
         }
 
         /// <summary>Seed for the next match (authority RNG and bot RNG derive from it).</summary>
