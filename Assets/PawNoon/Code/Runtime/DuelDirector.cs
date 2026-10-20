@@ -8,7 +8,7 @@ namespace PawNoon.Runtime
     /// timestamped presses), then turns authority events into presentation (anims, FX, HUD, audio,
     /// haptics). Presentation never feeds back into timing.
     /// </summary>
-    public sealed class DuelDirector
+    public sealed partial class DuelDirector
     {
         public enum Pres { Off, Standoff, Live, Result, MatchEnd, Review }
 
@@ -246,6 +246,7 @@ namespace PawNoon.Runtime
             audio.Heartbeat(0f);
             HideBubble();
             ClearTieFx();
+            EndLastLight();
             Screen.sleepTimeout = SleepTimeout.SystemSetting;
         }
 
@@ -289,8 +290,10 @@ namespace PawNoon.Runtime
             audio.Duck(1f);
             audio.Heartbeat(0f);
             cues.HideAll();
+            ApplySuddenDeath();   // LAST LIGHT rule for this standoff (multiplier, dawn), before anything is shown
             cues.ShowGetReady(true);
             hud.SetRound(authority.Match.RoundNumber);
+            PresentLastLightStandoff();
             hud.ShowHint(firstMatch && authority.Match.RoundNumber == 1);   // the swipe tutorial: once, first turn
             hud.ShowHolster(true);
             input.Clear();
@@ -457,7 +460,7 @@ namespace PawNoon.Runtime
             if (player.PollRoundStart(frameStartNs, out rs))
             {
                 lastNumeral = -1;
-                hud.SetRound(rs.roundNumber);
+                ShowRoundSign(rs.roundNumber);
             }
 
             if (player.PollCue(frameStartNs, lat)) PresentDraw(frameStartNs);
@@ -544,7 +547,7 @@ namespace PawNoon.Runtime
             cues.ShowNumeral(0);
             audio.NextFadeSeconds = 0.6f;
             audio.PlayMusic(PawAudio.Track.DuelHold);  // suspense loop under the heartbeat (silence if missing)
-            audio.Duck(0.5f);
+            audio.Duck(0.5f * LastLightMusicGain);   // LAST LIGHT ducks a further suddenDeathMusicDuckDb
             audio.Heartbeat(0f);   // the heart monitor fires each beat itself (HoldHeartBeat): faster, more erratic
             // the street holds its breath: clouds, props, motes, shimmer ease to a stop; both cats freeze
             // their idle breathing (TickPresentation); only the push-in, the heartbeat and the bot's acting move
@@ -888,6 +891,7 @@ namespace PawNoon.Runtime
                         break;
                     case DuelEventKind.MatchOver:
                         matchOver = true;
+                        authority.SetDamageMultiplier(1.0);
                         break;
                 }
             }
@@ -984,8 +988,12 @@ namespace PawNoon.Runtime
         /// growing with the frenzy. Presentation only.</summary>
         private void HoldHeartBeat(int index, float frenzy, bool skipped)
         {
-            if (!holdPresented || cuePresented) return;
-            float vol = Mathf.Lerp(0.74f, 1f, frenzy) * (skipped ? 1.1f : 1f);
+            if (!holdPresented || cuePresented)
+            {
+                if (State == Pres.Standoff) LastLightStandoffBeat(index);
+                return;
+            }
+            float vol = Mathf.Lerp(0.74f, 1f, frenzy) * (skipped ? 1.1f : 1f) * LastLightHeartGain;
             audio.Play("sfx_heartbeat", Mathf.Min(1f, vol), Mathf.Lerp(1f, 1.12f, frenzy) + Random.Range(-0.015f, 0.015f));
             if (frenzy >= 0.35f || skipped) PawHaptics.Impact(0);
             if (!reducedMotion)
@@ -1038,6 +1046,7 @@ namespace PawNoon.Runtime
             v.dealt = s0.damageDealt;
             v.taken = s1.damageDealt;
             v.frameQuantized = s0.hasReport && s0.report.frameQuantized;
+            v.replay = ReplayMarks.FromRound(r, (float)cfg.replayStripSeconds);
             stampHaptic = StampHaptics.For(v.youFoul, v.youNoShot, v.grade);
             // review: automation (ReviewDirector auto-tap / SimulateSwipe) must never become the all-time BEST
             if (s0.outcome == SlotOutcome.Shot && !(s0.hasReport && s0.report.inputSource == InputSource.Injected))
@@ -1047,6 +1056,7 @@ namespace PawNoon.Runtime
             cues.HideStamp();
             panel.Show(v);
             if (r.isTie) DecorateTiePanel(r);
+            if (panel.ReplayVisible && panel.ReplayBottom > layout.Timer.y - 2) cues.HideTimer();   // card + strip say it already
             audio.Duck(1f);
 
             if (matchOver)
@@ -1133,6 +1143,7 @@ namespace PawNoon.Runtime
             if (finishTimer <= 0f || tap)
             {
                 finishTimer = 0f;
+                EndLastLight();
                 panel.Close();
                 cues.HideAll();
                 firstMatch = false;
@@ -1164,6 +1175,7 @@ namespace PawNoon.Runtime
             EndTell();
             HideBubble();
             ClearTieFx();
+            EndLastLight();
             banterLine = null;
             sweatT = -1f;
             fallStage[0] = fallStage[1] = 0;
@@ -1236,6 +1248,7 @@ namespace PawNoon.Runtime
             v.grade = Grading.FromMs(cfg, DuelConfig.NsToMs(you));
             v.dealt = dealt;
             stampHaptic = StampHaptics.For(false, false, v.grade);
+            v.replay = ReplayMarks.Shots(you, botNs, (float)cfg.replayStripSeconds);
             panel.Show(v);
             panel.ShowStampNow();
         }
@@ -1265,7 +1278,9 @@ namespace PawNoon.Runtime
                    " tie=" + r.isTie +
                    " over=" + m.Over + " winner=" + m.Winner +
                    " autoTapMs=" + (autoTapNs < 0 ? "off" : (autoTapNs / 1e6).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)) +
-                   " seed=" + seed + " rejected=" + authority.RejectedReports;
+                   " seed=" + seed + " rejected=" + authority.RejectedReports +
+                   " lastLight=" + lastLight + " dmgMult=" + authority.Round.damageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
+                   "/next " + authority.PendingDamageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 

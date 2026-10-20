@@ -187,6 +187,7 @@ namespace PawNoon.Runtime
             Roster = CharacterRoster.Load(charTa != null ? charTa.text : null, Config);
             Director.SetOpponent(Roster.Get(CharacterRoster.OpponentOf(CharacterRoster.Whiskers)));
             Director.Intro.SetShadow(banditShadow, Layout.BanditFeet);
+            Director.SetStreet(Street);   // LAST LIGHT dawn crossfade
 
             Audio.StartAmbience();
             ApplySettings();

@@ -103,6 +103,8 @@ export class RoundRecord {
   isVoid = false;
   isTie = false;
   winnerSlot = -1;
+  /** Damage multiplier this round was played under (1, or 2 for LAST LIGHT). Fixed at startCountdown. */
+  damageMultiplier = 1;
   readonly slots: [SlotRecord, SlotRecord] = [new SlotRecord(), new SlotRecord()];
 
   clear(): void {
@@ -115,6 +117,7 @@ export class RoundRecord {
     this.isVoid = false;
     this.isTie = false;
     this.winnerSlot = -1;
+    this.damageMultiplier = 1;
     this.slots[0].clear();
     this.slots[1].clear();
   }
@@ -133,6 +136,7 @@ export class LocalAuthority {
   private rng: NetRandom;
   private nextRoundId = 1;
   private forceCue = false;
+  private pendingDamageMultiplier = 1;
   private readonly curves: [DamageCurveDef, DamageCurveDef];
   readonly cfg: DuelConfig;
 
@@ -152,7 +156,17 @@ export class LocalAuthority {
     this.round.clear();
     this.events.length = 0;
     this.forceCue = false;
+    this.pendingDamageMultiplier = 1;
     this.phase = "Standoff";
+  }
+
+  /** LocalAuthority.SetDamageMultiplier: multiplier for the NEXT round (latched at startCountdown). */
+  setDamageMultiplier(multiplier: number): void {
+    this.pendingDamageMultiplier = (!Number.isFinite(multiplier) || multiplier < 0) ? 1 : multiplier;
+  }
+
+  get pendingMultiplier(): number {
+    return this.pendingDamageMultiplier;
   }
 
   /** Standoff -> Countdown at `now` ("3" appears). Consumes one schedule from the RNG. */
@@ -163,6 +177,7 @@ export class LocalAuthority {
     this.round.roundNumber = this.match.roundNumber;
     this.round.schedule = createSchedule(this.cfg, this.rng);
     this.round.countdownStartNs = now;
+    this.round.damageMultiplier = this.pendingDamageMultiplier;
     this.forceCue = false;
     this.phase = "Countdown";
     this.push("RoundStarted", -1);
@@ -318,7 +333,8 @@ export class LocalAuthority {
   }
 
   private damageFor(slot: number, reactionNs: number): number {
-    return evaluateDamage(this.curves[slot], nsToMs(reactionNs));
+    // the round's multiplier (LAST LIGHT) is applied here and only here: one multiply per shot, as in C#
+    return evaluateDamage(this.curves[slot], nsToMs(reactionNs)) * this.round.damageMultiplier;
   }
 
   private fire(slot: number, simultaneous: boolean): void {

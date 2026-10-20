@@ -91,6 +91,13 @@
   "banterHoldSeconds": 1.6,
   "banterLowHp": 30,
   "banterMatchEndSeconds": 2.0,
+  "suddenDeathEnabled": true,
+  "suddenDeathHp": 20,
+  "suddenDeathDamageMultiplier": 2.0,
+  "suddenDeathFlatLineSeconds": 1.2,
+  "suddenDeathMusicDuckDb": 6.0,
+  "suddenDeathHeartbeatGain": 1.1,
+  "replayStripSeconds": 0.35,
   "introEnabled": true,
   "_blackpawLinesNote": "LEGACY, kept for one release: banter now lives in Resources/Data/characters.json (pawtruth.lines). These lines are only the fallback for contexts characters.json does not define.",
   "blackpawLines": {

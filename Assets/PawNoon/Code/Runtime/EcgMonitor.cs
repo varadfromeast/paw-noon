@@ -72,8 +72,39 @@ namespace PawNoon.Runtime
             firedCount = 0;
             pendingPause = 0f;
             Frenzy = 0f;
+            flatUntil = -1f;
             ScheduleBeat();
         }
+
+        /// <summary>
+        /// Sudden death: the trace runs flat (no beats, no OnBeat) for <paramref name="seconds"/>, then one big
+        /// QRS spike (OnBeat fires on its R peak), then the normal rhythm resumes from it. Call after the monitor
+        /// is visible (SetVisible(true) resets it). Presentation only.
+        /// </summary>
+        public void FlatLine(float seconds)
+        {
+            // drop every scheduled beat: nothing is drawn but the baseline until the spike
+            beatCount = 0;
+            firedCount = 0;
+            pendingPause = 0f;
+            flatUntil = t + Mathf.Max(0f, seconds);
+            var b = new BeatDef();
+            // the Q dip of the spike (phase 0.19, R at 0.23) starts exactly when the flat line ends
+            b.rT = flatUntil + 0.04f * BaseBeat;
+            b.scale = 1f;
+            b.amp = BigSpikeAmp;
+            b.wide = false;
+            b.big = true;
+            beats[0] = b;
+            beatCount = 1;
+        }
+
+        /// <summary>True while a FlatLine is still running (before its spike).</summary>
+        public bool Flat { get { return flatUntil >= 0f && t < flatUntil; } }
+
+        /// <summary>Height of the post-flat-line spike relative to a normal R wave.</summary>
+        public float BigSpikeAmp = 1.35f;
+        private float flatUntil = -1f;
 
         // ------------------------------------------------------------------ beats
         // Each beat is anchored at its R peak. The rhythm starts at Bpm and gets faster and more
@@ -89,7 +120,7 @@ namespace PawNoon.Runtime
         /// <summary>Fired on every R peak with (beat index, frenzy 0..1, early/skipped beat).</summary>
         public System.Action<int, float, bool> OnBeat;
 
-        private struct BeatDef { public float rT, scale, amp; public bool wide; }
+        private struct BeatDef { public float rT, scale, amp; public bool wide, big; }
         private const int MaxBeats = 6;
         private readonly BeatDef[] beats = new BeatDef[MaxBeats];
         private int beatCount;        // beats scheduled so far (the newest one is still in the future)
@@ -136,7 +167,7 @@ namespace PawNoon.Runtime
                 var b = beats[i % MaxBeats];
                 float p = (tc - b.rT) / (bb * b.scale) + 0.23f;   // phase of this beat (R peak at 0.23)
                 if (p < 0f || p >= 1f) continue;
-                y += (b.wide ? WideWave(p) : Wave(p)) * a * b.amp;
+                y += (b.big ? SpikeWave(p) : (b.wide ? WideWave(p) : Wave(p))) * a * b.amp;
             }
             return y;
         }
@@ -150,6 +181,16 @@ namespace PawNoon.Runtime
             if (p >= 0.23f && p < 0.255f) return Mathf.Lerp(24f, -8f, (p - 0.23f) / 0.025f);               // R down to S
             if (p >= 0.255f && p < 0.285f) return Mathf.Lerp(-8f, 0f, (p - 0.255f) / 0.03f);               // back to baseline
             if (p >= 0.38f && p < 0.56f) return 6f * Mathf.Sin((p - 0.38f) / 0.18f * Mathf.PI);            // T
+            return 0f;
+        }
+
+        /// <summary>Post-flat-line spike: no P or T, just a deep Q, a very tall R and a deep S (sudden death).</summary>
+        private static float SpikeWave(float p)
+        {
+            if (p >= 0.19f && p < 0.215f) return -4f;                                                         // Q
+            if (p >= 0.215f && p < 0.23f) return Mathf.Lerp(-4f, 26f, (p - 0.215f) / 0.015f);               // R up
+            if (p >= 0.23f && p < 0.26f) return Mathf.Lerp(26f, -11f, (p - 0.23f) / 0.03f);                 // R down to S
+            if (p >= 0.26f && p < 0.30f) return Mathf.Lerp(-11f, 0f, (p - 0.26f) / 0.04f);                  // back to baseline
             return 0f;
         }
 

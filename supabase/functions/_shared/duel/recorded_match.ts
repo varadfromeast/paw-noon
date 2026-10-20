@@ -16,10 +16,14 @@
 //      max_attempts         safety cap on void replays
 //      opponent_exhausted   the opponent recording has no attempt k (their own match needed fewer)
 //      player_exhausted     the submitter has no attempt k -> the server rejects the recording
+//  - LAST LIGHT (SPEC_V2 §8.4): before every attempt the driver hands the authority
+//    suddenDeathMultiplier(cfg, match) (x2 when both are alive and <= suddenDeathHp, else x1), exactly
+//    like DuelDirector.BeginStandoff does on the client. Void replays re-evaluate from the same HP.
 //  - Winner: the KO winner; otherwise more HP left (= more total damage dealt); equal = draw.
 import type { DuelConfig } from "./config.ts";
 import type { DamageCurveDef, Grade } from "./damage.ts";
 import { LocalAuthority, type ShotReport, type SlotOutcome } from "./authority.ts";
+import { suddenDeathMultiplier } from "./sudden_death.ts";
 
 /** One attempt as recorded (§4.2 kind + reaction). Anything else in the recording is audit data. */
 export type AttemptKind = "shot" | "anticipation" | "early" | "noshot";
@@ -180,6 +184,7 @@ export function playRecordedMatch(
       end = "player_exhausted";
       break;
     }
+    auth.setDamageMultiplier(suddenDeathMultiplier(cfg, auth.match));
     now = runExchange(auth, now, player[k], opponent[k]);
     attempts.push(attemptView(auth));
     if (!auth.round.isVoid) resolved++;

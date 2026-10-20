@@ -7,7 +7,9 @@ import { hardConfig } from "./load_config.ts";
 import { checkAll, checkDamage, checkMatches, checkMeta, checkRounds, checkSchedules } from "./parity.ts";
 import { NetRandom } from "./rng.ts";
 import { createSchedule } from "./schedule.ts";
-import { playRecordedMatch } from "./recorded_match.ts";
+import { playRecordedMatch, playSingleExchange } from "./recorded_match.ts";
+import { suddenDeathMultiplier, suddenDeathTriggers } from "./sudden_death.ts";
+import { MatchState } from "./match_state.ts";
 
 const ROOT = new URL("../../../../", import.meta.url);
 const VECTORS = new URL("Tools/Parity/vectors.json", ROOT);
@@ -81,4 +83,42 @@ Deno.test("peacemaker curve applies only when passed (casual)", () => {
   }, shots, [{ kind: "noshot", reactionNs: 0 }]);
   assertEquals(std.hp[1], 60);
   assertEquals(pm.hp[1], 52);
+});
+
+Deno.test("LAST LIGHT trigger mirrors SuddenDeath.Triggers", () => {
+  const cfg = hardConfig();
+  assertEquals(cfg.suddenDeathEnabled, true);
+  assertEquals(cfg.suddenDeathHp, 20);
+  assertEquals(cfg.suddenDeathDamageMultiplier, 2);
+  assert(suddenDeathTriggers(cfg, 20, 20), "inclusive");
+  assert(!suddenDeathTriggers(cfg, 20.000001, 20));
+  assert(!suddenDeathTriggers(cfg, 100, 5), "only one low");
+  assert(!suddenDeathTriggers(cfg, 0, 10), "dead never triggers");
+  assert(!suddenDeathTriggers({ ...cfg, suddenDeathEnabled: false }, 10, 10));
+  const m = new MatchState(100);
+  m.hp = [20, 12];
+  assertEquals(suddenDeathMultiplier(cfg, m), 2);
+  m.finish(0);
+  assertEquals(suddenDeathMultiplier(cfg, m), 1);
+  assertEquals(configFromJson({ suddenDeathEnabled: 0, suddenDeathDamageMultiplier: -1 }).suddenDeathEnabled, false);
+  assertEquals(configFromJson({ suddenDeathDamageMultiplier: -1 }).suddenDeathDamageMultiplier, 1);
+});
+
+Deno.test("single exchanges never apply LAST LIGHT on their own (the driver decides)", () => {
+  const cfg = hardConfig();
+  const r = playSingleExchange(cfg, [20, 20], { kind: "shot", reactionNs: 150_000_000 }, { kind: "noshot", reactionNs: 0 });
+  assertEquals(r.damage[0], 40);
+});
+
+Deno.test("LAST LIGHT doubles once in a recorded match", () => {
+  const cfg = hardConfig();
+  const s = (ms: number) => ({ kind: "shot" as const, reactionNs: ms * 1_000_000 });
+  const res = playRecordedMatch(cfg, { seed: 11, rounds: 3, maxAttempts: 9 },
+    [s(110), s(110), s(400)], [s(140), s(140), { kind: "noshot", reactionNs: 0 }]);
+  assertEquals(res.attempts[2].damage[0], 32);
+  assertEquals(res.endReason, "ko");
+  const off = playRecordedMatch({ ...cfg, suddenDeathEnabled: false }, { seed: 11, rounds: 3, maxAttempts: 9 },
+    [s(110), s(110), s(400)], [s(140), s(140), { kind: "noshot", reactionNs: 0 }]);
+  assertEquals(off.attempts[2].damage[0], 16);
+  assertEquals(off.endReason, "rounds");
 });
