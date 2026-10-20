@@ -59,7 +59,8 @@ namespace PawNoon.Runtime
                 copy.ReadPixels(new Rect(0, 0, w, h), 0, 0, false);
                 copy.Apply(false, false);
                 var px = copy.GetPixels32();
-                Object.Destroy(copy);
+                if (Application.isPlaying) Object.Destroy(copy);
+                else Object.DestroyImmediate(copy);
                 return new PixelImage(w, h, px);
             }
             catch (System.Exception e)

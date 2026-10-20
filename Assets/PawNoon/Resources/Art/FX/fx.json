@@ -1,4 +1,23 @@
 {
+ "coin": {
+  "file": "coin",
+  "size": [
+   24,
+   6
+  ],
+  "pivot": [
+   3,
+   3
+  ],
+  "cell": [
+   6,
+   6
+  ],
+  "frames": 4,
+  "fps": 12,
+  "loop": true,
+  "note": "daily bounty coin burst (spin), feel wave 2"
+ },
  "dust_mote": {
   "file": "dust_mote",
   "size": [

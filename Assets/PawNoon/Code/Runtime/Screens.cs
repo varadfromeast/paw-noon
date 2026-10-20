@@ -133,6 +133,14 @@ namespace PawNoon.Runtime
         private RectInt choiceRect;
         private bool choiceOpen;
         private bool forceChoice;
+        private int bountyTop;
+        private bool controlsShown;
+
+        /// <summary>Canvas y of the daily bounty strip's top (just under BEST; feel wave 2).</summary>
+        public int BountyTop { get { RelayoutIfNeeded(); return bountyTop; } }
+
+        /// <summary>PLAY / PVP / BEST are showing (no first-launch card, no online card over the title).</summary>
+        public bool ControlsShown { get { return IsOpen && controlsShown; } }
 
         /// <summary>True while the one-time EASY / HARD card is up (PLAY waits for it).</summary>
         public bool ChoiceOpen { get { return choiceOpen; } }
@@ -197,9 +205,9 @@ namespace PawNoon.Runtime
             int cx = CenterX;
             PlaceCentered(logo, logoDef, cx, LogoY() + Mathf.RoundToInt(Mathf.Sin(t * 1.6f) * 1.5f));
             // PLAY lives in the thumb zone (bottom quarter of the safe area); PVP right under it, then the
-            // difficulty toggle, BEST under the toggle (36 + 4 + 30 + 5 + 20 + 5 + 10 = 110 px, fits the 118 px
-            // reserved below playTop)
-            int playTop = Mathf.Min(layout.PlayButton.y - 18, safe.yMax - 118);
+            // difficulty toggle, BEST under the toggle, the daily bounty strip under BEST
+            // (36 + 4 + 30 + 5 + 20 + 5 + 10 + 3 + 14 = 127 px, fits the 132 px reserved below playTop)
+            int playTop = Mathf.Min(layout.PlayButton.y - 18, safe.yMax - 132);
             play.SetRect(new RectInt(cx - 76, playTop, 152, 36));
             int pvpY = playTop + 36 + 4;
             if (friendShown)
@@ -215,6 +223,7 @@ namespace PawNoon.Runtime
             segEasyText.At(segEasyRect.x + SegW / 2, ty);
             segHardText.At(segHardRect.x + SegW / 2, ty);
             best.At(cx, segY + SegH + 5);
+            bountyTop = segY + SegH + 5 + kit.Medium.LineHeight + 3;
             gear.SetRect(new RectInt(safe.xMax - 4 - 30, safe.y + 2, 30, 30));
             RefreshDifficulty();
             LayoutChoice();
@@ -281,6 +290,7 @@ namespace PawNoon.Runtime
         {
             choiceRoot.gameObject.SetActive(choiceOpen);
             bool controls = !choiceOpen && !onlineBusy;
+            controlsShown = controls;
             play.SetVisible(controls);
             pvp.SetVisible(controls);
             friend.SetVisible(controls && friendShown);

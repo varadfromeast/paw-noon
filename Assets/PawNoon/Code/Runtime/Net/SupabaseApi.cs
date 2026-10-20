@@ -290,6 +290,15 @@ namespace PawNoon.Runtime.Net
             });
         }
 
+        /// <summary>POST /daily-claim {} (SPEC_V2 §7): pays the daily bounty once per server day when enough PvP wins are validated.</summary>
+        public void DailyClaim(Action<ApiResult> done)
+        {
+            Call("daily-claim", "{}", done);
+        }
+
+        /// <summary>Raised on the main thread when a flush emptied the submit queue (queued wins reached the server).</summary>
+        public Action QueueDrained;
+
         /// <summary>Sends queued submissions in order; stops at the first one that still cannot be delivered.</summary>
         public void Flush()
         {
@@ -311,6 +320,7 @@ namespace PawNoon.Runtime.Net
                 queue.Remove(it.matchId);
             }
             flushing = false;
+            if (queue.Count == 0 && QueueDrained != null) QueueDrained();
         }
 
         private IEnumerator CallRoutine(string function, string body, Action<ApiResult> done)
@@ -371,6 +381,36 @@ namespace PawNoon.Runtime.Net
                 done(result);
                 yield break;
             }
+        }
+    }
+
+    /// <summary>The daily-claim answer (supabase/functions/daily-claim).</summary>
+    public sealed class DailyClaimInfo
+    {
+        public bool Claimed;
+        public bool AlreadyClaimed;
+        public int WinsToday;
+        public int WinsRequired;
+        public int Reward;
+        public int Coins;
+        public int Streak;
+        public string Day;
+
+        public static DailyClaimInfo Parse(string json)
+        {
+            var root = PnJson.Parse(json) as Dictionary<string, object>;
+            if (root == null || !PnJson.Has(root, "claimed")) return null;
+            return new DailyClaimInfo
+            {
+                Claimed = PnJson.Bool(root, "claimed", false),
+                AlreadyClaimed = PnJson.Bool(root, "alreadyClaimed", false),
+                WinsToday = PnJson.Int(root, "winsToday", -1),
+                WinsRequired = PnJson.Int(root, "winsRequired", -1),
+                Reward = PnJson.Int(root, "reward", -1),
+                Coins = PnJson.Int(root, "coins", -1),
+                Streak = PnJson.Int(root, "streak", -1),
+                Day = PnJson.Str(root, "day", "")
+            };
         }
     }
 }

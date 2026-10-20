@@ -41,5 +41,47 @@ namespace PawNoon.Runtime
                 return "error: " + e.GetType().Name + ": " + e.Message;
             }
         }
+
+        /// <summary>
+        /// Daily bounty on the title (SPEC_V2 §7). "status" (default), "show" (strip visible even without a server,
+        /// claims simulated locally), "win" (one PvP win now; the third pays: coins, stamp, streak), "wins N",
+        /// "streak N" (pretend yesterday's claim had streak N, so the flame shows and today's claim makes N+1),
+        /// "celebrate" (the coin burst only), "reset" (forget wins, streak, coins). Wins added here are simulated:
+        /// they never reach the server.
+        /// </summary>
+        public static string Bounty(string cmd)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            if (g.Online == null || g.Online.Bounty == null) return "error: no online director";
+            var b = g.Online.Bounty;
+            var parts = (cmd ?? "").Trim().ToLowerInvariant().Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            string c = parts.Length > 0 ? parts[0] : "status";
+            int n = 1;
+            if (parts.Length > 1 && !int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out n))
+                return "error: expected a number after " + c;
+            try
+            {
+                switch (c)
+                {
+                    case "status": break;
+                    case "show": b.ReviewSimulate = true; break;
+                    case "win":
+                    case "wins":
+                        b.ReviewSimulate = true;
+                        for (int i = 0; i < System.Math.Max(1, n); i++) b.RecordWin();
+                        break;
+                    case "streak": b.ReviewSimulate = true; b.SetStreakYesterday(n); break;
+                    case "celebrate": b.ReviewSimulate = true; b.CelebrateNow(); break;
+                    case "reset": b.ResetAll(); break;
+                    default: return "error: expected status, show, win, wins N, streak N, celebrate or reset";
+                }
+            }
+            catch (System.Exception e)
+            {
+                return "error: " + e.GetType().Name + ": " + e.Message;
+            }
+            return "ok: " + b.Status() + (g.CurrentMode != PawGame.Mode.Title ? " (the strip shows on the title)" : "");
+        }
     }
 }

@@ -489,6 +489,25 @@
    6
   ]
  },
+ "ico_flame": {
+  "file": "ico_flame",
+  "size": [
+   16,
+   10
+  ],
+  "cell": [
+   8,
+   10
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "frames": 2,
+  "fps": 6,
+  "loop": true,
+  "note": "daily bounty streak flame (title), 2-frame flicker, feel wave 2"
+ },
  "ico_share": {
   "file": "ico_share",
   "size": [
