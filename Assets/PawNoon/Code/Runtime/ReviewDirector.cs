@@ -204,6 +204,15 @@ namespace PawNoon.Runtime
         /// once-per-session rule), "off" = never, "auto" = default (first match of a session, not in review runs,
         /// cfg.introEnabled), "reset" = auto and forget that it was shown this session.
         /// </summary>
+        /// <summary>"on" | "off": the SWIPE cue setting (it switches itself off after one taught match).</summary>
+        public static string SwipeHint(string onOff)
+        {
+            bool on = (onOff ?? "").Trim().ToLowerInvariant() == "on";
+            PawSettings.SwipeHint = on;
+            PawSettings.Save();
+            return "ok: swipe hint " + (on ? "on" : "off");
+        }
+
         public static string SetIntro(string mode)
         {
             string s = (mode ?? "").Trim().ToLowerInvariant();

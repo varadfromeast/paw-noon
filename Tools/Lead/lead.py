@@ -23,7 +23,7 @@ def read(p):
 def submit(name, cmds):
     os.makedirs(P('cmd'), exist_ok=True)
     out = P('out', name + '.out')
-    if os.path.exists(out): os.remove(out)
+    if os.path.exists(out): open(out, "w").close()   # no delete permission in the VM: truncate instead
     open(P('cmd', name + '.txt'), 'w').write('\n'.join(cmds) + '\n')
     return out
 
@@ -31,11 +31,11 @@ def wait_done(out, timeout):
     t0 = time.time()
     while time.time() - t0 < timeout:
         s = read(out)
-        if 'DONE' in s: return s, time.time() - t0
+        if 'DONE' in s and 'BEGIN' in s: return s, time.time() - t0
         time.sleep(0.5)
     return read(out), -1
 
-def wait_compile(timeout=240):
+def wait_compile(timeout=150):
     """compile.log gets '=== compile started' then one '[X.dll] errors=' line per assembly; settled = no new line for 6 s
     after at least one errors= line, and state.txt reports compiling=False."""
     t0 = time.time(); last = ''; last_change = time.time(); seen = False
@@ -61,7 +61,10 @@ def exceptions():
 def cmd_build(name, also_tests=False):
     cmds = ['stop', 'wait 1', 'clearlog', 'refresh']
     out = submit(name, cmds)
-    wait_done(out, 60)
+    s, _ = wait_done(out, 60)
+    if 'compiling=False' in s:
+        out = submit(name + '_rc', ['recompile'])   # refresh queued nothing: force it
+        wait_done(out, 30)
     log = wait_compile()
     errs, asm, bad = compile_summary(log)
     for a in asm: print('  %s errors=%s warnings=%s' % a)

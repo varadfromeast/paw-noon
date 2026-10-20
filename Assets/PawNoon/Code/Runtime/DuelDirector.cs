@@ -625,7 +625,7 @@ namespace PawNoon.Runtime
             PawTime.FreezeAmbient(Mathf.Max(1, (int)cfg.drawHitStopFrames));
             audio.Duck(0.85f);
             audio.Heartbeat(0f);
-            hud.ShowHint(false);
+            // the cue stays through DRAW (it now says NOW! SWIPE UP) and hides itself on the draw
             cues.SetTimer(0, false);
         }
 
