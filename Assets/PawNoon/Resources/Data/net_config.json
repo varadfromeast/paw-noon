@@ -7,5 +7,6 @@
   "timeoutSeconds": 10,
   "findMinSeconds": 1.2,
   "friendDuel": true,
-  "mock": false
+  "mock": true,
+  "accounts": false
 }

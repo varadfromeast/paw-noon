@@ -32,6 +32,8 @@ namespace PawNoon.Runtime.Net
         public bool FriendDuel;
         /// <summary>Play against the built-in fake recording and a local recompute instead of the server.</summary>
         public bool Mock;
+        /// <summary>false = no sign-in anywhere (beta builds): no KEEP YOUR BOUNTY sheet, no account UI.</summary>
+        public bool Accounts = true;
 
         public bool IsConfigured
         {
@@ -78,6 +80,7 @@ namespace PawNoon.Runtime.Net
             c.FindMinSeconds = Mathf.Clamp((float)PnJson.Num(o, "findMinSeconds", 1.2), 0f, 3f);
             c.FriendDuel = PnJson.Bool(o, "friendDuel", false);
             c.Mock = PnJson.Bool(o, "mock", false);
+            c.Accounts = PnJson.Bool(o, "accounts", true);
             return c;
         }
     }

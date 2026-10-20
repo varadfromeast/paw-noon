@@ -204,6 +204,7 @@ namespace PawNoon.Runtime
             Director.SetStreet(Street);   // LAST LIGHT dawn crossfade
             Online = new OnlineDirector();
             Online.Init(this, kit, Layout, Pipeline, ui, title, matchScreen, transport);
+            AccountsUi.Enabled = Online.Config == null || Online.Config.Accounts;
             Accounts = new AccountDirector();
             Accounts.Init(this, kit, Layout, Pipeline, ui, Online);
             Shop = new ShopDirector();

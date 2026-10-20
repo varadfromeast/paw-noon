@@ -32,6 +32,11 @@ namespace PawNoon.EditorTools
             string ent = string.IsNullOrEmpty(existing) ? Entitlements : existing;
             proj.WriteToFile(projPath);
 
+            if (!PawBetaPostBuild.AccountsEnabled())
+            {
+                Debug.Log("[PawNoon] iOS: accounts off in net_config.json -> no Sign in with Apple capability (free signing teams can't sign it)");
+                return;
+            }
             var caps = new ProjectCapabilityManager(projPath, ent, null, main);
             caps.AddSignInWithApple();
             caps.WriteToFile();

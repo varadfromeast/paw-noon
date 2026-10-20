@@ -75,7 +75,7 @@ namespace PawNoon.Runtime.Net
 
         public SupabaseAuth Auth { get { return auth; } }
         public bool Mock { get { return online.Mock || (Application.isEditor && !cfg.IsConfigured); } }
-        public bool Available { get { return Mock || cfg.IsConfigured; } }
+        public bool Available { get { return cfg.Accounts && (Mock || cfg.IsConfigured); } }
         /// <summary>Any account card is up: it owns the input (PawGame ticks it before the screen below).</summary>
         public bool Open { get { return card.IsOpen || sheet.IsOpen || keypad.IsOpen || confirm.IsOpen; } }
         private INativeSignIn Native { get { return Mock ? (INativeSignIn)mockNative : realNative; } }

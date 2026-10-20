@@ -3,6 +3,9 @@ using UnityEngine;
 
 namespace PawNoon.Runtime
 {
+    /// <summary>Beta switch (net_config.json "accounts": false): hides the profile and ACCOUNT buttons.</summary>
+    public static class AccountsUi { public static bool Enabled = true; }
+
     public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend, OpenProfile, OpenAccount, Leaderboard }
 
     /// <summary>Common base: a root object that can be shown/hidden, laid out against the pipeline rects.</summary>
@@ -305,7 +308,7 @@ namespace PawNoon.Runtime
             diffRoot.gameObject.SetActive(controls);
             best.Visible = controls;
             gear.SetVisible(controls);
-            profileBtn.SetVisible(controls);
+            profileBtn.SetVisible(controls && AccountsUi.Enabled);
             trophy.SetVisible(controls);
         }
 
@@ -667,7 +670,8 @@ namespace PawNoon.Runtime
                 if (kit.Audio != null) kit.Audio.Play("sfx_ui_back");
                 return UiAction.CloseSettings;
             }
-            if (account.Tick()) return UiAction.OpenAccount;
+            account.SetVisible(AccountsUi.Enabled);
+            if (AccountsUi.Enabled && account.Tick()) return UiAction.OpenAccount;
             if (!UiPointer.Down || UiPointer.Consumed) return UiAction.None;
             for (int i = 0; i < 5; i++)
             {
