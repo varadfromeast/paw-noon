@@ -2,6 +2,7 @@
 // Values that ops may want to change without a deploy are read from env (see supabase/README.md).
 import type { DuelConfig } from "./duel/config.ts";
 import { schedulesForSeed } from "./duel/schedule.ts";
+import { weeklySeasonId } from "./season.ts";
 
 function env(name: string): string | undefined {
   // Deno in Edge Functions; undefined under other runtimes (unit tests).
@@ -54,14 +55,118 @@ export const RATING = {
   rdPerDay: 20,
 } as const;
 
+/** Friend duels (SPEC_V2 §4.4): a 4-letter room code reserves the host's NEXT recording for one friend. */
+export const ROOM = {
+  codeLength: 4,
+  /** Generated codes skip I and O (they read as 1 and 0 on a small pixel font). Joining accepts A-Z. */
+  alphabet: "ABCDEFGHJKLMNPQRSTUVWXYZ",
+  /** The host must record and the friend must join within this window from room-create. */
+  ttlSec: 600,
+  /** room-join answers `waiting` with this poll interval until the host's recording is in. */
+  pollSec: 3,
+  /** room-create calls per host in 10 minutes. */
+  maxCreatesPer10Min: 5,
+  /** Candidate codes tried per room-create (unique among live rooms). */
+  candidates: 12,
+  /** Never generated (a code is shown big on screen and shared in messages). */
+  blocked: [
+    "ANAL", "ANUS", "ARSE", "BOOB", "BUTT", "COCK", "CRAP", "CUNT", "DAMN", "DICK", "DUMB", "DYKE", "FAGS",
+    "FUCK", "FUKK", "GOOK", "HATE", "HELL", "HOMO", "JERK", "JIZZ", "KIKE", "KILL", "MUFF", "NAZI", "PAKI",
+    "PEDO", "PISS", "PORN", "PUBE", "RAPE", "SCUM", "SEXY", "SHAT", "SHIT", "SLAG", "SLUT", "SMEG", "SPIC",
+    "SUCK", "TITS", "TURD", "TWAT", "WANK", "WHOR", "DEAD",
+  ] as readonly string[],
+} as const;
+
+/** leaderboard-read (SPEC_V2 §7). */
+export const LEADERBOARD = {
+  top: 50,
+  /** A weekly ranked row appears once the player has this many rated matches in the week. */
+  minRankedMatches: 5,
+  /** Season soft reset: a new week starts from last week's MMR pulled this far towards the initial
+   *  rating, with RD at least `seasonStartRd` (so the first games of the week move it quickly). */
+  seasonCarry: 0.75,
+  seasonStartRd: 200,
+} as const;
+
+/**
+ * Plausibility checks for ghost duels (Docs/M5_PLAUSIBILITY.md). Server-only on purpose: the client never
+ * sees these thresholds, and a tripped check is never named in a response.
+ */
+export const PLAUSIBILITY = {
+  // ---- A1 wall-clock budget (reject `wall_clock`)
+  /** The recording's own span (first "3" to its last timestamp) may exceed the server-measured
+   *  issued -> submitted time by at most this much (clock-rate differences, request latency). */
+  wallClockSlackNs: 2_000_000_000,
+  // ---- A3 raw samples (ranked; reject `samples`)
+  /** Interpolated crossing vs inputNs. */
+  sampleCrossToleranceNs: 1_000,
+  /** SwipeDraw: threshold = 12 % of the screen height, holster = bottom 25 % of the safe area (we only
+   *  know the screen, so the start must be within the bottom 30 % of the screen). */
+  sampleThresholdFraction: 0.12,
+  sampleZoneFraction: 0.30,
+  /** Real digitizers report at 240 / 120 / 60 Hz (k = 1..4 periods, +- tolerance). */
+  digitizerPeriodsNs: [4_166_667, 8_333_333, 16_666_667] as readonly number[],
+  digitizerToleranceNs: 1_500_000,
+  // ---- A4 margin against the known ghost (hold the new recording, feeds B9)
+  narrowMarginNs: 20_000_000,
+  /** Hold a match's recording when at least this many won shot rounds were won by under narrowMarginNs ... */
+  narrowHoldMinRounds: 2,
+  /** ... and they are at least this share of the won shot rounds. */
+  narrowHoldShare: 0.66,
+  // ---- B rolling per-account statistics (shadow flag)
+  /** Shots kept per account (newest last). */
+  window: 60,
+  minShots: 15,
+  /** B5 median shot reaction under this. */
+  tooFastMedianNs: 150_000_000,
+  /** B6 standard deviation under this. */
+  tooSteadySdNs: 8_000_000,
+  /** B7 share of shots in [100, 130) ms above this. */
+  hugLowNs: 100_000_000,
+  hugHighNs: 130_000_000,
+  hugShare: 0.20,
+  /** B8 (log only): Pearson r(hold, reaction) is computed from this many shots and logged, never flags. */
+  foreperiodMinShots: 40,
+  /** B9 margin ratio: share of won rounds won by under narrowMarginNs, over at least this many matches. */
+  marginMinMatches: 5,
+  marginShare: 0.60,
+  // ---- C10 quarantine
+  /** A new pooled recording is served to strangers only after its owner completes this many further
+   *  clean matches (env PN_QUARANTINE_MATCHES overrides, e.g. 0 on a local stack). */
+  quarantineMatches: 2,
+} as const;
+
+export function quarantineMatches(): number {
+  const raw = env("PN_QUARANTINE_MATCHES");
+  if (raw === undefined || raw.trim() === "") return PLAUSIBILITY.quarantineMatches;
+  const v = Number(raw);
+  return Number.isInteger(v) && v >= 0 && v <= 20 ? v : PLAUSIBILITY.quarantineMatches;
+}
+
+/** Ranked recordings must carry raw swipe samples (A3). Off until the client sends them (open question,
+ *  Docs/DECISIONS.md M5): when samples ARE present they are always checked. */
+export function requireSamplesRanked(): boolean {
+  return env("PN_REQUIRE_SAMPLES") === "true";
+}
+
 export const DAILY = {
   winsRequired: 3,
   coins: 20,
 } as const;
 
-export function rankedSeason(): number {
-  const v = Number(env("PN_SEASON") ?? "1");
-  return Number.isInteger(v) && v > 0 ? v : 1;
+/**
+ * Ranked season id (`ratings.season`, `matches.season`). M5: one season per ISO week, encoded YYYYWW
+ * (2026-W43 -> 202643, leaderboard `ranked_2026_43`), see season.ts. `PN_SEASON` (a positive integer)
+ * pins a fixed season instead (ops override, tests); a pinned season below 100000 is named
+ * `ranked_season_N` like M3 did.
+ */
+export function rankedSeason(now: Date = new Date()): number {
+  const raw = env("PN_SEASON");
+  if (raw !== undefined && raw.trim() !== "") {
+    const v = Number(raw);
+    if (Number.isInteger(v) && v > 0) return v;
+  }
+  return weeklySeasonId(now);
 }
 
 /** Client builds allowed in ranked (comma separated, "*" = any). Empty = ranked closed. */

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/room-join.request.schema.json",
+  "title": "POST /functions/v1/room-join",
+  "type": "object",
+  "required": [
+    "code"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "4 letters A-Z, case-insensitive."
+    }
+  }
+}

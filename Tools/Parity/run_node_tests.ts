@@ -9,16 +9,19 @@ import { resolve } from "node:path";
 type Fn = () => unknown | Promise<unknown>;
 const tests: { name: string; fn: Fn }[] = [];
 
+const env = new Map<string, string>();
 (globalThis as Record<string, unknown>).Deno = {
   test: (name: string, fn: Fn) => tests.push({ name, fn }),
   readTextFile: (u: URL | string) => Promise.resolve(readFileSync(u instanceof URL ? fileURLToPath(u) : u, "utf8")),
-  env: { get: (_k: string) => undefined },
+  // starts empty (like `deno test` without secrets); tests may set/delete keys (Deno.env API subset)
+  env: { get: (k: string) => env.get(k), set: (k: string, v: string) => void env.set(k, v), delete: (k: string) => void env.delete(k) },
 };
 
 const root = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const files = [
   "supabase/functions/_shared/duel/duel.test.ts",
   "supabase/functions/_shared/server.test.ts",
+  "supabase/functions/_shared/m5.test.ts",
 ];
 for (const f of files) await import(pathToFileURL(resolve(root, f)).href);
 

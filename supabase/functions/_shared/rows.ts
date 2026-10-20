@@ -5,6 +5,8 @@ export interface ProfileRow {
   display_name: string;
   owned_items: string[] | null;
   flagged: boolean;
+  shadow: boolean;
+  matches_played: number;
 }
 
 export interface RatingRow {
@@ -39,7 +41,17 @@ export interface MatchRow {
   rounds: number;
   max_attempts: number;
   status: string;
+  issued_at: string;
   deadline_at: string;
   opponent_snapshot: OpponentSnapshot;
   opponent_is_house: boolean;
+  room_id: string | null;
+}
+
+/** account_stats (0003_m5.sql): rolling plausibility window. */
+export interface AccountStatsRow {
+  shots: [number, number][];
+  won_shots: number;
+  narrow_wins: number;
+  matches: number;
 }

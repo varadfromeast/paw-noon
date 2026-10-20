@@ -167,6 +167,10 @@ function fakeDb(rows: Row[], beforeWrite: () => void): Db {
     private one = false;
     select(_cols?: string) { return this; }
     eq(c: string, v: unknown) { this.filters.push([c, v]); return this; }
+    // loadRating's previous-season lookup (M5 weekly seasons): no earlier rows in these fixtures
+    lt(_c: string, _v: unknown) { this.filters.push(["__never", true]); return this; }
+    order(_c: string, _o?: unknown) { return this; }
+    limit(_n: number) { return this; }
     maybeSingle() { this.one = true; return this; }
     update(p: Record<string, unknown>) { this.op = "update"; this.patch = p; return this; }
     insert(p: Record<string, unknown>) { this.op = "insert"; this.patch = p; return this; }
