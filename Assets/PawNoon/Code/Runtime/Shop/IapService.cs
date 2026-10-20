@@ -37,6 +37,7 @@ namespace PawNoon.Runtime.Shop
         private readonly IKeyValueStore kv;
         private readonly Func<SupabaseApi> api;
         private readonly Func<bool> serverOn;
+        private readonly Func<string> accountId;
         private readonly List<StorePurchase> pending = new List<StorePurchase>(2);
         private readonly HashSet<string> inFlight = new HashSet<string>();
         private float retryT = -1f;
@@ -48,8 +49,10 @@ namespace PawNoon.Runtime.Shop
         public int MessageVersion { get; private set; }
         public string InitError { get; private set; }
 
-        public IapService(IStore store, GunLocker locker, IKeyValueStore kv, Func<SupabaseApi> api, Func<bool> serverOn)
+        public IapService(IStore store, GunLocker locker, IKeyValueStore kv, Func<SupabaseApi> api, Func<bool> serverOn,
+            Func<string> accountId = null)
         {
+            this.accountId = accountId;
             this.store = store;
             this.locker = locker;
             this.kv = kv ?? new MemoryKeyValueStore();
@@ -99,6 +102,8 @@ namespace PawNoon.Runtime.Shop
             }
             if (!locker.BeginPurchase(gun)) return false;
             Say("");
+            // review pass 2: the purchase carries the account it is for (appAccountToken / obfuscatedAccountId)
+            store.SetAccount(accountId != null ? accountId() : null);
             store.Purchase(pid);
             return true;
         }
@@ -241,7 +246,8 @@ namespace PawNoon.Runtime.Shop
                 Debug.LogWarning("[PawNoon] purchase rejected by the server: " + code + " " + r.Error.message);
                 locker.Rejected(gun);
                 Done(p);
-                Say("PURCHASE NOT VALID");
+                // bought for another account (review pass 2): restore it on the phone / account that bought it
+                Say(code == "owned_elsewhere" || code == "account_mismatch" ? "OWNED BY ANOTHER ACCOUNT" : "PURCHASE NOT VALID");
                 return;
             }
             Debug.Log("[PawNoon] purchase-validate will retry: " + r.Status + " " + code);
@@ -336,6 +342,8 @@ namespace PawNoon.Runtime.Shop
     {
         private IStoreController controller;
         private IExtensionProvider extensions;
+        private IGooglePlayConfiguration googleConfig;
+        private string account;
         private Action<bool, string> initDone;
         private bool restoring;
 
@@ -365,6 +373,8 @@ namespace PawNoon.Runtime.Shop
             {
                 var builder = ConfigurationBuilder.Instance(StandardPurchasingModule.Instance());
                 for (int i = 0; i < productIds.Length; i++) builder.AddProduct(productIds[i], ProductType.NonConsumable);
+                // kept to set the obfuscated account id per purchase (the Play store reads it when the flow starts)
+                if (Application.platform == RuntimePlatform.Android) googleConfig = builder.Configure<IGooglePlayConfiguration>();
                 UnityPurchasing.Initialize(this, builder);
             }
             catch (Exception e)
@@ -393,6 +403,7 @@ namespace PawNoon.Runtime.Shop
             if (controller == null) { if (Failed != null) Failed(productId, "not_ready"); return; }
             var p = controller.products.WithID(productId);
             if (p == null || !p.availableToPurchase) { if (Failed != null) Failed(productId, "unavailable"); return; }
+            BindAccount();
             controller.InitiatePurchase(p);
         }
 
@@ -433,6 +444,33 @@ namespace PawNoon.Runtime.Shop
         }
 
         public void Tick(float dt) { }
+
+        public void SetAccount(string userId) { account = userId; }
+
+        /// <summary>
+        /// Review pass 2: Apple SKPayment.applicationUsername (a UUID, so StoreKit copies it into appAccountToken) and
+        /// Google's obfuscated account id, checked by purchase-validate before a purchase may change accounts.
+        /// </summary>
+        private void BindAccount()
+        {
+            try
+            {
+                if (Application.platform == RuntimePlatform.IPhonePlayer)
+                {
+                    string t = PurchaseBinding.AppleToken(account);
+                    if (t != null && extensions != null) extensions.GetExtension<IAppleExtensions>().SetApplicationUsername(t);
+                }
+                else if (Application.platform == RuntimePlatform.Android && googleConfig != null)
+                {
+                    string t = PurchaseBinding.GoogleToken(account);
+                    if (t != null) googleConfig.SetObfuscatedAccountId(t);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[PawNoon] purchase not bound to the account: " + e.Message);
+            }
+        }
 
         // --- IDetailedStoreListener
 

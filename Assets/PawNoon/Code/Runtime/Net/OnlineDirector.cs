@@ -696,7 +696,7 @@ namespace PawNoon.Runtime.Net
             m.MaxAttempts = RecordedMatchRules.DefaultMaxAttempts;
             m.RecordingId = "00000000-0000-4000-8000-000000000002";
             m.OpponentName = "Marshal Mittens";
-            m.OpponentCharacter = "blackpaw";
+            m.OpponentCharacter = CharacterRoster.Pawtruth;
             m.OpponentGun = "standard";
             m.OpponentMmr = 1200;
             m.OpponentIsHouse = true;

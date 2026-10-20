@@ -41,6 +41,37 @@ namespace PawNoon.Runtime.Shop
         void Finish(string productId);
         /// <summary>Per frame (the mock store's delays).</summary>
         void Tick(float dt);
+        /// <summary>
+        /// Binds the next purchases to this account (review pass 2): Apple applicationUsername (copied into the
+        /// transaction's appAccountToken), Google obfuscatedAccountId. The server checks it before a purchase may move
+        /// between accounts (supabase/functions/_shared/payments/binding.ts). Null / empty = unbound.
+        /// </summary>
+        void SetAccount(string userId);
+    }
+
+    /// <summary>The account tokens the stores carry (must match binding.ts expectedAccountToken).</summary>
+    public static class PurchaseBinding
+    {
+        /// <summary>Apple: the user id itself when it is a UUID (lower case), else null (StoreKit only maps UUIDs).</summary>
+        public static string AppleToken(string userId)
+        {
+            Guid g;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParseExact(userId.Trim(), "D", out g)) return null;
+            return g.ToString("D");
+        }
+
+        /// <summary>Google: SHA-256 (lower-case hex, 64 chars: Play's limit) of the lower-case user id; null when empty.</summary>
+        public static string GoogleToken(string userId)
+        {
+            if (string.IsNullOrEmpty(userId)) return null;
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                var h = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(userId.Trim().ToLowerInvariant()));
+                var sb = new System.Text.StringBuilder(64);
+                for (int i = 0; i < h.Length; i++) sb.Append(h[i].ToString("x2", CultureInfo.InvariantCulture));
+                return sb.ToString();
+            }
+        }
     }
 
     /// <summary>
@@ -113,6 +144,11 @@ namespace PawNoon.Runtime.Shop
         }
 
         public void Finish(string productId) { }
+
+        /// <summary>The account the next purchase is bound to (tests / Status; the mock has no store to tell).</summary>
+        public string Account { get; private set; }
+
+        public void SetAccount(string userId) { Account = userId; }
 
         /// <summary>QA: forget what the mock store sold.</summary>
         public void Forget()

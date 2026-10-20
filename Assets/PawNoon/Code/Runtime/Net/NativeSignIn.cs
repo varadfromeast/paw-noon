@@ -145,7 +145,9 @@ namespace PawNoon.Runtime.Net
             }
         }
 
-        /// <summary>iOS plugin -> Unity (UnitySendMessage, main thread).</summary>
+        /// <summary>iOS plugin -> Unity (UnitySendMessage, main thread). Called by name only: [Preserve] keeps it under
+        /// IL2CPP managed stripping (review pass 2).</summary>
+        [UnityEngine.Scripting.Preserve]
         public void OnNativeResult(string json)
         {
             Post(NativeSignInResult.FromJson(json));
@@ -370,6 +372,8 @@ namespace PawNoon.Runtime.Net
         private sealed class DirectExecutor : AndroidJavaProxy
         {
             public DirectExecutor() : base("java.util.concurrent.Executor") { }
+            // invoked from Java by name (AndroidJavaProxy reflection): keep it under managed stripping
+            [UnityEngine.Scripting.Preserve]
             public void execute(AndroidJavaObject runnable) { runnable.Call("run"); }
         }
 
@@ -379,6 +383,7 @@ namespace PawNoon.Runtime.Net
             private readonly NativeSignInHost host;
             public Callback(NativeSignInHost host) : base("androidx.credentials.CredentialManagerCallback") { this.host = host; }
 
+            [UnityEngine.Scripting.Preserve]
             public void onResult(AndroidJavaObject response)
             {
                 try
@@ -408,6 +413,7 @@ namespace PawNoon.Runtime.Net
                 }
             }
 
+            [UnityEngine.Scripting.Preserve]
             public void onError(AndroidJavaObject error)
             {
                 string type = "";

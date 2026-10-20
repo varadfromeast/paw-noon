@@ -445,9 +445,10 @@ namespace PawNoon.Runtime.Net
                 ShowInfo("NO LUCK", code == "offline" ? "NO SIGNAL" : "COULD NOT SWITCH", "You are still the guest", "on this phone. Try again soon.", false);
                 return;
             }
-            // a different player now: forget this guest's cached profile
+            // a different player now: forget this guest's cached profile, bounty count and gun verification
             profile = null;
             DeleteKey(KProfileCache);
+            ForgetAccountState();
             CloseAsk();
             OnLinked("WELCOME BACK, PARTNER.");
         }
@@ -488,12 +489,25 @@ namespace PawNoon.Runtime.Net
         }
 
         /// <summary>
+        /// State that belongs to one server account (review pass 2): today's PvP bounty count + streak (the server's
+        /// numbers for that account) and the shop's server verification of owned guns (a new account must not put a gun
+        /// it does not own into a PvP recording: match-submit would reject it as loadout_not_owned and count it towards
+        /// the cheat flag). Owned guns stay for solo; RESTORE verifies them for the new account.
+        /// </summary>
+        private void ForgetAccountState()
+        {
+            if (online != null && online.Bounty != null) online.Bounty.ResetAll();
+            if (game != null && game.Shop != null) game.Shop.OnAccountGone();
+        }
+
+        /// <summary>
         /// Everything this install knows about the player: session, cached profile, guest number, the once-only
-        /// bounty flag, undelivered match submissions, the all-time best. Device settings (sound, haptics, motion,
-        /// difficulty) stay.
+        /// bounty flag, undelivered match submissions, the all-time best, the daily bounty state and the guns' server
+        /// verification. Device settings (sound, haptics, motion, difficulty) and pending store receipts stay.
         /// </summary>
         private void ClearLocal()
         {
+            ForgetAccountState();
             auth.SignOut();
             DeleteKey(KProfileCache);
             DeleteKey(KMockName);

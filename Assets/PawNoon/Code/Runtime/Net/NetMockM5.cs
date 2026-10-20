@@ -95,7 +95,7 @@ namespace PawNoon.Runtime.Net
                 {
                     Rank = rank,
                     Name = you ? "Stranger #2026" : Names[(i * 7 + (ranked ? 3 : 0)) % Names.Length] + (i >= Names.Length ? " II" : ""),
-                    Character = i % 3 == 0 ? "blackpaw" : "whiskers",
+                    Character = i % 3 == 0 ? CharacterRoster.Pawtruth : CharacterRoster.Whiskers,
                     Value = v,
                     Matches = 5 + rng.Next(0, 40),
                     You = you

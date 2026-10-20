@@ -28,7 +28,7 @@ namespace PawNoon.Core
     /// <item>Whiskers: name = characters.json, else "WHISKERS"; each context = characters.json, else
     /// <see cref="BanterLines.WhiskersDefaults"/>.</item>
     /// </list>
-    /// The old persona id "blackpaw" (still used by recorded-duel payloads) resolves to Pawtruth.
+    /// The old persona id "blackpaw" (the server id before review pass 2, still accepted there as an alias) resolves to Pawtruth.
     /// </summary>
     public sealed class CharacterRoster
     {

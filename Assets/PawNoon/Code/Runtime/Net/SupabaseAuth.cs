@@ -39,6 +39,9 @@ namespace PawNoon.Runtime.Net
         private string[] providers = new string[0];
         // a session for another user that an id-token grant returned (IdentityTaken), kept until the player decides
         private string pendingSwitchBody;
+        // one refresh / anonymous sign-up at a time (review pass 2): callers that arrive meanwhile wait and reuse it
+        private bool sessionBusy;
+        private float sessionBusySince;
 
         public string AccessToken { get; private set; }
         public string RefreshToken { get; private set; }
@@ -189,8 +192,31 @@ namespace PawNoon.Runtime.Net
         /// </summary>
         public IEnumerator EnsureSession(Action<bool, string> done)
         {
+            // Single flight: two coroutines that both found no valid token (a bounty claim, the submit queue flush and
+            // PVP at launch) used to sign up two anonymous users; the second overwrote the first, so a match started
+            // under one user was submitted under the other (404 match_not_found). Waiters give up after a generous
+            // bound in case the running one was stopped.
+            float waitLimit = Mathf.Max(1, cfg.TimeoutSeconds) * 2f + 5f;
+            while (sessionBusy && Time.realtimeSinceStartup - sessionBusySince < waitLimit) yield return null;
             if (AccessValid) { done(true, null); yield break; }
 
+            sessionBusy = true;
+            sessionBusySince = Time.realtimeSinceStartup;
+            try
+            {
+                bool ok = false;
+                string err = null;
+                yield return NetHost.Run(EnsureSessionOnce((a, b) => { ok = a; err = b; }));
+                done(ok, err);
+            }
+            finally
+            {
+                sessionBusy = false;
+            }
+        }
+
+        private IEnumerator EnsureSessionOnce(Action<bool, string> done)
+        {
             bool wasLinked = IsLinked && !MockLinked;
             if (!string.IsNullOrEmpty(RefreshToken))
             {

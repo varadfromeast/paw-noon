@@ -146,8 +146,15 @@ namespace PawNoon.Runtime.Net
             if (state != State.Joining && state != State.Waiting) return;
             if (!r.Ok)
             {
-                // a dropped poll is not the end of the room: keep waiting, the next poll tries again
-                if (state == State.Waiting && r.Offline) { card.SetStatus("NO SIGNAL. RETRYING...", Pal.SigRed); statusHold = 2f; return; }
+                // a dropped poll is not the end of the room: keep waiting, the next poll tries again (also on a 429 / 5xx:
+                // the server is busy or throttling polls, the room itself is fine)
+                if (state == State.Waiting && r.RetryLater)
+                {
+                    card.SetStatus(r.Offline ? "NO SIGNAL. RETRYING..." : "BUSY LINE. RETRYING...", Pal.SigRed);
+                    statusHold = 2f;
+                    pollEvery = Mathf.Min(30f, pollEvery * 2f);   // back off while the line is bad; reset by the next answer
+                    return;
+                }
                 OpenJoin(Friendly(r), true);
                 return;
             }

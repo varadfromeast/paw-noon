@@ -142,6 +142,17 @@ namespace PawNoon.Runtime.Net
         public ApiError Error;
         /// <summary>match-submit only: saved to the offline queue, will be sent later.</summary>
         public bool Queued;
+
+        /// <summary>
+        /// Not a definitive answer, worth sending again later (review pass 2): no answer, no session right now (status 0:
+        /// offline, auth_failed, relink), 401 after the re-auth, 408, 429 rate_limited, any 5xx (500 internal / db_error
+        /// and 503 busy put a match back to `issued`, supabase/README.md). Only these keep a match-submit queued; a
+        /// definitive 4xx (409 already_submitted, 422 rejected / late, 404, 400) drops it.
+        /// </summary>
+        public bool RetryLater
+        {
+            get { return !Ok && (Offline || Status == 0 || Status == 401 || Status == 408 || Status == 429 || Status >= 500); }
+        }
     }
 
     /// <summary>
@@ -280,7 +291,7 @@ namespace PawNoon.Runtime.Net
         {
             Call("match-submit", body, r =>
             {
-                if (r.Offline)
+                if (r.RetryLater)
                 {
                     queue.Add(matchId, body);
                     r.Queued = true;
@@ -314,7 +325,7 @@ namespace PawNoon.Runtime.Net
                 var it = queue[0];
                 ApiResult r = null;
                 yield return NetHost.Run(CallRoutine("match-submit", it.body, x => r = x));
-                if (r == null || r.Offline) break;
+                if (r == null || r.RetryLater) break;   // offline, busy, rate limited, no session: keep it for later
                 // delivered, or answered for good (409 already_submitted, 422 late / rejected, 404, 400): drop it
                 if (!r.Ok) Debug.Log("[PawNoon] queued submit " + it.matchId + " answered " + r.Status + " " + r.Error.code + " " + r.Error.reason);
                 queue.Remove(it.matchId);

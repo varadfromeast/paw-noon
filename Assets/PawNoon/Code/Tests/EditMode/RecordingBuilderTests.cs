@@ -163,7 +163,7 @@ namespace PawNoon.Tests
             Assert.That(seed, Is.InRange(-2147483648L, 2147483647L));
             Assert.AreEqual(1L, seed);
             OneOf(r, "difficulty", "recording", "hard");
-            OneOf(r, "character", "recording", "whiskers", "blackpaw");
+            OneOf(r, "character", "recording", "whiskers", "pawtruth", "blackpaw");   // blackpaw: legacy alias (review pass 2)
             var loadout = O(r["loadout"], "recording.loadout");
             Keys(loadout, "recording.loadout", new[] { "gun" }, null);
             OneOf(loadout, "gun", "recording.loadout", "standard", "peacemaker");
@@ -329,7 +329,7 @@ namespace PawNoon.Tests
             Assert.AreEqual(3, m.Rounds);
             Assert.AreEqual(9, m.MaxAttempts);
             Assert.AreEqual("Marshal Mittens", m.OpponentName);
-            Assert.AreEqual("blackpaw", m.OpponentCharacter);
+            Assert.AreEqual("pawtruth", m.OpponentCharacter, "the legacy server id blackpaw is normalised (review pass 2)");
             Assert.AreEqual(1200, m.OpponentMmr);
             Assert.IsTrue(m.OpponentIsHouse);
             Assert.AreEqual(4, m.OpponentAttempts.Length);

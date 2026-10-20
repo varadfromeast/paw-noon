@@ -55,7 +55,8 @@ namespace PawNoon.Runtime.Shop
             locker = new GunLocker(prefs);
             iap = new IapService(IapService.CreateStore(prefs, forceMockStore), locker, prefs,
                 () => online != null ? online.Api : null,
-                () => online != null && online.Api != null && online.Config != null && online.Config.IsConfigured && !online.Mock);
+                () => online != null && online.Api != null && online.Config != null && online.Config.IsConfigured && !online.Mock,
+                () => online != null && online.Auth != null ? online.Auth.UserId : null);
             var go = new GameObject("Shop");
             go.transform.SetParent(uiRoot, false);
             screen = go.AddComponent<ShopScreen>();
@@ -67,6 +68,8 @@ namespace PawNoon.Runtime.Shop
         /// <summary>Every frame: store timers and retries; the SHOP button follows the title's interactivity.</summary>
         public void Tick(float dt, bool titleInteractive)
         {
+            // verified guns belong to the signed-in account (string compare when unchanged, no allocation)
+            if (online != null && online.Auth != null) locker.SetAccount(online.Auth.UserId);
             iap.Tick(dt);
             button.SetVisible(titleInteractive && !IsOpen);
             if (IsOpen) Refresh();
@@ -163,6 +166,13 @@ namespace PawNoon.Runtime.Shop
         }
 
         public bool Equip(string gun) { return iap.Equip(gun); }
+
+        /// <summary>DELETE ACCOUNT (or a switch to another account): guns stay for solo, PvP verification is gone until RESTORE.</summary>
+        public void OnAccountGone()
+        {
+            locker.ForgetVerification();
+            Close();
+        }
 
         public void ResetGuns()
         {

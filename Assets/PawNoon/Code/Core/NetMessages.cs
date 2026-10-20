@@ -16,7 +16,8 @@ namespace PawNoon.Core
         public int YouMmr;
         public string RecordingId;
         public string OpponentName = "Stranger";
-        public string OpponentCharacter = "blackpaw";
+        /// <summary>Canonical persona id ("pawtruth" / "whiskers"); the legacy server id "blackpaw" is normalised.</summary>
+        public string OpponentCharacter = CharacterRoster.Pawtruth;
         public string OpponentGun = "standard";
         public int OpponentMmr;
         public bool OpponentIsHouse;
@@ -48,7 +49,7 @@ namespace PawNoon.Core
             if (opp == null) { error = "missing opponent"; return null; }
             m.RecordingId = PnJson.Str(opp, "recordingId", null);
             m.OpponentName = PnJson.Str(opp, "displayName", "Stranger");
-            m.OpponentCharacter = PnJson.Str(opp, "character", "blackpaw");
+            m.OpponentCharacter = CharacterRoster.Normalize(PnJson.Str(opp, "character", CharacterRoster.Pawtruth));
             m.OpponentGun = PnJson.Str(PnJson.Obj(opp, "loadout"), "gun", "standard");
             m.OpponentMmr = PnJson.Int(opp, "mmr", 0);
             m.OpponentIsHouse = PnJson.Bool(opp, "isHouse", false);

@@ -38,12 +38,16 @@ namespace PawNoon.Runtime.Shop
     /// <summary>
     /// The player's guns: what is owned, what is equipped, and the purchase state machine of each paid gun.
     /// Engine-free (tested in PawNoon.Tests.Runtime). Persisted under <c>pn_owned_items</c>,
-    /// <c>pn_owned_verified</c> and <c>pn_equipped_gun</c>.
+    /// <c>pn_owned_verified</c>, <c>pn_owned_verified_for</c> and <c>pn_equipped_gun</c>.
     ///
     /// Ownership comes from the server (purchase-validate's profile) whenever the game is online: the server's
     /// list replaces the local one, so a refund takes the gun away. "Verified" marks guns the server confirmed;
     /// only those are ever put into a PvP recording (match-submit rejects an unowned loadout). A gun granted
     /// without the server (editor mock store, a build without a backend) works in solo only.
+    /// Verification belongs to the account that got it (review pass 2): <see cref="SetAccount"/> follows the signed-in
+    /// user, and after a delete, a switch to another account or a new guest the guns stay owned for solo but are no
+    /// longer verified, so a PvP recording never carries a gun the new account does not own (match-submit would
+    /// reject it as loadout_not_owned, which counts towards the cheat flag). RESTORE verifies them again.
     ///
     /// Transitions: Locked -BeginPurchase-> Buying -StoreSucceeded-> Verifying -Granted-> Owned;
     /// Buying -PurchaseCancelled-> Locked; Verifying -Rejected-> Locked; Verifying stays Verifying on a
@@ -54,6 +58,7 @@ namespace PawNoon.Runtime.Shop
         public const string KeyOwned = "pn_owned_items";
         public const string KeyVerified = "pn_owned_verified";
         public const string KeyEquipped = "pn_equipped_gun";
+        public const string KeyVerifiedFor = "pn_owned_verified_for";
 
         private static readonly string[] PaidGuns = { Guns.Peacemaker };
 
@@ -62,6 +67,8 @@ namespace PawNoon.Runtime.Shop
         private readonly HashSet<string> verified = new HashSet<string>();
         private readonly Dictionary<string, GunState> states = new Dictionary<string, GunState>();
         private string equipped = Guns.Standard;
+        private string account = "";       // the signed-in user (SetAccount), "" = none / unknown
+        private string verifiedFor = "";   // the user the verified set belongs to
 
         /// <summary>Bumps on every change (screens refresh when it moves).</summary>
         public int Version { get; private set; }
@@ -84,7 +91,36 @@ namespace PawNoon.Runtime.Shop
         public bool IsVerified(string gun)
         {
             string g = Guns.Normalize(gun);
-            return g == Guns.Standard || verified.Contains(g);
+            return g == Guns.Standard || (verified.Contains(g) && verifiedFor == account);
+        }
+
+        /// <summary>The account verification currently applies to ("" before any server confirmed a gun).</summary>
+        public string VerifiedFor { get { return verifiedFor; } }
+
+        /// <summary>
+        /// The signed-in user id (ShopDirector, every frame; cheap when unchanged). Verified guns only count for the account
+        /// that verified them. Installs from before review pass 2 have no owner recorded: the first account seen adopts them.
+        /// </summary>
+        public void SetAccount(string userId)
+        {
+            string a = userId ?? "";
+            if (a == account) return;
+            account = a;
+            if (a.Length > 0 && verifiedFor.Length == 0 && verified.Count > 0)
+            {
+                verifiedFor = a;
+                Save();
+            }
+            else Version++;
+        }
+
+        /// <summary>The account was deleted (or left): guns stay owned for solo, nothing is verified until RESTORE.</summary>
+        public void ForgetVerification()
+        {
+            if (verified.Count == 0 && verifiedFor.Length == 0) return;
+            verified.Clear();
+            verifiedFor = "";
+            Save();
         }
 
         public GunState StateOf(string gun)
@@ -136,7 +172,7 @@ namespace PawNoon.Runtime.Shop
             string g = Guns.Normalize(gun);
             if (g == Guns.Standard) return;
             owned.Add(g);
-            if (serverVerified) verified.Add(g);
+            if (serverVerified) AdoptVerified().Add(g);
             SetState(g, GunState.Owned);
             if (equip) equipped = g;
             Save();
@@ -156,6 +192,7 @@ namespace PawNoon.Runtime.Shop
         public void ApplyServerProfile(IList<string> ownedItems, string equippedGun)
         {
             if (ownedItems == null) return;
+            AdoptVerified();   // the answer is about the signed-in account
             var server = new HashSet<string>();
             for (int i = 0; i < ownedItems.Count; i++)
             {
@@ -199,12 +236,24 @@ namespace PawNoon.Runtime.Shop
         {
             owned.Clear();
             verified.Clear();
+            verifiedFor = "";
             states.Clear();
             equipped = Guns.Standard;
             Save();
         }
 
         // ------------------------------------------------------------------ persistence
+
+        /// <summary>A server answer for the current account: verification switches to it (another account's is dropped).</summary>
+        private HashSet<string> AdoptVerified()
+        {
+            if (verifiedFor != account)
+            {
+                verified.Clear();
+                verifiedFor = account;
+            }
+            return verified;
+        }
 
         private void SetState(string g, GunState s)
         {
@@ -219,6 +268,7 @@ namespace PawNoon.Runtime.Shop
             Split(store.Get(KeyOwned, ""), owned);
             Split(store.Get(KeyVerified, ""), verified);
             verified.IntersectWith(owned);
+            verifiedFor = store.Get(KeyVerifiedFor, "") ?? "";
             foreach (var g in owned) states[g] = GunState.Owned;
             string e = Guns.Normalize(store.Get(KeyEquipped, Guns.Standard));
             equipped = Owns(e) ? e : Guns.Standard;
@@ -228,6 +278,7 @@ namespace PawNoon.Runtime.Shop
         {
             store.Set(KeyOwned, Join(owned));
             store.Set(KeyVerified, Join(verified));
+            store.Set(KeyVerifiedFor, verifiedFor);
             store.Set(KeyEquipped, equipped);
             store.Save();
             Version++;
@@ -319,6 +370,8 @@ namespace PawNoon.Runtime.Shop
                 case "bad_receipt":
                 case "unknown_product":
                 case "bad_request":
+                case "account_mismatch":   // review pass 2: bought for another account, no device proof
+                case "owned_elsewhere":
                     return true;
                 default:
                     return false;
