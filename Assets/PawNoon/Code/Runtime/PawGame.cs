@@ -23,6 +23,8 @@ namespace PawNoon.Runtime
         public SwipeDraw Input { get; private set; }
         public PawAudio Audio { get; private set; }
         public StreetScene Street { get; private set; }
+        /// <summary>Character personas (Resources/Data/characters.json, SPEC_V2 §2 / §8.2).</summary>
+        public CharacterRoster Roster { get; private set; }
 
         private PixelParticles particles;
         private DuelHud hud;
@@ -179,6 +181,12 @@ namespace PawNoon.Runtime
             Director = new DuelDirector(Config, Layout, Clock, authority, player, bot, Input, hero, bandit, particles, cues, hud,
                 resultPanel, Audio, Pipeline, seed);
             Director.MatchFinished = OnMatchFinished;
+            // opponent persona: solo is always Whiskers (you) vs Pawtruth until character select (M2) lands
+            var charTa = Resources.Load<TextAsset>("Data/characters");
+            if (charTa == null) ArtLib.Warn("chars", "Missing Resources/Data/characters.json -> built-in personas");
+            Roster = CharacterRoster.Load(charTa != null ? charTa.text : null, Config);
+            Director.SetOpponent(Roster.Get(CharacterRoster.OpponentOf(CharacterRoster.Whiskers)));
+            Director.Intro.SetShadow(banditShadow, Layout.BanditFeet);
 
             Audio.StartAmbience();
             ApplySettings();
@@ -255,6 +263,7 @@ namespace PawNoon.Runtime
             Audio.SfxOn = PawSettings.Sfx;
             Audio.SetMusicStyle(PawSettings.ClassicMusic);
             PawHaptics.Enabled = PawSettings.Haptics;
+            PawHaptics.ReducedMotion = PawSettings.ReducedMotion;
             Pipeline.ReducedMotion = PawSettings.ReducedMotion;
             Street.SetReducedMotion(PawSettings.ReducedMotion);
             cues.SetReducedMotion(PawSettings.ReducedMotion);

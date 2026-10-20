@@ -62,7 +62,7 @@ namespace PawNoon.Runtime
         private bool firstMatch = true;
         private bool reducedMotion;
 
-        // Blackpaw's hold acting (feints / late tell): presentation only, never touches timing
+        // the bot's hold acting (feints / late tell): presentation only, never touches timing
         private readonly BotActing acting;
         private readonly SheetDef tellSheet;
         private int actingRoundId = -1;
@@ -89,8 +89,8 @@ namespace PawNoon.Runtime
         private float desatT = -1f;
         private bool desatOn;
 
-        // Blackpaw talks (presentation only)
-        /// <summary>Tail tip: just left of Blackpaw's muzzle, in bandit cell px (cell 117x120, pivot at the feet).</summary>
+        // the opponent talks (presentation only)
+        /// <summary>Tail tip: just left of the opponent's muzzle, in bandit cell px (cell 117x120, pivot at the feet).</summary>
         private static readonly Vector2Int BanterMouthCell = new Vector2Int(46, 33);
         private SpeechBubble bubble;
         private SpriteCatalog uiCatalog;
@@ -98,6 +98,12 @@ namespace PawNoon.Runtime
         private string banterLine;
         private float banterAt = -1f;
         private bool prevHeroEarly;
+
+        // SPEC_V2 §8.2 / §8.6 / §8.7 (presentation only): opponent persona, stamp haptics, match intro
+        private CharacterProfile opponent;
+        private string foulMessage = "PAWTRUTH JUMPED THE GUN!";
+        private int[] stampHaptic;
+        private readonly MatchIntro intro;
 
         public DuelDirector(DuelConfig cfg, GameLayout layout, IDuelClock clock, LocalAuthority authority, DuelClient player, BotClient bot,
             SwipeDraw input, DuelActor hero, DuelActor bandit, PixelParticles fx, DuelCues cues, DuelHud hud, ResultPanel panel,
@@ -123,6 +129,7 @@ namespace PawNoon.Runtime
             tellSheet = bandit.LoadOptionalAnim("bandit", "bandit", "tell");
             baseVignette = pipe.Vignette;
             banter = new BanterPicker(seed ^ 0x6C8E9CF5);
+            intro = new MatchIntro(hero, bandit, hud, cues, audio, pipe);
             hero.OnFire = HeroFired;
             cues.OnHeartBeat = HoldHeartBeat;
             bandit.OnFire = BanditFired;
@@ -136,7 +143,7 @@ namespace PawNoon.Runtime
             if (bubble != null) bubble.SetReducedMotion(on);
         }
 
-        /// <summary>Blackpaw's speech bubble (created on first use under the cues' UI root unless one is supplied).</summary>
+        /// <summary>The opponent's speech bubble (created on first use under the cues' UI root unless one is supplied).</summary>
         public SpeechBubble Bubble { get { return EnsureBubble(); } }
 
         /// <summary>Optional: supply a bubble built with the game's shared UiKit (else the director builds its own).</summary>
@@ -148,6 +155,22 @@ namespace PawNoon.Runtime
         }
 
         public void SetSeed(int s) { seed = s; }
+
+        /// <summary>The first-match-of-session intro (SPEC_V2 §8.7).</summary>
+        public MatchIntro Intro { get { return intro; } }
+
+        /// <summary>Persona of the cat across the street (name plate, result card, banter, meow). Null = config fallback.</summary>
+        public CharacterProfile Opponent { get { return opponent; } }
+
+        public void SetOpponent(CharacterProfile p)
+        {
+            opponent = p;
+            foulMessage = OpponentName + " JUMPED THE GUN!";
+            if (hud != null) hud.SetName(1, OpponentName);
+        }
+
+        private string OpponentName { get { return opponent != null && !string.IsNullOrEmpty(opponent.name) ? opponent.name : cfg.botName; } }
+        private BanterLines OpponentLines { get { return opponent != null && opponent.lines != null ? opponent.lines : cfg.blackpawLines; } }
 
         public int Seed { get { return seed; } }
 
@@ -197,6 +220,7 @@ namespace PawNoon.Runtime
             bandit.ResetPose();
             hud.ShowHolster(true);
             BeginStandoff(1.4f, BanterContext.MatchStart);
+            if (MatchIntro.ShouldPlay(cfg.introEnabled, autoTapNs >= 0)) intro.Begin(reducedMotion, firstMatch);
             audio.PlayMusic(PawAudio.Track.DuelBed);   // composed standoff bed (falls back to music_standoff)
             audio.DuelAmbience(1f);
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
@@ -205,6 +229,7 @@ namespace PawNoon.Runtime
         public void Stop()
         {
             State = Pres.Off;
+            intro.Cancel();
             pipe.SetTension(0f);
             hud.ShowHolster(false);
             audio.DuelAmbience(0f);
@@ -279,7 +304,7 @@ namespace PawNoon.Runtime
             banterAt = -1f;
             if (!dead[1] && talk != BanterContext.None)
             {
-                banterLine = banter.Pick(cfg.blackpawLines, talk, cfg.banterChance);
+                banterLine = banter.Pick(OpponentLines, talk, cfg.banterChance);
                 if (banterLine != null)
                 {
                     // the line lands ~1.2 s before "3": stretch a short standoff so it fits
@@ -335,6 +360,7 @@ namespace PawNoon.Runtime
             b.MinY = HudBottom();
             var p = bandit.CanvasFromCell(BanterMouthCell);
             b.Show(line, new Vector2Int(Mathf.RoundToInt(p.x), Mathf.RoundToInt(p.y)), false, seconds);
+            if (opponent != null) audio.PlayMeow(opponent.meow);   // his "meow signature" (SPEC_V2 §8.2)
         }
 
         private void HideBubble()
@@ -358,6 +384,7 @@ namespace PawNoon.Runtime
 
         public void Tick(long frameStartNs)
         {
+            PawHaptics.Tick(PawTime.UnscaledDt);   // timed haptic patterns (stamp language)
             if (State == Pres.Off || State == Pres.Review)
             {
                 input.Clear();
@@ -375,6 +402,7 @@ namespace PawNoon.Runtime
             switch (State)
             {
                 case Pres.Standoff:
+                    if (intro.Tick(PawTime.UnscaledDt)) break;   // match intro holds the standoff
                     stateTimer -= PawTime.UnscaledDt;
                     if (banterLine != null && stateTimer <= banterAt)
                     {
@@ -519,7 +547,7 @@ namespace PawNoon.Runtime
             audio.Duck(0.5f);
             audio.Heartbeat(0f);   // the heart monitor fires each beat itself (HoldHeartBeat): faster, more erratic
             // the street holds its breath: clouds, props, motes, shimmer ease to a stop; both cats freeze
-            // their idle breathing (TickPresentation); only the push-in, the heartbeat and Blackpaw's acting move
+            // their idle breathing (TickPresentation); only the push-in, the heartbeat and the bot's acting move
             PawTime.HoldAmbient((float)cfg.holdAmbientScale, 0.6f);
             sweatT = Random.value < (float)cfg.holdSweatChance ? Random.Range(0.5f, 1.4f) : -1f;
         }
@@ -560,7 +588,7 @@ namespace PawNoon.Runtime
             cues.SetTimer(0, false);
         }
 
-        // ------------------------------------------------------------------ Blackpaw's acting (presentation only)
+        // ------------------------------------------------------------------ the bot's acting (presentation only)
 
         private void TickActing(long frameStartNs)
         {
@@ -822,7 +850,7 @@ namespace PawNoon.Runtime
                             bandit.Play("foul");
                             restAnim[1] = "ready";
                             audio.Play("sfx_misfire", 0.8f);
-                            cues.ShowMessage("BLACKPAW JUMPED THE GUN!", 1.6f);
+                            cues.ShowMessage(foulMessage, 1.6f);
                         }
                         else PresentHeroFoul();
                         break;
@@ -999,7 +1027,7 @@ namespace PawNoon.Runtime
             var s1 = r.slots[1];
             var v = new RoundView();
             v.youName = "YOU";
-            v.botName = cfg.botName;
+            v.botName = OpponentName;
             audio.Sting("music_duel_result", 0.7f);
             v.youFoul = s0.IsFoul;
             v.youNoShot = s0.outcome == SlotOutcome.NoShot;
@@ -1010,6 +1038,7 @@ namespace PawNoon.Runtime
             v.dealt = s0.damageDealt;
             v.taken = s1.damageDealt;
             v.frameQuantized = s0.hasReport && s0.report.frameQuantized;
+            stampHaptic = StampHaptics.For(v.youFoul, v.youNoShot, v.grade);
             if (s0.outcome == SlotOutcome.Shot) PawSettings.SubmitBest(s0.reactionNs);
 
             cues.HideDraw();
@@ -1066,7 +1095,10 @@ namespace PawNoon.Runtime
             audio.Play("sfx_stamp");
             if (!string.IsNullOrEmpty(panel.StampSound)) audio.Play(panel.StampSound);
             pipe.AddShake(1f);
-            PawHaptics.Impact(1);
+            // haptic language (SPEC_V2 §8.6): LIGHTNING triple, PERFECT double, GREAT medium, GOOD/SLOW light,
+            // TOO EARLY error, NO SHOT warning
+            if (stampHaptic != null) PawHaptics.Pattern(stampHaptic);
+            else PawHaptics.Impact(1);
         }
 
         private float finishTimer;
@@ -1086,7 +1118,7 @@ namespace PawNoon.Runtime
             }
             audio.Play(won ? "sfx_holster" : "sfx_spurs", 0.8f);
             if (m.Winner == 1)
-                Say(banter.Pick(cfg.blackpawLines, BanterContext.MatchWin, 1.0), (float)cfg.banterMatchEndSeconds);
+                Say(banter.Pick(OpponentLines, BanterContext.MatchWin, 1.0), (float)cfg.banterMatchEndSeconds);
         }
 
         /// <summary>Called by the game each frame while State == MatchEnd (unscaled).</summary>
@@ -1120,6 +1152,7 @@ namespace PawNoon.Runtime
         public void EnterReview()
         {
             State = Pres.Review;
+            intro.Cancel();
             pipe.SetTension(0f);
             PawTime.ClearEffects();
             pipe.Zoom = 1f;
@@ -1195,11 +1228,12 @@ namespace PawNoon.Runtime
             cues.SetTimer(you, true);
             var v = new RoundView();
             v.youName = "YOU";
-            v.botName = cfg.botName;
+            v.botName = OpponentName;
             v.youNs = you;
             v.botNs = botNs;
             v.grade = Grading.FromMs(cfg, DuelConfig.NsToMs(you));
             v.dealt = dealt;
+            stampHaptic = StampHaptics.For(false, false, v.grade);
             panel.Show(v);
             panel.ShowStampNow();
         }
