@@ -25,7 +25,6 @@ namespace PawNoon.Runtime.Net
         private bool showDots;
         private int dotIndex = -1;
         private float dotT;
-        private RectInt rect;
 
         protected override void Build()
         {
@@ -73,8 +72,7 @@ namespace PawNoon.Runtime.Net
             // thumb zone like the EASY / HARD card, never up over the logo (upper third)
             int y = Mathf.Max(layout.Logo.y + 64, safe.yMax - 12 - h);
             if (y + h > safe.yMax - 4) y = Mathf.Max(safe.y + 4, safe.yMax - 4 - h);
-            rect = new RectInt(x, y, w, h);
-            UiKit.SetRect(panel, kit.Ui.Get("panel_wood"), rect);
+            UiKit.SetRect(panel, kit.Ui.Get("panel_wood"), new RectInt(x, y, w, h));
             int cx = x + w / 2;
             int cy = y + 12;
             title.At(cx, cy);
