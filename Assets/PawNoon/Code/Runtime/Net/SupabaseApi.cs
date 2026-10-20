@@ -154,14 +154,14 @@ namespace PawNoon.Runtime.Net
     {
         public const int MaxItems = 20;
 
-        public struct Item
+        public struct Entry
         {
             public string matchId;
             public string body;
             public string queuedAt;
         }
 
-        private readonly List<Item> items = new List<Item>(4);
+        private readonly List<Entry> items = new List<Entry>(4);
         private readonly string path;
 
         public SubmitQueue(string path)
@@ -171,14 +171,14 @@ namespace PawNoon.Runtime.Net
         }
 
         public int Count { get { return items.Count; } }
-        public Item this[int i] { get { return items[i]; } }
+        public Entry this[int i] { get { return items[i]; } }
 
         public void Add(string matchId, string body)
         {
             for (int i = 0; i < items.Count; i++)
                 if (items[i].matchId == matchId) { items.RemoveAt(i); break; }
             if (items.Count >= MaxItems) items.RemoveAt(0);
-            items.Add(new Item { matchId = matchId, body = body, queuedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) });
+            items.Add(new Entry { matchId = matchId, body = body, queuedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) });
             Save();
         }
 
@@ -199,7 +199,7 @@ namespace PawNoon.Runtime.Net
                 if (arr == null) return;
                 for (int i = 0; i < arr.Count; i++)
                 {
-                    var it = new Item
+                    var it = new Entry
                     {
                         matchId = PnJson.Str(arr[i], "matchId", null),
                         body = PnJson.Str(arr[i], "body", null),
