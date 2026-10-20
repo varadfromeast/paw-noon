@@ -8,6 +8,6 @@ A pixel-art cat high-noon reflex duel for iOS and Android, built in Unity 6.
 - Main scene: `Assets/PawNoon/Scenes/Main.unity`.
 - Build menu: **Paw Noon** in the Unity menu bar.
 
-➡️ **Teammates and AI agents: start with [`TEAMMATE_SETUP.md`](TEAMMATE_SETUP.md).** It has step-by-step instructions to open, run, modify and build for Android.
+➡️ **Teammates and AI agents: start with [`TEAMMATE_SETUP.md`](TEAMMATE_SETUP.md).** The roadmap (difficulty, characters, online PvP, accounts, payments) is [`Docs/SPEC_V2.md`](Docs/SPEC_V2.md). It has step-by-step instructions to open, run, modify and build for Android.
 
 Other docs are in `Docs/` (`ARCHITECTURE.md`, `TIMING.md`, `DECISIONS.md`, `TASTE_REVIEW.md`). Ignore the older `HANDOVER.md`: it describes a previous prototype.
