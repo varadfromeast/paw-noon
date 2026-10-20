@@ -26,3 +26,19 @@ The goal for M5 is to make cheating **expensive and statistically visible**. Eve
 12. **Account age and linking for ranked** (already in §4.3) plus App Attest / Play Integrity tokens on `match-start` in M6. That's the only defence against a fully modified client that fakes samples well.
 
 Thresholds belong in `server_config.ts` (not `duel_config.json`, since the client must not see them). Log every trip with the attempt data so the thresholds can be tuned against real distributions after launch.
+
+## Status (M5, implemented)
+
+| Check | Where | Effect |
+|---|---|---|
+| A1 wall clock | `validate_recording.ts` `checkWallClock` | reject `wall_clock` (counts towards the flag) |
+| A2 ranked input source | `validateAndScore` (ranked) | reject `input_source` |
+| A3 raw samples | `checkSamples` (ranked, whenever samples are present; mandatory with `PN_REQUIRE_SAMPLES=true`) | reject `samples` |
+| A4 margin vs ghost | `plausibility.ts` `matchSignals`: >= 2 won rounds by < 20 ms and >= 66 % of won rounds | hold the recording, best not on the board |
+| B5 too fast, B6 too steady, B7 anticipation hug, B9 margin ratio | `rollStats` over the last 60 shots (`account_stats`), per submit, not nightly | shadow flag + hold |
+| B8 foreperiod | `rollStats` (>= 40 shots) | logged every 10th match only |
+| C10 quarantine | `recordings.quarantine_left` = 2, minus one per further clean match | not served to strangers until 0 |
+| C11 shadow | `profiles.shadow`; `pn_pick_opponent` / `pn_leaderboard` | separate pool, off the public boards, never told |
+| C12 attest | M6 | - |
+
+Every trip is a `plausibility_log` row with its numbers. Thresholds: `PLAUSIBILITY` in `server_config.ts`.

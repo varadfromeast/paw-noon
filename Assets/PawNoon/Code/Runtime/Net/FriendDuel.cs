@@ -291,6 +291,7 @@ namespace PawNoon.Runtime.Net
                 case "waiting":
                     entry.Set("HOWL");
                     code = entry.Code;
+                    mockPolls = 0;
                     state = State.Joining;
                     Apply(NetMock.JoinRoom(code, false));
                     break;
