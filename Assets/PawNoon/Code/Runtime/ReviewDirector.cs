@@ -11,7 +11,7 @@ namespace PawNoon.Runtime
     {
         public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight",
             "bounty", "profile", "account", "keypad", "delete", "switch",
-            "pvp", "friend", "room", "join", "waiting", "leaderboard", "fastest", "shop" };
+            "pvp", "friend", "room", "join", "waiting", "leaderboard", "fastest", "shop", "haptics" };
 
         private static PawGame Game()
         {
@@ -21,12 +21,15 @@ namespace PawNoon.Runtime
         private static string NotRunning() { return "error: game not running (enter Play mode)"; }
 
         /// <summary>Forces a deterministic still: title, countdown2, draw, roundresult, win, lose, settings, foul,
-        /// difficulty (title with the first-launch EASY / HARD card; the stored pick is kept).</summary>
+        /// difficulty (title with the first-launch EASY / HARD card; the stored pick is kept), haptics (the haptics
+        /// lab: every haptic as a button, see Docs/HAPTICS.md).</summary>
         public static string Show(string state)
         {
             var g = Game();
             if (g == null) return NotRunning();
             string s = (state ?? "").Trim().ToLowerInvariant();
+            if (s == "haptics" || s == "haptic" || s == "hapticslab") return HapticsLab.Open();
+            HapticsLab.Close();
             try
             {
                 switch (s)
@@ -110,6 +113,25 @@ namespace PawNoon.Runtime
                 return "error: " + e.GetType().Name + ": " + e.Message;
             }
             return "ok: showing " + s;
+        }
+
+        /// <summary>
+        /// Plays one haptic of the lab by name (e.g. "drawcue", "heart70", "lightning", "shothit"; "list" names them all).
+        /// On a device it is felt; in the editor it is logged ([Haptics] ...). Returns the backend in use.
+        /// </summary>
+        public static string Haptic(string name)
+        {
+            if (Game() == null) return NotRunning();
+            string s = (name ?? "").Trim();
+            if (s == "" || s.ToLowerInvariant() == "list") return "ok: " + HapticsLab.Names() + " backend=" + PawHaptics.Backend;
+            try
+            {
+                return HapticsLab.Play(s);
+            }
+            catch (System.Exception e)
+            {
+                return "error: " + e.GetType().Name + ": " + e.Message;
+            }
         }
 
         /// <summary>
@@ -242,6 +264,7 @@ namespace PawNoon.Runtime
                    " fps=" + UnityEngine.Application.targetFrameRate + " virtual=" + g.Pipeline.VirtualW + "x" + g.Pipeline.VirtualH +
                    " preciseInput=" + g.Input.HasPreciseTimestamps +
                    " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
+                   " haptics=" + (PawHaptics.Enabled ? "on" : "off") + (HapticsLab.IsOpen ? "(lab)" : "") +
                    " opponent=" + (g.Director.Persona != null ? g.Director.Persona.id : "cfg") +
                    " " + (g.Online != null ? g.Online.Status() : "online=none") +
                    " " + (g.Accounts != null ? g.Accounts.Status() : "account=none") +

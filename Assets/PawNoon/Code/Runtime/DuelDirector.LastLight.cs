@@ -83,7 +83,7 @@ namespace PawNoon.Runtime
             {
                 audio.Play("sfx_heartbeat", Mathf.Min(1f, g), 0.92f);
                 audio.Play("sfx_tick_sub", 0.6f);   // low thump under it (silent if missing)
-                PawHaptics.Impact(2);
+                HapticMoments.LastLightSpike();
                 if (!reducedMotion)
                 {
                     beatThump = (float)cfg.beatVignette * 1.6f;

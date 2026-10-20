@@ -211,7 +211,7 @@ namespace PawNoon.Runtime
             {
                 slammed[slot] = true;
                 audio.Play("sfx_stamp", slot == 0 ? 0.7f : 0.8f, slot == 0 ? 1.06f : 0.94f);
-                PawHaptics.Impact(0);
+                HapticMoments.NamePlate(slot);
                 if (!reduced) pipe.AddShake(1f);
             }
         }

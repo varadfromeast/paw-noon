@@ -6,7 +6,8 @@ Assets/PawNoon/
   Code/Runtime/   PawNoon.Runtime (Unity)                       bootstrap, rendering, presentation
   Code/Editor/    PawNoon.Editor                                project setup, import rules, menu
   Code/Tests/EditMode/                                          NUnit tests for Core
-  Plugins/iOS/PawHaptics.mm                                     UIFeedbackGenerator bridge
+  Plugins/iOS/PawHaptics.mm                                     Core Haptics bridge (UIKit fallback), Docs/HAPTICS.md
+  Plugins/Android/PawHapticsBridge.java                         Android vibrator bridge (primitives / waveforms)
   Resources/Shaders/  PixelUpscale.shader, SpriteFx.shader
   Resources/Data/duel_config.json                               every tunable + layout
 ```
