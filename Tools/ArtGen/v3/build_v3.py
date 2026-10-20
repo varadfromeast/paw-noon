@@ -99,9 +99,15 @@ def hero_frames():
     fr = {}
     for f, names, mult in jobs:
         a = np.asarray(Image.open(P(f)).convert('RGB')); m = clean(key_magenta(a))
-        cnt = m.sum(0); W = m.shape[1]; lo, hi = int(W * .35), int(W * .65); split = lo + int(np.argmin(cnt[lo:hi]))
-        for n, (x0, x1) in zip(names, [(0, split), (split, W)]):
-            fr[n] = resample(a[:, x0:x1], m[:, x0:x1].astype(np.float32), S * mult)
+        # the two poses can overlap in x (a long gun barrel over the other cat's tail): split by
+        # connected component, each component goes to the pose whose half holds its centroid
+        lab, n = ndimage.label(ndimage.binary_dilation(m, iterations=2))
+        W = m.shape[1]; cx = ndimage.center_of_mass(m, lab, range(1, n + 1))
+        left = np.isin(lab, [i + 1 for i, c in enumerate(cx) if c[1] < W / 2])
+        masks = [m & left, m & ~left]
+        for nme, mk in zip(names, masks):
+            ys, xs = np.where(mk); x0, x1 = xs.min(), xs.max() + 1
+            fr[nme] = resample(a[:, x0:x1], mk[:, x0:x1].astype(np.float32), S * mult)
     return shared_palette(fr)
 
 REG = {'bandit_ready': (812, 45, 1025, 322), 'bandit_draw': (1050, 45, 1290, 322), 'bandit_aim': (1300, 45, 1525, 322),
