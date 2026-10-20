@@ -28,6 +28,8 @@ namespace PawNoon.Runtime
         public CharacterRoster Roster { get; private set; }
         /// <summary>Online PvP flow (M4). Solo never depends on it.</summary>
         public OnlineDirector Online { get; private set; }
+        /// <summary>Accounts (M6): profile card, KEEP YOUR BOUNTY, Apple / Google link, delete.</summary>
+        public AccountDirector Accounts { get; private set; }
 
         private PixelParticles particles;
         private DuelHud hud;
@@ -197,6 +199,8 @@ namespace PawNoon.Runtime
             Director.SetStreet(Street);   // LAST LIGHT dawn crossfade
             Online = new OnlineDirector();
             Online.Init(this, kit, Layout, Pipeline, ui, title, matchScreen, transport);
+            Accounts = new AccountDirector();
+            Accounts.Init(this, kit, Layout, Pipeline, ui, Online);
 
             Audio.StartAmbience();
             ApplySettings();
@@ -306,6 +310,7 @@ namespace PawNoon.Runtime
             Director.Stop();
             EndPvp();
             if (Online != null) Online.OnTitle();
+            if (Accounts != null) Accounts.CloseAll();
             ApplyPendingConfig();
             hud.SetVisible(false);
             cues.HideAll();
@@ -387,6 +392,7 @@ namespace PawNoon.Runtime
             bool newBest = PawSettings.BestNs > 0 && (bestAtMatchStart < 0 || PawSettings.BestNs < bestAtMatchStart);
             matchScreen.Show(won, deadHeat, m.BestNs(0), m.AverageNs(0), PawSettings.BestNs, newBest);
             if (Online.InPvp) Online.OnMatchFinished(won, deadHeat);
+            else Accounts.OnSoloMatchFinished();
         }
 
         /// <summary>Review: show the match result screen with deterministic sample values.</summary>
@@ -437,10 +443,16 @@ namespace PawNoon.Runtime
             {
                 case Mode.Title:
                     Input.Clear();
-                    if (settings.IsOpen)
+                    if (Accounts.Tick())
+                    {
+                        title.Tick(false);   // an account card is up (over the title or over settings)
+                    }
+                    else if (settings.IsOpen)
                     {
                         title.Tick(false);
-                        if (settings.Tick() == UiAction.CloseSettings) settings.Close();
+                        var sa = settings.Tick();
+                        if (sa == UiAction.CloseSettings) settings.Close();
+                        else if (sa == UiAction.OpenAccount) Accounts.OpenAccount();
                     }
                     else if (Online.CardOpen)
                     {
@@ -454,6 +466,7 @@ namespace PawNoon.Runtime
                         else if (a == UiAction.Pvp) Online.BeginQuickDuel();
                         else if (a == UiAction.Friend) Online.FriendTapped();
                         else if (a == UiAction.OpenSettings) OpenSettings();
+                        else if (a == UiAction.OpenProfile) Accounts.OpenProfile();
                         else if (a == UiAction.ChooseEasy) SetDifficulty(DuelConfig.DifficultyEasy);
                         else if (a == UiAction.ChooseHard) SetDifficulty(DuelConfig.DifficultyHard);
                     }
@@ -464,7 +477,9 @@ namespace PawNoon.Runtime
                 case Mode.MatchResult:
                     Director.Tick(frameStart);
                     if (Online.InPvp) Online.TickResult();
+                    bool accountModal = Accounts.Tick();   // KEEP YOUR BOUNTY after the first solo match
                     var r = matchScreen.Tick();
+                    if (accountModal) r = UiAction.None;
                     if (r == UiAction.Rematch) { if (Online.InPvp) Online.Rematch(); else StartDuel(); }
                     else if (r == UiAction.Menu) ShowTitle();
                     break;

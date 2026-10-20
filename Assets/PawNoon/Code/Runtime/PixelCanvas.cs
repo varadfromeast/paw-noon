@@ -21,17 +21,16 @@ namespace PawNoon.Runtime
             Pixels = px;
         }
 
-        private static readonly Dictionary<int, PixelImage> cache = new Dictionary<int, PixelImage>(16);
+        private static readonly Dictionary<Texture2D, PixelImage> cache = new Dictionary<Texture2D, PixelImage>(16);
 
         /// <summary>Readable pixels of <paramref name="tex"/> (null when it cannot be read).</summary>
         public static PixelImage Of(Texture2D tex)
         {
             if (tex == null) return null;
             PixelImage img;
-            int id = tex.GetInstanceID();
-            if (cache.TryGetValue(id, out img)) return img;
+            if (cache.TryGetValue(tex, out img)) return img;
             img = Read(tex);
-            if (img != null) cache[id] = img;
+            if (img != null) cache[tex] = img;
             return img;
         }
 

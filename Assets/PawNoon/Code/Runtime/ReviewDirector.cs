@@ -9,7 +9,7 @@ namespace PawNoon.Runtime
     /// </summary>
     public static partial class ReviewDirector
     {
-        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight" };
+        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight", "bounty", "profile", "account", "keypad", "delete", "switch" };
 
         private static PawGame Game()
         {
@@ -68,6 +68,19 @@ namespace PawNoon.Runtime
                         g.EnterReviewDuel();
                         g.Director.ReviewLastLight();
                         break;
+                    // M6 accounts: KEEP YOUR BOUNTY over the title, the profile card, Settings > ACCOUNT, the name
+                    // keypad, the first delete confirm, the "account already used" switch prompt
+                    case "bounty":
+                    case "profile":
+                    case "account":
+                    case "keypad":
+                    case "delete":
+                    case "switch":
+                    {
+                        string r = g.Accounts.ShowForReview(s);
+                        if (r != "ok") return r;
+                        break;
+                    }
                     default:
                         return "error: unknown state '" + state + "' (use " + string.Join(", ", States) + ")";
                 }
@@ -210,7 +223,30 @@ namespace PawNoon.Runtime
                    " preciseInput=" + g.Input.HasPreciseTimestamps +
                    " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
                    " opponent=" + (g.Director.Persona != null ? g.Director.Persona.id : "cfg") +
-                   " " + (g.Online != null ? g.Online.Status() : "online=none");
+                   " " + (g.Online != null ? g.Online.Status() : "online=none") +
+                   " " + (g.Accounts != null ? g.Accounts.Status() : "account=none");
+        }
+
+        // ------------------------------------------------------------------ accounts (M6)
+
+        /// <summary>
+        /// Simulates the account side without Apple / Google / a server: "apple" | "google" = a successful link
+        /// (same user id; through the open sheet's UI if one is up), "taken" = the next link finds that account
+        /// already used (switch prompt), "cancel" | "fail" = the next native sheet is cancelled / fails, "reset" =
+        /// unlinked guest again and KEEP YOUR BOUNTY re-armed.
+        /// </summary>
+        public static string MockLink(string what)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            try
+            {
+                return g.Accounts.MockLink((what ?? "").Trim().ToLowerInvariant());
+            }
+            catch (System.Exception e)
+            {
+                return "error: " + e.GetType().Name + ": " + e.Message;
+            }
         }
 
         // ------------------------------------------------------------------ online PvP (M4)

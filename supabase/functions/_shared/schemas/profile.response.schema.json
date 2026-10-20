@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/profile.response.schema.json",
+  "title": "200 from profile-read and profile-update (M6)",
+  "type": "object",
+  "required": ["userId", "displayName", "character", "isGuest", "providers", "stats", "rating", "coins", "dailyStreak", "ownedItems", "nameRules"],
+  "properties": {
+    "userId": { "type": "string", "format": "uuid" },
+    "displayName": { "type": "string", "description": "player-chosen (3-14 of A-Z 0-9 space) or the generated guest name 'Stranger #1234'" },
+    "character": { "type": "string" },
+    "isGuest": { "type": "boolean", "description": "true until Apple or Google is linked" },
+    "providers": { "type": "array", "items": { "type": "string" }, "description": "linked identity providers, e.g. [\"apple\"]" },
+    "linkedAt": { "type": ["string", "null"], "format": "date-time" },
+    "stats": {
+      "type": "object",
+      "description": "server-validated PvP matches only (profiles counters written by match-submit)",
+      "required": ["matches", "wins", "winRate", "bestReactionNs", "lightning"],
+      "properties": {
+        "matches": { "type": "integer", "minimum": 0 },
+        "wins": { "type": "integer", "minimum": 0 },
+        "winRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bestReactionNs": { "type": ["integer", "null"] },
+        "lightning": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rating": {
+      "type": "object",
+      "description": "current ranked season (PN_SEASON); 1200 / 350 / 0 when unrated",
+      "required": ["season", "mmr", "rd", "matches"],
+      "properties": {
+        "season": { "type": "integer" },
+        "mmr": { "type": "integer" },
+        "rd": { "type": "integer" },
+        "matches": { "type": "integer" }
+      }
+    },
+    "coins": { "type": "integer", "minimum": 0 },
+    "dailyStreak": { "type": "integer", "minimum": 0 },
+    "ownedItems": { "type": "array", "items": { "type": "string" } },
+    "nameRules": {
+      "type": "object",
+      "properties": { "min": { "type": "integer" }, "max": { "type": "integer" }, "chars": { "type": "string" } }
+    }
+  }
+}

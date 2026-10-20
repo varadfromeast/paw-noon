@@ -21,6 +21,48 @@
    23
   ]
  },
+ "btn_black": {
+  "file": "btn_black",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   -1
+  ]
+ },
+ "btn_black_pressed": {
+  "file": "btn_black_pressed",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   1
+  ]
+ },
  "btn_icon": {
   "file": "btn_icon",
   "size": [
@@ -116,6 +158,48 @@
  },
  "btn_large_pressed": {
   "file": "btn_large_pressed",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   1
+  ]
+ },
+ "btn_white": {
+  "file": "btn_white",
+  "size": [
+   32,
+   32
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   8,
+   8,
+   11
+  ],
+  "contentOffset": [
+   0,
+   -1
+  ]
+ },
+ "btn_white_pressed": {
+  "file": "btn_white_pressed",
   "size": [
    32,
    32
@@ -379,6 +463,17 @@
    64
   ]
  },
+ "ico_apple": {
+  "file": "ico_apple",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
  "ico_back": {
   "file": "ico_back",
   "size": [
@@ -392,6 +487,17 @@
  },
  "ico_gear": {
   "file": "ico_gear",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_google": {
+  "file": "ico_google",
   "size": [
    12,
    12
@@ -458,6 +564,17 @@
  },
  "ico_music_on": {
   "file": "ico_music_on",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "ico_profile": {
+  "file": "ico_profile",
   "size": [
    12,
    12

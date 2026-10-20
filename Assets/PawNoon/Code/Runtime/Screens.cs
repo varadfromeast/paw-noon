@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace PawNoon.Runtime
 {
-    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend }
+    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend, OpenProfile, OpenAccount }
 
     /// <summary>Common base: a root object that can be shown/hidden, laid out against the pipeline rects.</summary>
     public abstract class ScreenBase : MonoBehaviour
@@ -111,6 +111,7 @@ namespace PawNoon.Runtime
         private SheetDef logoDef;
         private PixelButton play;
         private PixelButton gear;
+        private PixelButton profileBtn;   // M6: profile card (left of the gear)
         // online (M4): PVP under PLAY (same wood sign); FRIEND beside it only when net_config "friendDuel" is on
         private const int PvpH = 30;
         private PixelButton pvp;
@@ -154,6 +155,7 @@ namespace PawNoon.Runtime
             // wooden sign button; one sprite for both states, the label sinks 1 px when pressed
             play = new PixelButton(kit, transform, "panel_wood", "panel_wood", "PLAY", null, new RectInt(0, 0, 152, 36), 240);
             gear = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_gear", new RectInt(0, 0, 30, 30), 240);
+            profileBtn = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_profile", new RectInt(0, 0, 30, 30), 240);
             pvp = new PixelButton(kit, transform, "panel_wood", "panel_wood", "PVP", null, new RectInt(0, 0, 152, PvpH), 240);
             friend = new PixelButton(kit, transform, "panel_wood", "panel_wood", "FRIEND", null, new RectInt(0, 0, 56, PvpH), 240);
             best = LightText("Best", kit.Medium, 242, TextAlign.Center);
@@ -225,6 +227,7 @@ namespace PawNoon.Runtime
             best.At(cx, segY + SegH + 5);
             bountyTop = segY + SegH + 5 + kit.Medium.LineHeight + 3;
             gear.SetRect(new RectInt(safe.xMax - 4 - 30, safe.y + 2, 30, 30));
+            profileBtn.SetRect(new RectInt(safe.xMax - 4 - 30 - 4 - 30, safe.y + 2, 30, 30));
             RefreshDifficulty();
             LayoutChoice();
         }
@@ -298,6 +301,7 @@ namespace PawNoon.Runtime
             diffRoot.gameObject.SetActive(controls);
             best.Visible = controls;
             gear.SetVisible(controls);
+            profileBtn.SetVisible(controls);
         }
 
         /// <summary>Shows the FRIEND button (room codes, M5) beside PVP. Off unless net_config.json "friendDuel" is true.</summary>
@@ -341,6 +345,7 @@ namespace PawNoon.Runtime
             }
             if (onlineBusy) return UiAction.None;
             if (gear.Tick()) return UiAction.OpenSettings;
+            if (profileBtn.Tick()) return UiAction.OpenProfile;
             if (play.Tick()) return UiAction.Play;
             if (pvp.Tick()) return UiAction.Pvp;
             if (friend.Tick()) return UiAction.Friend;
@@ -388,6 +393,8 @@ namespace PawNoon.Runtime
         private BitmapText howTitle;
         private readonly BitmapText[] howLines = new BitmapText[4];
         private PixelButton back;
+        private PixelButton account;   // M6: Settings > ACCOUNT (link Apple / Google, delete account)
+        private const int AccountH = 26;
         private readonly BitmapText[] labels = new BitmapText[5];
         private readonly SpriteRenderer[] icons = new SpriteRenderer[5];
         private readonly SpriteRenderer[] toggles = new SpriteRenderer[5];
@@ -417,6 +424,7 @@ namespace PawNoon.Runtime
             title = InkText("Title", kit.Medium, O + 3, TextAlign.Center);
             title.SetText("SETTINGS");
             back = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_back", new RectInt(0, 0, 26, 26), O + 2);
+            account = new PixelButton(kit, transform, "btn_large_alt", "btn_large_alt_pressed", "ACCOUNT", null, new RectInt(0, 0, 140, AccountH), O + 2);
             for (int i = 0; i < 5; i++)
             {
                 labels[i] = InkText("L" + i, kit.Medium, O + 3, TextAlign.Left);
@@ -448,7 +456,7 @@ namespace PawNoon.Runtime
             dim.transform.position = Px.World(vis.x, vis.yMax);
             dim.transform.localScale = new Vector3(vis.width, vis.height, 1f);
             int w = Mathf.Min(232, vis.width - 16);
-            int h = RowsTop + 5 * RowH + 6 + 13 + HowTo.Length * 10 + 10;
+            int h = RowsTop + 5 * RowH + 6 + 13 + HowTo.Length * 10 + 10 + AccountH + 8;
             int x = CenterX - w / 2;
             var safe = pipe.Safe;
             int y = Mathf.Max(safe.y + 8, vis.y + (vis.height - h) / 2 - 10);
@@ -480,6 +488,7 @@ namespace PawNoon.Runtime
             int hy = y + RowsTop + 5 * RowH + 6;
             howTitle.At(x + 14, hy);
             for (int i = 0; i < howLines.Length; i++) howLines[i].At(x + 14, hy + 13 + i * 10);
+            account.SetRect(new RectInt(x + w / 2 - 70, hy + 13 + howLines.Length * 10 + 6, 140, AccountH));
             Refresh();
         }
 
@@ -652,6 +661,7 @@ namespace PawNoon.Runtime
                 if (kit.Audio != null) kit.Audio.Play("sfx_ui_back");
                 return UiAction.CloseSettings;
             }
+            if (account.Tick()) return UiAction.OpenAccount;
             if (!UiPointer.Down || UiPointer.Consumed) return UiAction.None;
             for (int i = 0; i < 5; i++)
             {

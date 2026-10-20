@@ -101,3 +101,9 @@ verify_jwt = true
 
 [functions.purchase-validate]
 verify_jwt = true
+
+[functions.profile-read]
+verify_jwt = true
+
+[functions.profile-update]
+verify_jwt = true
