@@ -333,7 +333,7 @@ namespace PawNoon.Runtime
             int py = pawY - Mathf.RoundToInt(ease * pawRise);
             if (show)
             {
-                ghostPaw.color = new Color(1f, 1f, 1f, 0.55f * Mathf.Clamp01(a));
+                ghostPaw.color = new Color(1f, 1f, 1f, 0.55f * Stepped(a));
                 PawGfx.Place(ghostPaw, pawX, py);
             }
             // dotted trail: one 2x2 dot every 6 px travelled
@@ -352,8 +352,17 @@ namespace PawNoon.Runtime
                 trailAge[i] += dt;
                 float k = 1f - trailAge[i] / 0.4f;
                 if (k <= 0f) { trailAge[i] = -1f; trail[i].enabled = false; continue; }
-                trail[i].color = new Color(Pal.Cream0.r / 255f, Pal.Cream0.g / 255f, Pal.Cream0.b / 255f, 0.8f * k);
+                trail[i].color = new Color(Pal.Cream0.r / 255f, Pal.Cream0.g / 255f, Pal.Cream0.b / 255f, 0.8f * Stepped(k));
             }
+        }
+
+        /// <summary>
+        /// Quantizes a 0..1 fade to 3 visible steps (1, 2/3, 1/3, then off): the swipe hint fades in hard
+        /// steps like the ECG trail instead of a smooth alpha ramp (house rule: no smooth alpha glows).
+        /// </summary>
+        private static float Stepped(float v)
+        {
+            return Mathf.Ceil(Mathf.Clamp01(v) * 3f - 0.001f) / 3f;
         }
 
         private void SpawnDot(int x, int y)

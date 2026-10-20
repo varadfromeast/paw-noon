@@ -139,7 +139,7 @@ namespace PawNoon.Runtime
             DisplayCam = dgo.AddComponent<Camera>();
             // exactly one AudioListener in the whole game: ours; any other (e.g. a stray scene camera) is disabled
             dgo.AddComponent<AudioListener>();
-            var listeners = FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+            var listeners = FindObjectsByType<AudioListener>();   // 6000.6: the FindObjectsSortMode overloads are obsolete
             for (int i = 0; i < listeners.Length; i++)
                 if (listeners[i] != null && listeners[i].gameObject != dgo) listeners[i].enabled = false;
             DisplayCam.orthographic = true;
