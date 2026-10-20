@@ -361,21 +361,21 @@
  "holster_zone": {
   "file": "holster_zone",
   "size": [
-   128,
-   40
+   192,
+   55
   ],
   "pivot": [
    32,
-   40
+   55
   ],
   "cell": [
    64,
-   40
+   55
   ],
-  "frames": 2,
+  "frames": 3,
   "fps": 0,
   "loop": false,
-  "note": "frame 0 idle, frame 1 grip glowing (thumb resting); select by state"
+  "note": "frame 0 idle, 1 grip glowing (thumb resting), 2 drawn (empty, dust); select by state"
  },
  "hp_fill": {
   "file": "hp_fill",
@@ -968,5 +968,35 @@
    0
   ],
   "note": "the shop price sign; fill at (1,1), drawn like font_medium sun1 + outline + shadow"
+ },
+ "holster_demo": {
+  "file": "holster_demo",
+  "size": [
+   320,
+   82
+  ],
+  "pivot": [
+   40,
+   82
+  ],
+  "cell": [
+   80,
+   82
+  ],
+  "frames": 4,
+  "fps": 0,
+  "loop": false,
+  "note": "swipe tutorial: paw grips, yanks, gun out; drawn OVER holster_zone frame 0 (same belt line)"
+ },
+ "hint_sign": {
+  "file": "hint_sign",
+  "size": [
+   88,
+   37
+  ],
+  "pivot": [
+   44,
+   0
+  ]
  }
 }

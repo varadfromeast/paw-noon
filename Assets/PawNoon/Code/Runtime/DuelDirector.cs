@@ -259,6 +259,7 @@ namespace PawNoon.Runtime
             State = Pres.Off;
             intro.Cancel();
             pipe.SetTension(0f);
+            hud.SetDrawn(false);
             hud.ShowHolster(false);
             audio.DuelAmbience(0f);
             cues.HideAll();
@@ -322,6 +323,7 @@ namespace PawNoon.Runtime
             cues.ShowGetReady(true);
             hud.SetRound(authority.Match.RoundNumber);
             PresentLastLightStandoff();
+            hud.SetDrawn(false);
             hud.ShowHint(firstMatch && authority.Match.RoundNumber == 1);   // the swipe tutorial: once, first turn
             hud.ShowHolster(true);
             input.Clear();
@@ -678,6 +680,7 @@ namespace PawNoon.Runtime
         {
             heroPredictedFire = true;
             audio.Play(heroDrawSfx, 0.9f);
+            hud.SetDrawn(true);   // holster shows empty (frame 2) until the next standoff
             hero.Play("draw_fire");
             restAnim[0] = "aim";
             var d = hero.Sheet("draw_fire");

@@ -57,6 +57,11 @@ namespace PawNoon.Runtime
         // swipe tutorial (sign + ghost paw)
         private SpriteRenderer signPanel, ghostPaw;
         private BitmapText signText;
+        // painted swipe tutorial (src_holster.png): the sign sprite and the 4-frame paw-yank overlay drawn over the holster
+        private SheetDef signDef, demoDef;
+        private SpriteRenderer signSprite, demo;
+        private int demoX, demoY;
+        private bool drawnShown;
         private SpriteRenderer[] trail;
         private float[] trailAge;
         private float signT, pawT, quietLeft, lastTrailY;
@@ -229,9 +234,12 @@ namespace PawNoon.Runtime
             signT = 0f;
             pawT = 0f;
             ghostGlow = false;
-            signPanel.enabled = on && holsterVisible;
-            signText.Visible = on && holsterVisible;
+            bool painted = signDef != null;
+            signPanel.enabled = on && holsterVisible && !painted;
+            signText.Visible = on && holsterVisible && !painted;
+            signSprite.enabled = on && holsterVisible && painted;
             ghostPaw.enabled = false;
+            demo.enabled = false;
             for (int i = 0; i < TrailN; i++) { trailAge[i] = -1f; trail[i].enabled = false; }
             ApplyHolsterFrame();
             PlaceSign();
@@ -243,6 +251,13 @@ namespace PawNoon.Runtime
             signText = kit.Text("SignText", transform, kit.Small, Order + 5, TextAlign.Center, "YANK IT UP!");
             signText.SetColors(Pal.Cream0, Pal.Ink, Pal.Ink);
             signText.Shadow = false;
+            signDef = kit.Ui.TryGet("hint_sign");
+            signSprite = PawGfx.NewSprite("HintSign", transform, Order + 5);
+            if (signDef != null) signSprite.sprite = signDef.Frames[0];
+            signSprite.enabled = false;
+            demoDef = kit.Ui.TryGet("holster_demo");
+            demo = PawGfx.NewSprite("HolsterDemo", transform, Order + 1);
+            demo.enabled = false;
             ghostPaw = PawGfx.NewSprite("GhostPaw", transform, Order + 6);
             ghostPaw.sprite = MakePawSprite();
             trail = new SpriteRenderer[TrailN];
@@ -301,7 +316,16 @@ namespace PawNoon.Runtime
         {
             if (holsterDef == null) return;
             bool glow = restingShown || ghostGlow;
-            hint.sprite = holsterDef.Frames[glow && holsterDef.Count > 1 ? 1 : 0];
+            int f = drawnShown && holsterDef.Count > 2 ? 2 : (glow && holsterDef.Count > 1 ? 1 : 0);
+            hint.sprite = holsterDef.Frames[f];
+        }
+
+        /// <summary>Holster empty (gun drawn this exchange) vs. holstered; frame 2 of holster_zone when the art has it.</summary>
+        public void SetDrawn(bool drawn)
+        {
+            if (drawn == drawnShown) return;
+            drawnShown = drawn;
+            ApplyHolsterFrame();
         }
 
         private void PlaceSign()
@@ -309,19 +333,41 @@ namespace PawNoon.Runtime
             int sw = 0;
             if (!reducedMotion && signT < 0.35f) sw = Swing[Mathf.Min(Swing.Length - 1, (int)(signT / 0.07f))];
             int x = signX + sw;
+            if (signDef != null) { PawGfx.Place(signSprite, x + SignW / 2 - signDef.Cell.x / 2 + signDef.Pivot.x, signY + signDef.Pivot.y); return; }
             UiKit.SetRect(signPanel, kit.Ui.Get("panel_wood"), new RectInt(x, signY, SignW, SignH));
             signText.At(x + SignW / 2, signY + Mathf.Max(0, (SignH - signText.Height) / 2));
         }
 
         private void TickDemo(float dt)
         {
-            if (!signPanel.enabled) return;
+            if (!signPanel.enabled && !signSprite.enabled) return;
             signT += dt;
             PlaceSign();
             if (quietOn)
             {
                 quietLeft -= dt;
                 if (quietLeft <= 0f) { quietOn = false; StartDemo(false); }
+                return;
+            }
+            if (demoDef != null && demoDef.Count >= 4)
+            {
+                // painted yank: grip 0.5 s (holster glows) -> 2 rising frames -> gun out with sparkle -> rest (2.2 s cycle).
+                // Drawn over the holster as a stepped ghost (never opaque): a suggestion, not a hand on the gun.
+                pawT += dt;
+                if (pawT >= 2.2f) pawT -= 2.2f;
+                float pt = pawT;
+                int frame = pt < 0.5f ? 0 : (pt < 0.65f ? 1 : (pt < 0.85f ? 2 : (pt < 1.15f ? 3 : -1)));
+                ghostGlow = pt < 0.5f;
+                ApplyHolsterFrame();
+                bool demoOn = frame >= 0 && !drawnShown;
+                demo.enabled = demoOn;
+                if (demoOn)
+                {
+                    float fa = pt < 0.12f ? pt / 0.12f : (pt < 0.95f ? 1f : 1f - (pt - 0.95f) / 0.2f);
+                    demo.sprite = demoDef.Frames[frame];
+                    demo.color = new Color(1f, 1f, 1f, 0.6f * Stepped(fa));   // a ghost of a hand, never a solid one
+                    PawGfx.Place(demo, demoX, demoY);
+                }
                 return;
             }
             // ghost paw cycle: rest 0.5 s -> rise 0.35 s -> fade 0.25 s -> pause (2.2 s total)
@@ -600,6 +646,7 @@ namespace PawNoon.Runtime
             int htop = hbottom - (holsterDef != null ? holsterDef.Cell.y : 40);
             int lh = kit.Small.LineHeight;
             if (holsterDef != null) PawGfx.Place(hint, hcx - holsterDef.Cell.x / 2 + holsterDef.Pivot.x, hbottom - holsterDef.Cell.y + holsterDef.Pivot.y);
+            if (demoDef != null) { demoX = hcx - demoDef.Cell.x / 2 + demoDef.Pivot.x; demoY = hbottom - demoDef.Cell.y + demoDef.Pivot.y; }
             // stack, top to bottom: swipe arrow, hint text, holster
             // sign sits above the paw's rise so the demo never crosses the text; everything centred on the holster
             int hh = holsterDef != null ? holsterDef.Cell.y : 40;
@@ -607,6 +654,8 @@ namespace PawNoon.Runtime
             pawY = htop + hh / 2 - 2;   // paw top-left while resting on the grip
             signX = hcx - SignW / 2;
             signY = Mathf.Max(safe.y + 2, pawY - pawRise - 4 - SignH);
+            if (demoDef != null && signDef != null)
+                signY = Mathf.Max(safe.y + 2, hbottom - demoDef.Cell.y - 2 - signDef.Cell.y);   // just above the yanked gun
             hint1.At(hcx, htop - 4 - (lh * 2 + 1));
             hint2.At(hcx, htop - 4 - lh);
             if (signPanel != null) PlaceSign();
