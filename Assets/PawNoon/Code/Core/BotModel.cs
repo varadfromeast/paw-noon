@@ -26,7 +26,7 @@ namespace PawNoon.Core
     }
 
     /// <summary>
-    /// "Blackpaw": an opponent that goes through exactly the same DuelClient / transport / report path
+    /// "Pawtruth": an opponent that goes through exactly the same DuelClient / transport / report path
     /// as a remote player. It never knows the cue time in advance: it reacts to the DrawCue it receives.
     /// Its only pre-cue action is a rare planned foul (jumping the gun), always due before the earliest
     /// possible cue. Feints and the late tell are presentation-only and live in <see cref="BotActing"/>.
@@ -117,7 +117,7 @@ namespace PawNoon.Core
     }
 
     /// <summary>
-    /// Blackpaw's body language during the hold: 0-2 feints and the occasional late tell.
+    /// Pawtruth's body language during the hold: 0-2 feints and the occasional late tell.
     /// PRESENTATION ONLY. It is planned by the local host from the authority's private schedule (the bot
     /// is local, so the host may stage it), and it never feeds into any reaction, report or rule: the bot's
     /// shot still comes only from the DrawCue it receives. Not used for remote opponents.

@@ -380,7 +380,7 @@ namespace PawNoon.Tests
         public void GapJustOverTieWindowIsOrdered()
         {
             auth.Match.Hp[0] = 5;
-            ShootPairUs(265001, 250000); // 15.001 ms: Blackpaw's faster shot kills, the slower one never fires
+            ShootPairUs(265001, 250000); // 15.001 ms: Pawtruth's faster shot kills, the slower one never fires
             Assert.IsFalse(auth.Round.isTie);
             Assert.AreEqual(SlotOutcome.Shot, auth.Round.slots[1].outcome);
             Assert.AreEqual(SlotOutcome.Stopped, auth.Round.slots[0].outcome);

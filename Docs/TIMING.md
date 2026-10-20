@@ -80,7 +80,7 @@ never fires) once the other side has reported, is settled, or can no longer clai
 (`elapsed since cue ≥ reaction + tieWindow + commitGraceMs`). For networked play `commitGraceMs` becomes the
 one-way latency bound.
 
-The bot ("Blackpaw") is a `BotClient` that uses exactly the same `DuelClient` / transport / report path. It
+The bot ("Pawtruth") is a `BotClient` that uses exactly the same `DuelClient` / transport / report path. It
 reacts to the cue it receives; it can't know the cue time.
 
 `ClockSync` (NTP 4-timestamp offset/RTT, keeps the lowest-RTT half, takes the median) is provided for later

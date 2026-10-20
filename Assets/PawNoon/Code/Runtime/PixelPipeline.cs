@@ -247,7 +247,7 @@ namespace PawNoon.Runtime
             winceLeft = 3f * Tick - 0.002f;
         }
 
-        /// <summary>Stepped, dithered radial brightness pop around a canvas point for 3 ticks (Blackpaw hit).</summary>
+        /// <summary>Stepped, dithered radial brightness pop around a canvas point for 3 ticks (Pawtruth hit).</summary>
         public void PopAt(Vector2 canvas, float radiusPx = 26f, float amount = 0.5f)
         {
             if (ReducedMotion || !HitFxEnabled) return;

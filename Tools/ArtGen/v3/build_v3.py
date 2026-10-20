@@ -1,5 +1,5 @@
 """Paw Noon v3 art pipeline: user-generated pixel art -> game assets (270x480 core in a 360x640 canvas).
-Inputs (this folder): src_plate.png, src_master.png (Blackpaw + portraits sheet), hr_*.png (hero, 2 poses each).
+Inputs (this folder): src_plate.png, src_master.png (Pawtruth + portraits sheet), hr_*.png (hero, 2 poses each).
 Run: python3 build_v3.py  (writes into Assets/PawNoon/Resources/Art/{Environment,Characters/*})"""
 import json, os
 import numpy as np
@@ -135,7 +135,7 @@ def portrait_cut(c, charcoal=False):
     c[..., 2] = np.where(sp, np.minimum(b, lim), b)
     c[..., 0] = np.where(sp, np.minimum(r, np.maximum(g + 30, lim)), r)
     if charcoal:
-        # Blackpaw's fur reads violet on the sheet: pull the dark, purple-leaning fur to warm charcoal
+        # Pawtruth's fur reads violet on the sheet: pull the dark, purple-leaning fur to warm charcoal
         # (eyes, bandana, ears and hat band are bright/saturated and stay as painted)
         r, g, b = c[..., 0], c[..., 1], c[..., 2]
         fur = (np.maximum(r, b) < 150) & (b > g + 4) & (r > g + 2)

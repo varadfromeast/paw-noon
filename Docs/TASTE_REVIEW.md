@@ -10,7 +10,7 @@ are the places where the image or the feel loses intensity, ranked by impact. Ea
 
 1. **The HUD and cues zoom and shake with the world, and the DRAW flash bleaches the DRAW word. HOOK (1 line in PawGame).**
    Everything, including HUD, badge, timer and stamps, lives in the one world RT, so:
-   (a) the hold push-in (`holdZoom` 1.035) scales the HUD up to 3.5 %: in `play_v4` frame 3 the YOU/BLACKPAW
+   (a) the hold push-in (`holdZoom` 1.035) scales the HUD up to 3.5 %: in `play_v4` frame 3 the YOU/PAWTRUTH
    labels are cut off at the top, which on a device puts them under the Dynamic Island;
    (b) the DRAW frame's white flash (1.0, then 0.45 fading over about 110 ms) washes over the
    DRAW word and the timer it is meant to announce: `play_v4` frame 4 is a milky frame with a white blob
@@ -28,10 +28,10 @@ are the places where the image or the feel loses intensity, ranked by impact. Ea
    visible steps, instead of a 110 ms smooth milk.
 3. **Hits are not felt on the victim's side of the frame. HOOK.**
    - Hero hit: `HeroHurt()` gives a 1-frame red flash at 25 % plus a 3-tick "wince" vignette in blood-ink at the edges.
-   - Blackpaw hit: `PopAt(canvasPoint)` gives a 3-tick radial brightness pop locked to the content pixels
+   - Pawtruth hit: `PopAt(canvasPoint)` gives a 3-tick radial brightness pop locked to the content pixels
      around him. It is Bayer-dithered and stepped, like the painted sun halo in the reference.
 4. **The camera has no point of view. HOOK.** The hold push-in zooms on the screen centre (sky and
-   badge), not on the duel. `SetZoomFocus(canvas)` anchors the zoom (on Blackpaw's chest the street
+   badge), not on the duel. `SetZoomFocus(canvas)` anchors the zoom (on Pawtruth's chest the street
    narrows on him, and the hero slides out of frame toward the camera). `PushTo(victim, 0.02, s)` on the
    killing blow leans 2 % into the victim during the slow-mo, then releases. Both are disabled under Reduced Motion.
 5. **No arc across the match. HOOK.** `SetTension(0..1)` gives the "last light" look: about 30 % desaturated,
@@ -52,7 +52,7 @@ are the places where the image or the feel loses intensity, ranked by impact. Ea
    The 2-frame `ready` breath at 2 fps currently loops exactly every 1.0 s and reads robotic. It uses a
    private xorshift, so the game's RNG is untouched.
 10. **Tumbleweed overuse. DONE.** It came every 9–18 s, so it appeared in 4 of the 8 swipe captures,
-    rolling in front of Blackpaw's feet. It now comes every 24–42 s (first one at 6–10 s), so it stays a beat
+    rolling in front of Pawtruth's feet. It now comes every 24–42 s (first one at 6–10 s), so it stays a beat
     and not wallpaper. For the classic beat, the lead can trigger one on round-1 standoff (hook below).
 11. **Slow-mo exit snapped back to 1×. DONE.** In `PawTime`, the last 0.18 s of slow-mo ramps back to 1.
     `PawTime.SlowMoFactor` exposes the current factor for audio pitch (hook below).
@@ -70,7 +70,7 @@ are the places where the image or the feel loses intensity, ranked by impact. Ea
   composite (finding 1) is in, the timer never shakes, zooms or gets flashed out, which was the real
   legibility problem. Live digits stay cream on ink and turn brass when frozen (as now).
 - **Sun-flare shaft: SKIP.** The v3 plate already paints a dithered sun halo. A drifting diagonal
-  band at 10 % reads as a lens/UI artifact and muddies the sky that frames Blackpaw's hat.
+  band at 10 % reads as a lens/UI artifact and muddies the sky that frames Pawtruth's hat.
 - **Heat-band parallax on push-in / 0.5 Hz band drift: SKIP.** 1 px of parallax at 3.5 % zoom is
   invisible, and a whole-band lateral drift reads as the background sliding.
 - **Extra vulture / dust motes:** both already exist. The `sun` pulse in StreetScene is dead with the
@@ -106,7 +106,7 @@ hero.Anim.Jitter = 0.35f; bandit.Anim.Jitter = 0.3f; // organic idle/ready pacin
 DuelDirector.BeginStandoff (end):
 ```csharp
 pipe.SetTension(PixelPipeline.TensionFromHp(authority.Match.HpFraction(0), authority.Match.HpFraction(1)));
-pipe.SetZoomFocus(new Vector2(layout.BanditFeet.x, layout.BanditFeet.y - 40)); // push-in on Blackpaw
+pipe.SetZoomFocus(new Vector2(layout.BanditFeet.x, layout.BanditFeet.y - 40)); // push-in on Pawtruth
 ```
 DuelDirector.PresentDraw (after `pipe.FlashScreen(...)`):
 ```csharp
@@ -137,7 +137,7 @@ music sources out of it.)
 
 ## Notes for integration
 - **Overlay and SpeechBubble:** the bubble is created under the UI root, so with the overlay it stays unzoomed.
-  With `SetZoomFocus` on Blackpaw, he is the fixed point of the push-in, so a bubble pointing at him stays
+  With `SetZoomFocus` on Pawtruth, he is the fixed point of the push-in, so a bubble pointing at him stays
   on target. Only the hero side drifts, by at most about 3 % while zoomed.
 - Anything under the overlay root always draws above the whole world (as before: all UI orders are ≥ 150).
   Keep world-anchored FX (particles, sweat, shadows) under `World`.

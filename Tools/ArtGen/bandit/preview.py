@@ -1,4 +1,4 @@
-"""Preview sheets / GIFs / scene composite for Blackpaw (scratch output only)."""
+"""Preview sheets / GIFs / scene composite for Pawtruth (scratch output only)."""
 import os
 from PIL import Image
 from bkit import PA, upscale, compose, Part

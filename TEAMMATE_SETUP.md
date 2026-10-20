@@ -103,13 +103,14 @@ Assets/PawNoon/
   Code/Tests/       EditMode tests (Window → General → Test Runner)
   Resources/Art/    all sprites (pixel art, 270-px-wide grid, point filtered)
   Resources/Audio/  Music/, Loops/, SFX/  (OGG / WAV, 48 kHz)
-  Resources/Data/duel_config.json   ← tuning: hold times, damage, bot, vignette, lines Blackpaw says
+  Resources/Data/duel_config.json   ← tuning: hold times, damage, bot, vignette, match intro on/off
+  Resources/Data/characters.json    ← each cat's name, meow signature and banter lines (Whiskers, Pawtruth)
   Resources/Shaders/PixelUpscale.shader
 Tools/ArtGen, Tools/AudioGen        Python scripts that produced the art and the music/SFX
 Docs/                               architecture, timing model, decisions
 ```
 
-**The fastest way to tweak gameplay** is to edit `Assets/PawNoon/Resources/Data/duel_config.json` (hold min/max, damage curve, bot reaction, tie window, vignette strength, Blackpaw's taunts). You don't need any code changes for that.
+**The fastest way to tweak gameplay** is to edit `Assets/PawNoon/Resources/Data/duel_config.json` (hold min/max, damage curve, bot reaction, tie window, vignette strength). The cats' taunts live in `Resources/Data/characters.json`. You don't need any code changes for that.
 
 ### House rules (keep the game feeling right)
 - **Pixel art only.** Everything sits on the virtual pixel grid (360×640 canvas, 270-px-wide core art). Use point filtering and no smooth alpha glows. Sprites are positioned on whole pixels.

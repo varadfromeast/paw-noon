@@ -1,4 +1,4 @@
-"""Blackpaw part-compositing kit.
+"""Pawtruth part-compositing kit.
 
 Parts are hand-authored ASCII pixel maps of FILL colors only (1x, no AA). Each part gets an
 automatic 1px 4-connected outline when composed (like a sticker), so parts layered in z-order

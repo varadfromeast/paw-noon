@@ -702,7 +702,7 @@ namespace PawNoon.Runtime
             int h = layout.ResultPanelSize.y;
             if (cardDef != null) { w = cardDef.Cell.x; h = cardDef.Cell.y; }
             int x = CenterX - w / 2;
-            // upper third: below the HUD and round sign, never down over Blackpaw (hat top ~ canvas y 320)
+            // upper third: below the HUD and round sign, never down over Pawtruth (hat top ~ canvas y 320)
             int y = layout.ResultPanel.y - h / 2;
             y = Mathf.Min(y, 316 - h);
             y = Mathf.Max(y, HudBottom);
@@ -862,7 +862,7 @@ namespace PawNoon.Runtime
             menu = new PixelButton(kit, transform, "btn_large_alt", "btn_large_alt_pressed", "MENU", "ico_home", new RectInt(0, 0, BtnW, BtnH), O + 2);
         }
 
-        /// <summary>Banner + stats sit in the upper third under the HUD, so Blackpaw (canvas y 330+) stays visible.</summary>
+        /// <summary>Banner + stats sit in the upper third under the HUD, so Pawtruth (canvas y 330+) stays visible.</summary>
         private int Top()
         {
             return Mathf.Max(HudBottom, layout.ResultPanel.y - 30);

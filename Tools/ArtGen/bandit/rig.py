@@ -1,4 +1,4 @@
-"""Blackpaw rig: variants of parts + a pose -> frame composer.
+"""Pawtruth rig: variants of parts + a pose -> frame composer.
 A pose is a dict; every key is optional and falls back to the idle base.
 """
 from bkit import Part, compose, pixels, PA

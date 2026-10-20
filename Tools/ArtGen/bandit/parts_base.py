@@ -1,4 +1,4 @@
-"""Base (idle, frame 0) parts of Blackpaw, front view. Cell 64x64, feet soles on row 60,
+"""Base (idle, frame 0) parts of Pawtruth, front view. Cell 64x64, feet soles on row 60,
 pivot [32,61]. All maps are FILL ONLY; outlines are added by bkit.compose.
 Character spans y 13 (ear-tip outline) .. 60 (soles) => 48 px.
 """

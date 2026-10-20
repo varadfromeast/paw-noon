@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Blackpaw (bandit) sprite strips, portraits and bandit.json.
+"""Generate Pawtruth (bandit) sprite strips, portraits and bandit.json.
 Re-runnable: python3 gen_bandit.py [--preview]
 Outputs -> project/Assets/PawNoon/Resources/Art/Characters/Bandit/
 Previews (with --preview) -> work/bandit/

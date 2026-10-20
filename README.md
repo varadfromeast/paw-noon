@@ -2,7 +2,7 @@
 
 A pixel-art cat high-noon reflex duel for iOS and Android, built in Unity 6.
 
-**3, 2, 1, a random hold, then DRAW: swipe your gun up from the holster.** The faster you react, the more damage you deal. Reaction time is measured on a nanosecond clock and shown to 6 decimals. You play the white cat against **Blackpaw**, a charcoal outlaw with amber eyes.
+**3, 2, 1, a random hold, then DRAW: swipe your gun up from the holster.** The faster you react, the more damage you deal. Reaction time is measured on a nanosecond clock and shown to 6 decimals. You play the white cat against **Pawtruth**, a charcoal outlaw with amber eyes.
 
 - Engine: **Unity 6000.6.4f1** (built-in render pipeline, 2D sprites, portrait).
 - Main scene: `Assets/PawNoon/Scenes/Main.unity`.

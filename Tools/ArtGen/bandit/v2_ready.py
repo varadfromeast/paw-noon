@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ART DIRECTION v2 style test: Blackpaw READY pose, cell 128x128, pivot [64,124].
+"""ART DIRECTION v2 style test: Pawtruth READY pose, cell 128x128, pivot [64,124].
 Parts are aliased polygon / brush masks (no AA). Each part is shaded with one-sided directional
 light from the upper right (stepped ramp, lit rim, shadow side), fur gets structured zig-zag
 clump borders, every part gets a 1px ink outline (sticker order), and the face, folds, stitching

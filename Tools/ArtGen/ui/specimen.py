@@ -9,7 +9,7 @@ LINES = [
                     "Music  SFX  Haptics  Reduced Motion"]),
     ('font_medium', ["ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz",
                      "0123456789 .,:;!?'\"-+/%()&#×Δ$=", "YOU 0.214382 s",
-                     "BLACKPAW 0.288105 s", "Δ 73.72 ms FASTER  ROUND 3", "Blackpaw wins! -30 HP"]),
+                     "PAWTRUTH 0.288105 s", "Δ 73.72 ms FASTER  ROUND 3", "Pawtruth wins! -30 HP"]),
     ('font_timer', ["0.000000 s", "0.214382 s", "1.500000", "+73.72 ms -×Δ", "0123456789"]),
 ]
 

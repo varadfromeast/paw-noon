@@ -82,7 +82,7 @@ def hud(v, dev, hp_you=1.0, hp_bot=1.0, hurt=None):
             im = Image.open(p).convert('RGBA')
             v.blit(im, x + 4 + (36 - im.width) // 2, st + 6 + (36 - im.height))
         v.blit(pf, x, st + 2)
-    for name, x, right in (('YOU', 50, False), ('BLACKPAW', 218, True)):
+    for name, x, right in (('YOU', 50, False), ('PAWTRUTH', 218, True)):
         tw = text_width(name, 'font_medium')
         pw = tw + 12
         px = x - pw if right else x
@@ -147,7 +147,7 @@ def screen(name, dev):
         v.blit(nine(ui('panel_paper'), [7, 7, 7, 7], pw, ph), px, py)
         draw_text(v, 'YOU', 'font_medium', px + 12, py + 15, 'ink2')
         draw_text(v, '0.214382 s', 'font_timer', px + pw - 12, py + 11, 'ink2', align='right')
-        draw_text(v, 'BLACKPAW', 'font_medium', px + 12, py + 36, 'wood3')
+        draw_text(v, 'PAWTRUTH', 'font_medium', px + 12, py + 36, 'wood3')
         draw_text(v, '0.288105 s', 'font_medium', px + pw - 12, py + 36, 'wood3', align='right')
         for x in range(px + 10, px + pw - 10, 2):
             v.px(x, py + 49, 'paintCreamD')
