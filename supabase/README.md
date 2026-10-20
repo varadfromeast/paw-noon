@@ -13,6 +13,7 @@ Milestone M3 of `Docs/SPEC_V2.md`: Postgres schema, Auth, and Edge Functions for
 supabase/
   config.toml                  local stack + function settings (verify_jwt, anonymous sign-in, Apple/Google)
   migrations/0001_init.sql     tables, indexes, RLS, triggers, pn_* service helpers
+  migrations/0002_review_hardening.sql  profile input checks, flagged owners leave the pool, submitting index
   seed.sql                     three house ghosts
   scripts/sync_duel_config.sh  copies Assets/.../duel_config.json into functions/_shared/ (--check for CI)
   functions/
@@ -189,7 +190,9 @@ curl -s -X POST "$API/functions/v1/match-start" -H "Authorization: Bearer $JWT" 
 }
 ```
 Errors: `400 bad_request`; `403 ranked_not_allowed` with `reasons: ["link_account" | "account_flagged" | "client_build"]`;
-`409 no_profile`; `503 no_opponent`.
+`409 no_profile`; `429 rate_limited` (`retryAfterSec`, more than `MATCH.maxStartsPerMinute` starts in a minute);
+`503 no_opponent`. Each start also voids this player's matches stuck in `submitting` for over
+`MATCH.staleSubmitMinutes` (`void_reason: "stale_submit"`, not counted towards the flag).
 
 ### `POST /match-submit`
 
@@ -219,7 +222,8 @@ Recording field rules: `*Ns` are integer ns on the phone's monotonic clock. `sho
 `reactionNs = inputNs - cuePresentedNs` (within 1 µs), `0 <= reactionNs <= noShotTimeout`, and `anticipation`
 exactly when it is under 100 ms. `early`: `cuePresentedNs` 0 when no cue was shown yet (then `reactionNs` 0),
 else the press is before it and `reactionNs` is the negative difference. `noshot`: `inputNs` 0, `reactionNs` 0.
-`countdownStartNs` is optional but recommended because it enables the hold-length check.
+`countdownStartNs` (when "3" appeared, > 0) is required on every attempt: it anchors the hold-length check, so a
+recording cannot skip that check by leaving it out (missing = `400 bad_recording`).
 `samples` (raw touch samples) is optional and kept for ranked audit.
 
 200 (`schemas/match-submit.response.schema.json`). This is the server's own recompute:
@@ -258,6 +262,11 @@ theirBestNs, mmrDelta, message }`).
 Errors:
 - `400 bad_request | bad_recording` (shape). The match stays open, so the client may fix and resend before the deadline.
 - `404 match_not_found`, `409 already_submitted` (`matchStatus`). There is one submission per match id.
+- `500 db_error | internal`: if nothing was written yet the match goes back to `issued`, so the client may resend
+  before `deadlineAt`; if a rating was already written it is voided as `server_error` (never counted). A retry that
+  then gets `409` with `matchStatus: "void"` must not be resent. Failures that only concern the ghost's owner (their
+  rating, their notification) or that happen after the match is completed (stats) are logged and do not fail the call.
+- `503 busy`: the rating row kept changing under concurrent submits; the match is voided as `server_error`.
 - `422 recording_rejected` with `reason`, `matchStatus: "void"`, `flagged`. The match is void and the reason is logged.
   Reasons (§4.3): `late` (after `deadlineAt`, does **not** count towards the flag), `loadout_not_owned`, `version`,
   `seed_mismatch`, `difficulty`, `round_count`, `round_numbering`, `reaction_bounds`, `kind_mismatch`,

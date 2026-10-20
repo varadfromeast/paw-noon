@@ -140,11 +140,10 @@ function checkTiming(rec: Recording, sched: { countdownNs: number; cueOffsetNs: 
     const at = `rounds[${i}]`;
     const times = [r.countdownStartNs, r.cuePresentedNs || undefined, r.inputNs || undefined]
       .filter((t): t is number => t !== undefined);
-    // within an attempt: countdown start < cue; input after countdown start
-    if (r.countdownStartNs !== undefined) {
-      if (r.cuePresentedNs && r.cuePresentedNs <= r.countdownStartNs) return reject("non_monotonic", `${at}: cue before "3"`);
-      if (r.inputNs && r.inputNs < r.countdownStartNs) return reject("non_monotonic", `${at}: input before "3"`);
-    }
+    // within an attempt: countdown start < cue; input after countdown start (countdownStartNs is
+    // required by parseRecording, so these checks can no longer be skipped by omitting it)
+    if (r.cuePresentedNs && r.cuePresentedNs <= r.countdownStartNs) return reject("non_monotonic", `${at}: cue before "3"`);
+    if (r.inputNs && r.inputNs < r.countdownStartNs) return reject("non_monotonic", `${at}: input before "3"`);
     // across attempts: strictly later than everything in the previous attempt
     const first = Math.min(...times);
     if (!(first > lastTime)) return reject("non_monotonic", `${at}: timestamps go back in time`);
@@ -152,14 +151,14 @@ function checkTiming(rec: Recording, sched: { countdownNs: number; cueOffsetNs: 
 
     const s = sched[i];
     // cue presented relative to "3": cueOffset (+ frame + present latency)
-    if (r.countdownStartNs !== undefined && r.cuePresentedNs) {
+    if (r.cuePresentedNs) {
       const off = r.cuePresentedNs - r.countdownStartNs;
       if (off < s.cueOffsetNs - early || off > s.cueOffsetNs + late) {
         return reject("cue_timing", `${at}: cue ${off} ns after "3", seed says ${s.cueOffsetNs}`);
       }
     }
     // an early press without a cue must still be before the cue could have been presented
-    if (r.kind === "early" && r.cuePresentedNs === 0 && r.countdownStartNs !== undefined) {
+    if (r.kind === "early" && r.cuePresentedNs === 0) {
       if (r.inputNs - r.countdownStartNs > s.cueOffsetNs + late) {
         return reject("cue_timing", `${at}: early press after the cue was due`);
       }

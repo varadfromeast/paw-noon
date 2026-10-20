@@ -32,7 +32,7 @@
     "ns": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
     "round": {
       "type": "object",
-      "required": ["roundNumber", "kind", "reactionNs", "cuePresentedNs", "inputNs", "inputSource", "frameQuantized"],
+      "required": ["roundNumber", "kind", "reactionNs", "cuePresentedNs", "inputNs", "countdownStartNs", "inputSource", "frameQuantized"],
       "properties": {
         "roundNumber": { "type": "integer", "minimum": 1 },
         "kind": {
@@ -42,7 +42,7 @@
         "reactionNs": { "$ref": "#/$defs/ns", "description": "shot/anticipation: inputNs - cuePresentedNs (0..noShotTimeout). early: 0 without a cue, else inputNs - cuePresentedNs (negative). noshot: 0." },
         "cuePresentedNs": { "$ref": "#/$defs/ns", "description": "0 when the cue was never presented (early)." },
         "inputNs": { "$ref": "#/$defs/ns", "description": "0 for noshot." },
-        "countdownStartNs": { "$ref": "#/$defs/ns", "description": "Recommended: when \"3\" appeared. Enables the hold-length consistency check." },
+        "countdownStartNs": { "$ref": "#/$defs/ns", "description": "When \"3\" appeared (> 0). Required: anchors the hold-length consistency check." },
         "inputSource": { "enum": ["unknown", "touch", "mouse", "keyboard", "bot", "injected", "remote"] },
         "frameQuantized": { "type": "boolean" },
         "samples": {

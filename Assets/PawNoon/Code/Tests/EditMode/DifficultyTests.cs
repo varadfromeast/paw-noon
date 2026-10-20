@@ -203,6 +203,49 @@ namespace PawNoon.Tests
             Assert.AreEqual(DuelConfig.DifficultyHard, live.Difficulty);
         }
 
+        /// <summary>
+        /// CopyFrom must carry EVERY field, not only the ones Easy and Hard happen to disagree on (review
+        /// 2026-10-20): every public field of the source is set to a value no loader produces, then copied.
+        /// </summary>
+        [Test]
+        public void CopyFromCopiesEveryField()
+        {
+            var src = new DuelConfig();
+            int k = 0;
+            foreach (var f in typeof(DuelConfig).GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                k++;
+                if (f.FieldType == typeof(double)) f.SetValue(src, 1000.0 + k + 0.25);
+                else if (f.FieldType == typeof(int)) f.SetValue(src, 1000 + k);
+                else if (f.FieldType == typeof(string)) f.SetValue(src, "x" + k);
+                else if (f.FieldType == typeof(bool)) f.SetValue(src, !(bool)f.GetValue(src));
+                else if (f.FieldType == typeof(double[])) f.SetValue(src, new double[] { k, k + 1 });
+                else if (f.FieldType == typeof(BanterLines)) f.SetValue(src, new BanterLines());
+                else Assert.Fail("DuelConfig." + f.Name + " has a type this test does not know (" + f.FieldType.Name + "): extend it");
+            }
+            var dst = new DuelConfig();
+            dst.CopyFrom(src);
+            Assert.IsEmpty(ChangedFields(dst, src));
+            Assert.AreEqual(src.Difficulty, dst.Difficulty);
+            Assert.AreNotSame(src.damageValue, dst.damageValue, "arrays are copied, not shared");
+            Assert.AreSame(src.blackpawLines, dst.blackpawLines, "banter lines (immutable after load) are shared");
+        }
+
+        /// <summary>
+        /// PawGame loads the overlay with Resources.Load("Data/duel_config.easy"): the dotted name must resolve
+        /// to the TextAsset (otherwise Easy silently plays Hard values under an EASY tag).
+        /// </summary>
+        [Test]
+        public void EasyOverlayResolvesThroughResources()
+        {
+            var ta = UnityEngine.Resources.Load<UnityEngine.TextAsset>("Data/duel_config.easy");
+            Assert.IsNotNull(ta, "Resources.Load(\"Data/duel_config.easy\") returned null");
+            CollectionAssert.AreEquivalent(Whitelist, PnJson.ParseObject(ta.text).Keys.ToArray());
+            var hard = UnityEngine.Resources.Load<UnityEngine.TextAsset>("Data/duel_config");
+            Assert.IsNotNull(hard);
+            Assert.AreNotEqual(ta.text, hard.text, "the two names must not resolve to the same asset");
+        }
+
         [Test]
         public void DifficultyNamesNormalize()
         {

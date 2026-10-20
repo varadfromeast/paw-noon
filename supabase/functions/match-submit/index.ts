@@ -38,6 +38,37 @@ async function rejectMatch(db: Db, m: MatchRow, reason: string, detail: string, 
   throw new HttpError(422, "recording_rejected", detail, { reason, matchStatus: "void", flagged });
 }
 
+/**
+ * Review 2026-10-20: the match was claimed (issued -> submitting) but the function failed before it could
+ * finish. Without this the row stayed in `submitting` forever: every retry got 409 already_submitted and a
+ * ranked abandon penalty could never be applied. Nothing written yet -> back to `issued` (the client's offline
+ * queue may resend before the deadline). Something written already (ratings) -> `void` / server_error, which
+ * never counts towards the cheat flag. Only touches a row that is still `submitting`.
+ */
+async function releaseClaim(db: Db, m: MatchRow, wroteSomething: boolean, cause: unknown): Promise<void> {
+  const patch = wroteSomething
+    ? { status: "void", void_reason: "server_error", void_detail: String(cause).slice(0, 500) }
+    : { status: "issued", submitted_at: null };
+  try {
+    const { error } = await db.from("matches").update(patch).eq("id", m.id).eq("status", "submitting");
+    if (error) console.error(`[match-submit] release claim failed match=${m.id}:`, error.message);
+  } catch (e) {
+    console.error(`[match-submit] release claim threw match=${m.id}:`, e);
+  }
+}
+
+/** Side effects on somebody other than the caller (ghost owner) or after the match is already completed:
+ *  logged, never allowed to fail the caller's submission (e.g. the owner deleted their account meanwhile,
+ *  so the rating / notification insert violates its foreign key). */
+async function bestEffort<T>(what: string, matchId: string, fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error(`[match-submit] ${what} failed match=${matchId}:`, e instanceof HttpError ? e.message : e);
+    return null;
+  }
+}
+
 function side(slot: number): Side | null {
   return slot === 0 ? "you" : slot === 1 ? "opponent" : null;
 }
@@ -94,149 +125,165 @@ serve("match-submit", async (req) => {
     throw new HttpError(409, "already_submitted", `match is ${existing.status}`, { matchStatus: existing.status });
   }
 
-  // §4.3: within matchDuration + 60 s of match/start. A late upload (offline queue) voids the match
-  // but does not count towards the cheat flag.
-  if (now.getTime() > Date.parse(m.deadline_at)) {
-    await rejectMatch(db, m, "late", `submitted after the deadline ${m.deadline_at}`, false);
-  }
-
-  const profile = must<Pick<ProfileRow, "display_name" | "owned_items">>(
-    await db.from("profiles").select("display_name, owned_items").eq("id", user.id).single(),
-    "load profile",
-  );
-  const owned: string[] = profile.owned_items ?? [];
-  if (rec.loadout.gun !== "standard" && !owned.includes(rec.loadout.gun)) {
-    await rejectMatch(db, m, "loadout_not_owned", `gun ${rec.loadout.gun} is not owned`, true);
-  }
-
-  const cfg = hardConfig();
-  const ranked = m.mode === "ranked";
-  const snap = m.opponent_snapshot;
-  const verdict = validateAndScore(cfg, rec, {
-    seed: m.seed,
-    rounds: m.rounds,
-    maxAttempts: m.max_attempts,
-    opponent: snap.attempts,
-    curves: [curveFor(cfg, rec.loadout.gun, ranked), curveFor(cfg, snap.gun, ranked)],
-  }, { allowInjected: allowInjectedInput() });
-  if (!verdict.ok) await rejectMatch(db, m, verdict.reason, verdict.detail, true);
-  const result = (verdict as { ok: true; result: MatchResult }).result;
-
-  const winner: Side | "draw" = result.winner === 0 ? "you" : result.winner === 1 ? "opponent" : "draw";
-  const score = result.winner === 0 ? 1 : result.winner === 1 ? 0 : 0.5;
-
-  // ---- ratings (ranked only; the ghost's owner is rated too, as if they had played live)
-  let rating: MatchSubmitResponse["rating"] = null;
-  let oppBefore: number | null = null;
-  let oppAfter: number | null = null;
-  const season: number | null = m.season;
-  const mine = await loadRating(db, user.id, season ?? rankedSeason()); // casual: pool by current MMR
-  if (ranked && season !== null) {
-    const owner = !snap.isHouse && snap.ownerId ? await loadRating(db, snap.ownerId, season) : null;
-    const opp = owner ?? houseRating(snap.mmr);
-    // both sides are updated from the pre-match ratings, like one simultaneous game
-    const next = await applyGame(db, user.id, season, mine, opp, score, now);
-    rating = { season, before: Math.round(mine.mmr), after: Math.round(next.mmr), delta: Math.round(next.mmr - mine.mmr), rd: Math.round(next.rd) };
-    oppBefore = Math.round(opp.mmr);
-    if (owner && snap.ownerId) {
-      const ownerNext = await applyGame(db, snap.ownerId, season, owner, mine, 1 - score, now);
-      oppAfter = Math.round(ownerNext.mmr);
+  // Everything after the claim: on an unexpected failure release the claim (see releaseClaim) so the row
+  // never stays in `submitting`. Recording rejections (422) have already voided the match themselves.
+  let wrote = false;
+  try {
+    // §4.3: within matchDuration + 60 s of match/start. A late upload (offline queue) voids the match
+    // but does not count towards the cheat flag.
+    if (now.getTime() > Date.parse(m.deadline_at)) {
+      await rejectMatch(db, m, "late", `submitted after the deadline ${m.deadline_at}`, false);
     }
-  }
 
-  // ---- the player's recording joins the pool (only complete matches make good ghosts)
-  const yourReactions = rec.rounds.map((r) => r.reactionNs);
-  const oppReactions = snap.attempts.map((a) => a.reactionNs);
-  const yourBest = bestShotNs(result, 0, yourReactions);
-  let recordingId: string | null = null;
-  if (result.endReason === "rounds" || result.endReason === "ko" || result.endReason === "double_ko") {
-    const inserted = must<{ id: string }>(
-      await db.from("recordings").insert({
-        owner_id: user.id,
-        is_house: false,
-        source_match_id: m.id,
-        seed: m.seed,
-        difficulty: "hard",
-        mode: m.mode,
-        character: rec.character,
-        gun: rec.loadout.gun,
-        display_name: profile.display_name,
-        mmr: Math.round(rating ? rating.after : mine.mmr),
-        attempts: playableAttempts(rec),
-        audit: rec,
-        best_reaction_ns: yourBest,
-        expires_at: new Date(now.getTime() + MATCH.poolMaxAgeDays * DAY_MS).toISOString(),
-      }).select("id").single(),
-      "pool recording",
+    const profile = must<Pick<ProfileRow, "display_name" | "owned_items">>(
+      await db.from("profiles").select("display_name, owned_items").eq("id", user.id).single(),
+      "load profile",
     );
-    recordingId = inserted.id;
-  }
+    const owned: string[] = profile.owned_items ?? [];
+    if (rec.loadout.gun !== "standard" && !owned.includes(rec.loadout.gun)) {
+      await rejectMatch(db, m, "loadout_not_owned", `gun ${rec.loadout.gun} is not owned`, true);
+    }
 
-  const rounds: RoundView[] = result.attempts.map((a, i) => ({
-    attempt: i + 1,
-    roundNumber: a.roundNumber,
-    holdNs: a.holdNs,
-    void: a.void,
-    tie: a.tie,
-    winner: side(a.winner),
-    you: slotView(a, 0, yourReactions[i]),
-    opponent: slotView(a, 1, oppReactions[i]),
-    hpAfter: { you: a.hp[0], opponent: a.hp[1] },
-  }));
+    const cfg = hardConfig();
+    const ranked = m.mode === "ranked";
+    const snap = m.opponent_snapshot;
+    const verdict = validateAndScore(cfg, rec, {
+      seed: m.seed,
+      rounds: m.rounds,
+      maxAttempts: m.max_attempts,
+      opponent: snap.attempts,
+      curves: [curveFor(cfg, rec.loadout.gun, ranked), curveFor(cfg, snap.gun, ranked)],
+    }, { allowInjected: allowInjectedInput() });
+    if (!verdict.ok) await rejectMatch(db, m, verdict.reason, verdict.detail, true);
+    const result = (verdict as { ok: true; result: MatchResult }).result;
 
-  must(
-    await db.from("matches").update({
-      status: "completed",
-      winner: winner === "you" ? "player" : winner,
-      result: { endReason: result.endReason, hp: result.hp, roundWins: result.roundWins, rounds },
-      player_recording_id: recordingId,
-      player_mmr_before: rating?.before ?? null,
-      player_mmr_after: rating?.after ?? null,
-      opponent_mmr_before: oppBefore,
-      opponent_mmr_after: oppAfter,
-    }).eq("id", m.id),
-    "complete match",
-  );
+    const winner: Side | "draw" = result.winner === 0 ? "you" : result.winner === 1 ? "opponent" : "draw";
+    const score = result.winner === 0 ? 1 : result.winner === 1 ? 0 : 0.5;
 
-  const lightning = result.attempts.filter((a) => a.outcomes[0] === "Shot" && a.grades[0] === "Lightning").length;
-  must(
-    await db.rpc("pn_record_match_stats", { p_user: user.id, p_won: result.winner === 0, p_best_ns: yourBest, p_lightning: lightning }),
-    "record stats",
-  );
+    // ---- ratings (ranked only; the ghost's owner is rated too, as if they had played live)
+    let rating: MatchSubmitResponse["rating"] = null;
+    let oppBefore: number | null = null;
+    let oppAfter: number | null = null;
+    const season: number | null = m.season;
+    const mine = await loadRating(db, user.id, season ?? rankedSeason()); // casual: pool by current MMR
+    if (ranked && season !== null) {
+      const owner = !snap.isHouse && snap.ownerId ? await loadRating(db, snap.ownerId, season) : null;
+      const opp = owner ?? houseRating(snap.mmr);
+      // both sides are updated from the pre-match ratings, like one simultaneous game
+      wrote = true; // from here on a retry could double-apply: failures void the match instead of reopening it
+      const next = await applyGame(db, user.id, season, mine, opp, score, now);
+      rating = { season, before: Math.round(mine.mmr), after: Math.round(next.mmr), delta: Math.round(next.mmr - mine.mmr), rd: Math.round(next.rd) };
+      oppBefore = Math.round(opp.mmr);
+      if (owner && snap.ownerId) {
+        const ownerId = snap.ownerId;
+        const ownerNext = await bestEffort("owner rating", m.id, () => applyGame(db, ownerId, season, owner, mine, 1 - score, now));
+        if (ownerNext) oppAfter = Math.round(ownerNext.mmr);
+      }
+    }
 
-  if (!snap.isHouse && snap.ownerId) {
-    const ownerResult = result.winner === 1 ? "won" : result.winner === 0 ? "lost" : "draw";
-    const ownerBest = bestShotNs(result, 1, oppReactions);
-    must(
-      await db.from("notifications").insert({
-        user_id: snap.ownerId,
-        kind: "ghost_result",
-        payload: {
-          matchId: m.id,
+    // ---- the player's recording joins the pool (only complete matches make good ghosts)
+    const yourReactions = rec.rounds.map((r) => r.reactionNs);
+    const oppReactions = snap.attempts.map((a) => a.reactionNs);
+    const yourBest = bestShotNs(result, 0, yourReactions);
+    let recordingId: string | null = null;
+    if (result.endReason === "rounds" || result.endReason === "ko" || result.endReason === "double_ko") {
+      wrote = true;
+      const inserted = must<{ id: string }>(
+        await db.from("recordings").insert({
+          owner_id: user.id,
+          is_house: false,
+          source_match_id: m.id,
+          seed: m.seed,
+          difficulty: "hard",
           mode: m.mode,
-          result: ownerResult,
-          from: { displayName: profile.display_name, character: rec.character },
-          yourBestNs: ownerBest,
-          theirBestNs: yourBest,
-          mmrDelta: oppAfter !== null && oppBefore !== null ? oppAfter - oppBefore : null,
-          message: notificationText(profile.display_name, ownerResult, ownerBest),
-        },
-      }),
-      "notify opponent",
-    );
-  }
+          character: rec.character,
+          gun: rec.loadout.gun,
+          display_name: profile.display_name,
+          mmr: Math.round(rating ? rating.after : mine.mmr),
+          attempts: playableAttempts(rec),
+          audit: rec,
+          best_reaction_ns: yourBest,
+          expires_at: new Date(now.getTime() + MATCH.poolMaxAgeDays * DAY_MS).toISOString(),
+        }).select("id").single(),
+        "pool recording",
+      );
+      recordingId = inserted.id;
+    }
 
-  const res: MatchSubmitResponse = {
-    matchId: m.id,
-    status: "completed",
-    mode: m.mode,
-    winner,
-    endReason: result.endReason,
-    hp: { you: result.hp[0], opponent: result.hp[1] },
-    roundWins: { you: result.roundWins[0], opponent: result.roundWins[1] },
-    rounds,
-    rating,
-    recordingId,
-  };
-  return json(res);
+    const rounds: RoundView[] = result.attempts.map((a, i) => ({
+      attempt: i + 1,
+      roundNumber: a.roundNumber,
+      holdNs: a.holdNs,
+      void: a.void,
+      tie: a.tie,
+      winner: side(a.winner),
+      you: slotView(a, 0, yourReactions[i]),
+      opponent: slotView(a, 1, oppReactions[i]),
+      hpAfter: { you: a.hp[0], opponent: a.hp[1] },
+    }));
+
+    wrote = true;
+    must(
+      await db.from("matches").update({
+        status: "completed",
+        winner: winner === "you" ? "player" : winner,
+        result: { endReason: result.endReason, hp: result.hp, roundWins: result.roundWins, rounds },
+        player_recording_id: recordingId,
+        player_mmr_before: rating?.before ?? null,
+        player_mmr_after: rating?.after ?? null,
+        opponent_mmr_before: oppBefore,
+        opponent_mmr_after: oppAfter,
+      }).eq("id", m.id),
+      "complete match",
+    );
+
+    // the match is completed from here on: later failures are logged, never turned into an error response
+    // (a retry would only get 409 already_submitted)
+    const lightning = result.attempts.filter((a) => a.outcomes[0] === "Shot" && a.grades[0] === "Lightning").length;
+    await bestEffort("record stats", m.id, async () =>
+      must(
+        await db.rpc("pn_record_match_stats", { p_user: user.id, p_won: result.winner === 0, p_best_ns: yourBest, p_lightning: lightning }),
+        "record stats",
+      ));
+
+    if (!snap.isHouse && snap.ownerId) {
+      const ownerId = snap.ownerId;
+      const ownerResult = result.winner === 1 ? "won" : result.winner === 0 ? "lost" : "draw";
+      const ownerBest = bestShotNs(result, 1, oppReactions);
+      await bestEffort("notify opponent", m.id, async () => must(
+        await db.from("notifications").insert({
+          user_id: ownerId,
+          kind: "ghost_result",
+          payload: {
+            matchId: m.id,
+            mode: m.mode,
+            result: ownerResult,
+            from: { displayName: profile.display_name, character: rec.character },
+            yourBestNs: ownerBest,
+            theirBestNs: yourBest,
+            mmrDelta: oppAfter !== null && oppBefore !== null ? oppAfter - oppBefore : null,
+            message: notificationText(profile.display_name, ownerResult, ownerBest),
+          },
+        }),
+        "notify opponent",
+      ));
+    }
+
+    const res: MatchSubmitResponse = {
+      matchId: m.id,
+      status: "completed",
+      mode: m.mode,
+      winner,
+      endReason: result.endReason,
+      hp: { you: result.hp[0], opponent: result.hp[1] },
+      roundWins: { you: result.roundWins[0], opponent: result.roundWins[1] },
+      rounds,
+      rating,
+      recordingId,
+    };
+    return json(res);
+  } catch (e) {
+    if (!(e instanceof HttpError && e.code === "recording_rejected")) await releaseClaim(db, m, wrote, e);
+    throw e;
+  }
 });

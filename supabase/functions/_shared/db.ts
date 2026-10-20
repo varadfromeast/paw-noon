@@ -2,7 +2,6 @@
 // caller has been authenticated with requireUser(). SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are
 // injected by the Edge Runtime (locally by `supabase functions serve`).
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { HttpError } from "./http.ts";
 
 export type Db = SupabaseClient;
 
@@ -17,12 +16,6 @@ export function admin(): Db {
   return client;
 }
 
-/** Throws a logged 500 on a PostgREST error, else returns data typed as the caller's row type
- *  (the client is untyped: no generated database types). */
-export function must<T>(res: { data: unknown; error: { message: string } | null }, what: string): T {
-  if (res.error) {
-    console.error(`db error (${what}):`, res.error.message);
-    throw new HttpError(500, "db_error", `database error: ${what}`);
-  }
-  return res.data as T;
-}
+// `must` lives in must.ts (no supabase-js import) so pure modules such as ratings.ts can be unit-tested
+// without the Supabase client; re-exported here for the functions.
+export { must } from "./must.ts";

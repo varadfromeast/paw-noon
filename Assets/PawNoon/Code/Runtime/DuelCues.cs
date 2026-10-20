@@ -109,7 +109,6 @@ namespace PawNoon.Runtime
         private SheetDef heartDef;
         /// <summary>Beats per minute of the hold heart (matches Loops/heartbeat.ogg).</summary>
         public float HeartBpm = 92f;
-        private float moodT;
         private int lastNumeral = -1;
         private bool timerFrozen;
         private static Sprite heartSprite;
@@ -198,7 +197,6 @@ namespace PawNoon.Runtime
         {
             if (on == holdMood) return;
             holdMood = on;
-            moodT = 0f;
             if (heart != null) heart.enabled = false;   // superseded by the heart monitor
             if (ecg != null) ecg.SetVisible(on);
         }
@@ -286,11 +284,6 @@ namespace PawNoon.Runtime
             message.SetText(text);
             message.Visible = true;
             messageLeft = seconds;
-        }
-
-        private static float Bump(float p, float center, float halfWidth)
-        {
-            return Mathf.Clamp01(1f - Mathf.Abs(p - center) / halfWidth);
         }
 
         private void Update()

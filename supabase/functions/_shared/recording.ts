@@ -30,8 +30,9 @@ export interface RecordingRound {
   cuePresentedNs: number;
   /** 0 for noshot. */
   inputNs: number;
-  /** Recommended: when "3" appeared (DuelClient.CountdownStartNs). Enables the hold-length check. */
-  countdownStartNs?: number;
+  /** When "3" appeared (DuelClient.CountdownStartNs). Required (review 2026-10-20): it anchors the
+   *  hold-length check, and an optional field let a tampered recording skip that check by omitting it. */
+  countdownStartNs: number;
   inputSource: InputSourceName;
   frameQuantized: boolean;
   /** Ranked: the OS touch samples around the swipe threshold, for audit. */
@@ -99,12 +100,11 @@ function parseRound(v: unknown, i: number): RecordingRound {
     reactionNs: safeInt(o, "reactionNs", path),
     cuePresentedNs: safeInt(o, "cuePresentedNs", path),
     inputNs: safeInt(o, "inputNs", path),
+    countdownStartNs: safeInt(o, "countdownStartNs", path),
     inputSource: oneOf(o, "inputSource", path, INPUT_SOURCES),
     frameQuantized: bool(o, "frameQuantized", path),
   };
-  if (o.countdownStartNs !== undefined && o.countdownStartNs !== null) {
-    r.countdownStartNs = safeInt(o, "countdownStartNs", path);
-  }
+  if (r.countdownStartNs <= 0) throw new ShapeError(`${path}.countdownStartNs must be > 0`);
   if (o.samples !== undefined && o.samples !== null) {
     if (!Array.isArray(o.samples) || o.samples.length > MAX_SAMPLES) {
       throw new ShapeError(`${path}.samples must be an array of at most ${MAX_SAMPLES}`);
@@ -164,7 +164,7 @@ export function playableAttempts(rec: Recording): PlayableAttempt[] {
       kind: r.kind,
       reactionNs: r.kind === "shot" || r.kind === "anticipation" ? r.reactionNs : 0,
     };
-    if (r.kind === "early" && r.countdownStartNs !== undefined) a.inputOffsetNs = r.inputNs - r.countdownStartNs;
+    if (r.kind === "early") a.inputOffsetNs = r.inputNs - r.countdownStartNs;
     return a;
   });
 }

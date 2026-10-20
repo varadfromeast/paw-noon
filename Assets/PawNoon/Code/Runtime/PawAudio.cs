@@ -176,8 +176,11 @@ namespace PawNoon.Runtime
 
         public void Sting(string key, float volume = 0.9f)
         {
-            var c = Clip("Audio/Music/" + key, key);
-            if (c == null || !MusicOn) return;
+            if (!MusicOn) return;
+            // cached lookup first: building the Resources path on every sting allocated a string per call
+            AudioClip c;
+            if (!clips.TryGetValue(key, out c)) c = Clip("Audio/Music/" + key, key);
+            if (c == null) return;
             var s = pool[next];
             next = (next + 1) % PoolSize;
             s.Stop();

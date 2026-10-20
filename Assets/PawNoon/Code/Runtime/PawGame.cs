@@ -93,7 +93,7 @@ namespace PawNoon.Runtime
             var ta = Resources.Load<TextAsset>("Data/duel_config");
             string json = ta != null ? ta.text : null;
             if (ta == null) ArtLib.Warn("cfg", "Missing Resources/Data/duel_config.json -> built-in defaults");
-            var easyTa = Resources.Load<TextAsset>("Data/duel_config.easy");
+            var easyTa = LoadDataText("duel_config.easy");
             if (easyTa == null) ArtLib.Warn("cfg.easy", "Missing Resources/Data/duel_config.easy.json -> Easy plays as Hard");
             hardJson = json;
             easyOverlayJson = easyTa != null ? easyTa.text : null;
@@ -195,6 +195,22 @@ namespace PawNoon.Runtime
         }
 
         // ------------------------------------------------------------------ difficulty
+
+        /// <summary>
+        /// Resources/Data/&lt;name&gt; as a TextAsset. The Easy overlay has a dotted name ("duel_config.easy"),
+        /// which Resources.Load resolves by asset name; if a player build ever fails to (the overlay would then
+        /// be missing and Easy would play Hard values under an EASY tag), fall back to scanning the folder by
+        /// exact name. Startup only (LoadAll allocates).
+        /// </summary>
+        private static TextAsset LoadDataText(string name)
+        {
+            var ta = Resources.Load<TextAsset>("Data/" + name);
+            if (ta != null) return ta;
+            var all = Resources.LoadAll<TextAsset>("Data");
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && all[i].name == name) return all[i];
+            return null;
+        }
 
         private DuelConfig BuildConfig(string difficulty)
         {

@@ -13,9 +13,13 @@ review time scale) is separate and never feeds into a measurement. `Time.timeSca
 ## 2. Input timestamps (when you tapped)
 
 - **With the Input System package** (`PAWNOON_INPUT_SYSTEM`, set by the asmdef `versionDefines`):
-  - Touch: `EnhancedTouch.Touch.onFingerDown` → `touch.startTime`.
-  - Mouse left button / keyboard Space: `InputSystem.onEvent`, read from the event (`ReadValueFromEvent`)
-    → `eventPtr.time`.
+  - The draw is a swipe (`SwipeDraw`): touch, mouse and keyboard all arrive through `InputSystem.onEvent`;
+    touch id / phase / position and the mouse button / position are read from the event itself
+    (`ReadValueFromEvent`), stamped with `eventPtr.time`. The shot time is the moment the swipe crosses the
+    threshold (12% of the screen height above where it started in the holster zone), linearly interpolated
+    between the two OS samples that straddle it. Keyboard Space (editor/desktop) is an instant draw at the
+    key-down event time. (Earlier drafts of this doc said `EnhancedTouch.onFingerDown` / `startTime`: that
+    was the tap prototype, not the shipped swipe.)
   - These times are on the Input System clock (`InputState.currentTime`; on iOS/Android it is derived from
     the OS event timestamp: `UITouch.timestamp` / `MotionEvent.getEventTime`). They are mapped onto the
     stopwatch with an offset sampled **at the same moment** inside the callback:
