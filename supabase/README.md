@@ -20,7 +20,10 @@ supabase/
                                pn_complete_match (D1), pn_leaderboard
   migrations/0007_m7_payments.sql   purchases.item, profiles.equipped_gun, pn_grant_entitlement (M7)
   migrations/0060_m6_accounts.sql        names only via profile-update, name shape check, after-link hook (linked_at)
-  tests/pg/run.sh              SQL tests on a REAL Postgres (throwaway initdb cluster, no Docker): m5.test.sql
+  migrations/0061_review2.sql  review pass 2: old rows repaired + checks validated, character ids, rate_events +
+                               pn_rate_*, purchases only move with device proof (pn_grant_entitlement p_allow_transfer)
+  scripts/check_migrations.sh  migration order guard + migrations.lock (new migrations must sort after the applied ones)
+  tests/pg/run.sh              SQL tests on a REAL Postgres (throwaway initdb cluster, no Docker): m5.test.sql, review2.test.sql
   seed.sql                     three house ghosts
   scripts/sync_duel_config.sh  copies Assets/.../duel_config.json into functions/_shared/ (--check for CI)
   functions/
@@ -73,9 +76,10 @@ Every function call then sends `Authorization: Bearer $JWT` and `apikey: $ANON`.
 
 ```bash
 deno test --allow-read --allow-env supabase/functions/_shared/   # parity + validator + Glicko + M5 (rooms, seasons, plausibility)
-node Tools/Parity/run_node_tests.ts                     # same tests without Deno (Node >= 22.18): 45 tests
+node Tools/Parity/run_node_tests.ts                     # same tests without Deno (Node >= 22.18): 67 tests
 supabase/tests/pg/run.sh                                # SQL: pn_complete_match atomicity, rooms, quarantine, leaderboards
 supabase/scripts/sync_duel_config.sh --check            # rules copy in sync
+supabase/scripts/check_migrations.sh                    # migration files in applied order (db push would refuse a gap)
 python3 Tools/Parity/reference_vectors.py --check       # independent Python reference agrees with vectors.json
 ```
 
@@ -98,6 +102,7 @@ Unity smoke test in `Docs/ONLINE_CLIENT.md` against `supabase start`.
 ```bash
 supabase login
 supabase link --project-ref <ref>
+supabase migration list                                   # first time: see what the project already has (below)
 supabase db push                                          # migrations
 psql "<connection string from Dashboard > Connect>" -f supabase/seed.sql   # house ghosts (idempotent)
 supabase secrets set PN_RANKED_BUILDS="1.0.0+42" PN_DAY_TZ=Asia/Kolkata
@@ -105,6 +110,19 @@ supabase functions deploy match-start match-submit room-create room-join leaderb
 ```
 
 The house ghosts are required in production: without them the first player gets `503 no_opponent`.
+
+**Migration numbering.** The milestones numbered their migrations 0003 (M5), 0007 (M7), 0060 (M6) and 0061 (review 2)
+so they could be written in parallel. `db push` applies whatever the remote history lacks, but refuses a local
+migration that sorts **before** the newest applied one. On a fresh project that never happens. If the project already
+ran some of them out of order (e.g. 0007 was pushed before 0003 existed), `supabase migration list` shows the gap;
+push once with `supabase db push --include-all` (0003, 0007 and 0060 touch disjoint objects, and 0061 must run after
+all of them). Never rename an applied migration. New migrations: `supabase migration new <name>` (timestamped, so it
+sorts last), then `supabase/scripts/check_migrations.sh --update` and commit `scripts/migrations.lock`.
+
+**Deploy order for review pass 2.** `db push` (0061 replaces `pn_grant_entitlement` with the 12-argument version)
+and then deploy the functions right away; between the two, `purchase-validate` answers 500 and the client keeps the
+purchase pending and retries (no harm). 0061 also repairs old profile rows and validates the NOT VALID checks; on a
+large table run it off-peak (`VALIDATE CONSTRAINT` takes a SHARE UPDATE EXCLUSIVE lock, reads stay open).
 
 ### Environment
 
@@ -134,12 +152,13 @@ Server tunables that are not secrets (3 rounds, 9 max attempts, +60 s submit sla
 
 | Table | Rows | Client access (RLS) |
 |---|---|---|
-| `profiles` | one per auth user (trigger on `auth.users`): name, cat, owned items, coins, stats, daily streak, rejections/flag, `linked_at` (M6) | select own; update own `character`, `settings` only (`display_name` only through `profile-update` since 0060) |
+| `profiles` | one per auth user (trigger on `auth.users`): name, cat, owned items, coins, stats, daily streak, rejections/flag, `linked_at` (M6) | select own (0061: not `shadow`, `flagged`, `rejections`); update own `character`, `settings`, `equipped_gun` only (`display_name` only through `profile-update` since 0060) |
 | `recordings` | the ghost pool (+ house ghosts) | **none**: served by `match-start` |
-| `matches` | issued/completed/void matches, opponent snapshot, server result, MMR before/after | select own |
+| `matches` | issued/completed/void matches, opponent snapshot, server result, MMR before/after | select own (0061: not `opponent_owner_id` / `opponent_snapshot` / `opponent_recording_id`) |
 | `ratings` | Glicko-lite per (user, season) | select own |
 | `purchases` | validated store transactions (unique per store transaction) | select own |
 | `notifications` | e.g. "Stranger #1234 beat your 231 ms" | select own; update own `read_at` only |
+| `rate_events` (review 2) | one row per rate-limited call (user, kind, time), pruned per user on use | none |
 | `rooms` (M5) | friend-duel rooms: code, host, status open / recorded / used / expired / cancelled, reserved recording | **none**: room-create / room-join |
 | `account_stats` (M5) | rolling plausibility window per account (last 60 shots + margin counters) | none |
 | `plausibility_log` (M5) | every tripped check with its data (reject / hold / shadow / log) | none |
@@ -150,7 +169,15 @@ audit, never served), `matches.room_id`.
 
 Every write goes through a function with the service role. `pn_pick_opponent`, `pn_register_rejection`,
 `pn_record_match_stats`, `pn_claim_daily`, `pn_room_create`, `pn_room_join`, `pn_room_unclaim`, `pn_complete_match` and
-`pn_leaderboard` are `SECURITY DEFINER` helpers executable by `service_role` only.
+`pn_leaderboard`, and since 0061 `pn_rate_take` / `pn_rate_count` / `pn_rate_note` and `pn_repair_profiles`, are
+`SECURITY DEFINER` helpers executable by `service_role` only. `pn_grant_entitlement` / `pn_set_equipped_gun` /
+`pn_recompute_item` (0007, 0061) likewise.
+
+**Rate limits (0061).** Per user, sliding window (`server_config.ts` `RATE`, `pn_rate_take`): room-join 40/min (a
+waiting friend polls 20/min) and 12 wrong codes per 10 min, profile-update 12/h, profile-read 30/min, purchase-validate
+30/10 min, daily-claim 12/min, leaderboard-read 30/min, loadout-equip 20/min, account-delete 6/h. Over the limit:
+`429 rate_limited` with `retryAfterSec`. match-start (6/min) and room-create (5/10 min) keep their own counters. A
+database error in the limiter lets the call through (logged).
 
 **Pool rules (M5).** `pn_pick_opponent` serves a recording only when `quarantine_left = 0` and not `held`. Flagged
 (3 rejections) and shadow accounts form a separate pool: they meet house ghosts and each other, nobody else meets them,
@@ -194,7 +221,9 @@ instead), and the ghost's early foul is replayed at `inputOffsetNs` after "3" wh
 Base URL: `https://<ref>.supabase.co/functions/v1` (local: `http://127.0.0.1:54321/functions/v1`).
 All functions: `POST`, JSON body, headers `Authorization: Bearer <user access token>` and `apikey: <anon key>`.
 Errors always have the body `{ "error": "<code>", "message": "...", ...extra }` (`schemas/error.schema.json`).
-Common errors: `401 unauthorized`, `400 bad_json`, `405 method_not_allowed`, `413 body_too_large`, `500 internal|db_error`.
+Common errors: `401 unauthorized`, `400 bad_json`, `405 method_not_allowed`, `413 body_too_large`, `429 rate_limited`,
+`500 internal|db_error`. Bodies are capped at 1 KB for the functions that take no payload (64 KB was the old default),
+256 KB for match-submit and purchase-validate.
 
 ### `POST /match-start`
 
@@ -228,7 +257,7 @@ curl -s -X POST "$API/functions/v1/match-start" -H "Authorization: Bearer $JWT" 
   "opponent": {
     "recordingId": "00000000-0000-4000-8000-000000000002",
     "displayName": "Marshal Mittens",
-    "character": "blackpaw",
+    "character": "pawtruth",
     "loadout": { "gun": "standard" },
     "mmr": 1200,
     "isHouse": true,
@@ -269,6 +298,9 @@ match above (seed 1: holds 1.746 s, 1.332 s, 2.401 s; cue presented one 120 Hz f
   }
 }
 ```
+
+`character` is `"whiskers"` or `"pawtruth"`; `"blackpaw"` (the persona's id before the rename) is accepted as an alias
+and stored as `pawtruth` (0061 renamed old rows; match-start answers always say `pawtruth`).
 
 Recording field rules: `*Ns` are integer ns on the phone's monotonic clock. `shot`/`anticipation`:
 `reactionNs = inputNs - cuePresentedNs` (within 1 µs), `0 <= reactionNs <= noShotTimeout`, and `anticipation`
@@ -367,7 +399,7 @@ Request `{ "board": "ranked" }` (default; this week), `"ranked_2026_42"` (a past
 ```json
 { "board": "ranked_2026_43", "kind": "ranked", "unit": "mmr", "season": 202643, "closesAt": "2026-10-26T00:00:00.000Z",
   "minMatches": 5, "total": 412,
-  "top": [ { "rank": 1, "displayName": "Old Tom", "character": "blackpaw", "value": 1702, "matches": 30, "you": false } ],
+  "top": [ { "rank": 1, "displayName": "Old Tom", "character": "pawtruth", "value": 1702, "matches": 30, "you": false } ],
   "you": { "rank": 87, "value": 1214, "matches": 9, "eligible": true } }
 ```
 Top 50; ties share a rank. Ranked lists players with at least `minMatches` rated matches this week (`you.rank` is null
@@ -443,11 +475,12 @@ API v2 `GET /inApps/v1/transactions/{id}` (production, then sandbox) with its si
   "profile": { "ownedItems": ["peacemaker"], "coins": 0, "equippedGun": "peacemaker" } }
 ```
 `outcome`: `granted` | `already_owned` (same purchase again: idempotent) | `transferred` (the purchase was on another
-account: it moves here, the old account loses the item) | `pending` | `refunded` (store status, nothing granted).
+account and this device proved it owns it, or it is bound to this account: it moves here, the old account loses the item) | `pending` | `refunded` (store status, nothing granted).
 `transactionId` is the canonical key: Apple's original transaction id, Google's order id. A fresh purchase equips the gun;
 a restore does not change the loadout.
 
-Errors: `400 bad_request | unknown_product | bad_receipt`; permanent `422 invalid_receipt | wrong_app | product_mismatch |
+Errors: `409 account_mismatch | owned_elsewhere` (review pass 2: the purchase belongs to another account and the
+request does not prove this device owns it; see `Docs/PAYMENTS.md` §6); `400 bad_request | unknown_product | bad_receipt`; permanent `422 invalid_receipt | wrong_app | product_mismatch |
 not_in_receipt | not_found | fake_store | sandbox_not_allowed` (the client finishes the store transaction without the
 item); transient `503 store_unavailable | store_not_configured` (the client keeps the transaction pending and retries).
 

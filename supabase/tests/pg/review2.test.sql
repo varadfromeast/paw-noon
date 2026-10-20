@@ -129,6 +129,20 @@ begin
   perform t.eq((select relrowsecurity from pg_class where oid = 'public.rate_events'::regclass), true, 'rate_events has RLS');
 end $$;
 
+-- column grants: no shadow-ban tell, no other player's auth id
+do $$
+begin
+  perform t.eq(has_column_privilege('authenticated', 'public.profiles', 'shadow', 'select'), false, 'shadow hidden');
+  perform t.eq(has_column_privilege('authenticated', 'public.profiles', 'flagged', 'select'), false, 'flagged hidden');
+  perform t.eq(has_column_privilege('authenticated', 'public.profiles', 'rejections', 'select'), false, 'rejections hidden');
+  perform t.eq(has_column_privilege('authenticated', 'public.profiles', 'display_name', 'select'), true, 'name readable');
+  perform t.eq(has_column_privilege('authenticated', 'public.profiles', 'id', 'select'), true, 'id readable (RLS needs it)');
+  perform t.eq(has_column_privilege('authenticated', 'public.matches', 'opponent_owner_id', 'select'), false, 'owner id hidden');
+  perform t.eq(has_column_privilege('authenticated', 'public.matches', 'opponent_snapshot', 'select'), false, 'snapshot hidden');
+  perform t.eq(has_column_privilege('authenticated', 'public.matches', 'result', 'select'), true, 'own result readable');
+  perform t.eq(has_column_privilege('authenticated', 'public.profiles', 'display_name', 'update'), false, 'names only via profile-update');
+end $$;
+
 -- every public table has RLS on
 do $$
 declare r record;

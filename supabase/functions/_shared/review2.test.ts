@@ -48,6 +48,8 @@ Deno.test("review2: account tokens (Apple = user id, Google = sha256 hex) and bi
   const g = await expectedAccountToken("google_play", USER);
   assert(/^[0-9a-f]{64}$/.test(g), "google token is sha256 hex");
   assertEquals(g, await expectedAccountToken("google_play", USER.toLowerCase()), "case-insensitive user id");
+  // the same vector as the C# PurchaseBinding test (Tests/EditModeRuntime/Review2Tests.cs)
+  assertEquals(g, "807ff2d8af672f5908d1ffd07db62014e5f627b991a4fd4243de256265592ca8");
   assertEquals(bindingState(ent({ accountToken: USER }), USER.toLowerCase()), "match");
   assertEquals(bindingState(ent({ accountToken: OTHER }), USER.toLowerCase()), "mismatch");
   assertEquals(bindingState(ent({ accountToken: null }), USER.toLowerCase()), "absent");

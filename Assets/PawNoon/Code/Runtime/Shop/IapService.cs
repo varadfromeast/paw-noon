@@ -49,6 +49,15 @@ namespace PawNoon.Runtime.Shop
         public int MessageVersion { get; private set; }
         public string InitError { get; private set; }
 
+        /// <summary>
+        /// True while a duel is running (ShopDirector): no purchase-validate call is started then (review pass 2). A 45 s
+        /// retry or a deferred purchase (Ask to Buy, a slow Google card) that comes due mid-round waits until the round is
+        /// over, so the shop adds no work (JSON, coroutines, TLS) to the frames that present DRAW and read the swipe.
+        /// </summary>
+        public Func<bool> Quiet;
+
+        private bool IsQuiet { get { return Quiet != null && Quiet(); } }
+
         public IapService(IStore store, GunLocker locker, IKeyValueStore kv, Func<SupabaseApi> api, Func<bool> serverOn,
             Func<string> accountId = null)
         {
@@ -74,6 +83,7 @@ namespace PawNoon.Runtime.Shop
         {
             if (initStarted) return;
             initStarted = true;
+            store.SetAccount(accountId != null ? accountId() : null);   // Google reads the account id at init (see BindAccount)
             store.Initialize(Products, (ok, err) =>
             {
                 InitError = ok ? null : err;
@@ -151,7 +161,11 @@ namespace PawNoon.Runtime.Shop
             if (retryT > 0f)
             {
                 retryT -= dt;
-                if (retryT <= 0f) Flush();
+                if (retryT <= 0f)
+                {
+                    if (IsQuiet) retryT = 1f;   // a duel is on: look again in a second
+                    else Flush();
+                }
             }
         }
 
@@ -175,6 +189,7 @@ namespace PawNoon.Runtime.Shop
                 return;
             }
             AddPending(p);
+            if (IsQuiet) { retryT = 1f; return; }   // validated as soon as the duel is over (Tick)
             Validate(p);
         }
 
@@ -374,7 +389,11 @@ namespace PawNoon.Runtime.Shop
                 var builder = ConfigurationBuilder.Instance(StandardPurchasingModule.Instance());
                 for (int i = 0; i < productIds.Length; i++) builder.AddProduct(productIds[i], ProductType.NonConsumable);
                 // kept to set the obfuscated account id per purchase (the Play store reads it when the flow starts)
-                if (Application.platform == RuntimePlatform.Android) googleConfig = builder.Configure<IGooglePlayConfiguration>();
+                if (Application.platform == RuntimePlatform.Android)
+                {
+                    googleConfig = builder.Configure<IGooglePlayConfiguration>();
+                    BindAccount();   // some IAP 4.x versions only read it here; it is set again before each purchase
+                }
                 UnityPurchasing.Initialize(this, builder);
             }
             catch (Exception e)

@@ -62,6 +62,7 @@ namespace PawNoon.Runtime.Shop
             screen = go.AddComponent<ShopScreen>();
             screen.Setup(kit, layout, pipe);
             button = new ShopButton(kit, uiRoot, pipe);
+            iap.Quiet = () => PawGame.Instance != null && PawGame.Instance.CurrentMode == PawGame.Mode.Duel;
             iap.Init();
         }
 

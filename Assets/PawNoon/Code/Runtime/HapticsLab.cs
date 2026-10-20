@@ -6,8 +6,8 @@ namespace PawNoon.Runtime
     /// <summary>
     /// Haptics lab: a debug screen listing every haptic moment of the game as a button. A press plays it on the
     /// device (on finger-down, so nothing else is felt first), so each one can be judged on its own.
-    /// Open: <c>ReviewDirector.Show haptics</c> (bridge / editor), or on a device hold a finger on the top-left
-    /// corner of the title screen for 1.5 s. CLOSE (or any other Show) returns to the title.
+    /// Open: <c>ReviewDirector.Show haptics</c> (bridge / editor), or on a development build hold a finger on the
+    /// top-left corner of the title screen for 1.5 s (release builds: bridge only). CLOSE (or any other Show) returns to the title.
     /// Debug only; self-contained (own MonoBehaviour after PawGame's frame, own UI kit, created on first open).
     /// </summary>
     [DefaultExecutionOrder(-400)]
@@ -241,8 +241,12 @@ namespace PawNoon.Runtime
         /// <summary>Title screen: a finger held on the top-left corner for 1.5 s opens the lab.</summary>
         private void WatchGesture(PawGame g)
         {
-            bool eligible = g.CurrentMode == PawGame.Mode.Title && g.SettingsOpenState == "closed" &&
-                            (g.Online == null || !g.Online.CardOpen);
+            // review pass 2: development builds only (the corner is also where SHOP sits: a long press on SHOP must not
+            // open a debug screen for players), and never over the shop or an account card
+            bool eligible = (Application.isEditor || Debug.isDebugBuild) &&
+                            g.CurrentMode == PawGame.Mode.Title && g.SettingsOpenState == "closed" &&
+                            (g.Online == null || !g.Online.CardOpen) &&
+                            (g.Shop == null || !g.Shop.IsOpen) && (g.Accounts == null || !g.Accounts.Open);
             var s = g.Pipeline.Safe;
             if (eligible && UiPointer.Held && UiPointer.In(new RectInt(s.x, s.y, GestureSize, GestureSize)))
             {

@@ -9,6 +9,7 @@
 --      accepting `blackpaw` as an alias (recording.ts).
 --   3. Per-user rate limits for the functions that had none (room-join guesses, profile-update, purchase-validate,
 --      daily-claim, leaderboard-read, profile-read, loadout-equip, account-delete): pn_rate_take().
+--   5. Column grants: clients no longer read their own shadow / flagged state or another player's auth id.
 --   4. Purchases: pn_grant_entitlement only moves a purchase from another account when the caller proved it owns
 --      the store purchase (device receipt / signed transaction / matching appAccountToken); a bare transaction id is
 --      no longer enough (review pass 2, PAYMENTS.md §6).
@@ -201,6 +202,20 @@ begin
     select v_outcome, p.owned_items, p.coins, p.equipped_gun, v_prev
       from public.profiles p where p.id = p_user;
 end $$;
+
+-- ======================================================================================== 5. column grants
+-- RLS let a client read every column of its own rows through PostgREST (the game itself never does). Two leaks:
+-- profiles.shadow / flagged / rejections tell a cheater they have been caught (C11 says nothing may), and
+-- matches.opponent_owner_id / opponent_snapshot.ownerId hand out another player's auth id (review pass 1, D4).
+-- Grant only the columns a player may see; RLS still limits the rows.
+revoke select on public.profiles from authenticated;
+grant select (id, display_name, character, owned_items, settings, coins, matches_played, wins, best_reaction_ns,
+              lightning_count, daily_streak, daily_last_claim, created_at, updated_at, equipped_gun, linked_at)
+  on public.profiles to authenticated;
+revoke select on public.matches from authenticated;
+grant select (id, player_id, mode, season, seed, rounds, max_attempts, status, issued_at, deadline_at, submitted_at,
+              void_reason, winner, result, player_mmr_before, player_mmr_after, room_id)
+  on public.matches to authenticated;
 
 -- ======================================================================================== grants
 revoke all on function public.pn_display_name_ok(text) from public, anon, authenticated;
