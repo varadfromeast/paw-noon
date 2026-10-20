@@ -1,7 +1,7 @@
 PAW NOON - audio credits and licenses
 =====================================
 
-Gunshots: SFX/sfx_gun_hero_1..3.wav, SFX/sfx_gun_bandit_1..3.wav
+Gunshots: SFX/sfx_gun_hero_1..3.wav, SFX/sfx_gun_bandit_1..3.wav, SFX/sfx_gun_peacemaker_1..3.wav
   Derived from The Free Firearm Sound Library (Smith & Wesson 642 recordings
   V_22P.wav and V_27P.wav, as prepared in Revolver1-3.wav).
   Recorded by Ben Jaszczak, Brian Nelson, Kevin Heras and Matthew Nanney.

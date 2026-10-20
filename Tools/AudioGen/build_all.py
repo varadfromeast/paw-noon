@@ -18,6 +18,7 @@ import gen_duel    # noqa: E402
 import gen_loops   # noqa: E402
 import gen_music   # noqa: E402
 import gen_sfx     # noqa: E402
+import gen_peacemaker  # noqa: E402
 
 AUDIO = os.path.normpath(os.path.join(HERE, '..', '..', 'Assets', 'PawNoon', 'Resources', 'Audio'))
 USER_IN = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'work', 'audio_in', 'Music'))
@@ -25,7 +26,7 @@ USER_IN = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'work', 'audio_i
 NOTICE = """PAW NOON - audio credits and licenses
 =====================================
 
-Gunshots: SFX/sfx_gun_hero_1..3.wav, SFX/sfx_gun_bandit_1..3.wav
+Gunshots: SFX/sfx_gun_hero_1..3.wav, SFX/sfx_gun_bandit_1..3.wav, SFX/sfx_gun_peacemaker_1..3.wav
   Derived from The Free Firearm Sound Library (Smith & Wesson 642 recordings
   V_22P.wav and V_27P.wav, as prepared in Revolver1-3.wav).
   Recorded by Ben Jaszczak, Brian Nelson, Kevin Heras and Matthew Nanney.
@@ -57,6 +58,7 @@ def main():
     gen_duel.main(['music_duel_a', 'music_duel_hold', 'music_duel_result'])
     gen_loops.main()
     gen_sfx.main()
+    gen_peacemaker.main()
     classic = os.path.join(AUDIO, 'Music', 'Classic')
     os.makedirs(classic, exist_ok=True)
     for f in ('Lobby.mp3', 'Standoff.mp3'):
