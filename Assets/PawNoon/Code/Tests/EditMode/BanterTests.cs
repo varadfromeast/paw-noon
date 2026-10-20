@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
 using PawNoon.Core;
 
@@ -87,6 +89,138 @@ namespace PawNoon.Tests
             Assert.Contains("Last one, pardner.", d.lastOne);
             Assert.Contains("...Who taught you that?", d.lightning);
             Assert.Contains("Sleep tight, kid.", d.matchWin);
+        }
+    }
+
+    /// <summary>SPEC_V2 §8.2: per-character banter in Resources/Data/characters.json, legacy blackpawLines fallback.</summary>
+    public class CharacterBanterTests
+    {
+        private const string CharactersPath = "Assets/PawNoon/Resources/Data/characters.json";
+        private const string ConfigPath = "Assets/PawNoon/Resources/Data/duel_config.json";
+
+        private static string ReadData(string relPath)
+        {
+            string p = Path.Combine(Directory.GetCurrentDirectory(), relPath);
+            Assert.IsTrue(File.Exists(p), "missing " + p);
+            return File.ReadAllText(p);
+        }
+
+        private static string[][] Pools(BanterLines l)
+        {
+            return new[] { l.matchStart, l.lastOne, l.lightning, l.playerEarly, l.botWon, l.botLost, l.matchWin };
+        }
+
+        [Test]
+        public void CharactersFileLoadsBothCats()
+        {
+            var cfg = DuelConfig.FromJson(ReadData(ConfigPath));
+            var r = CharacterRoster.Load(ReadData(CharactersPath), cfg);
+            Assert.IsTrue(r.FromFile, "characters.json must parse");
+            var w = r.Get(CharacterRoster.Whiskers);
+            var p = r.Get(CharacterRoster.Pawtruth);
+            Assert.AreEqual("WHISKERS", w.name);
+            Assert.AreEqual("PAWTRUTH", p.name);
+            Assert.AreEqual("sfx_meow_whiskers", w.meow);
+            Assert.AreEqual("sfx_meow_pawtruth", p.meow);
+            Assert.AreEqual("PAWTRUTH", cfg.botName, "the bot persona is Pawtruth (formerly Blackpaw)");
+
+            int whiskersLines = 0;
+            var seen = new HashSet<string>();
+            foreach (var pool in Pools(p.lines)) foreach (var line in pool) seen.Add(line);
+            foreach (var pool in Pools(w.lines))
+            {
+                Assert.GreaterOrEqual(pool.Length, 2);
+                Assert.LessOrEqual(pool.Length, 3);
+                foreach (var line in pool)
+                {
+                    whiskersLines++;
+                    Assert.LessOrEqual(line.Length, 30, "one-line bubble: " + line);
+                    Assert.IsFalse(seen.Contains(line), "Whiskers must not reuse Pawtruth's line: " + line);
+                }
+            }
+            Assert.GreaterOrEqual(whiskersLines, 20);
+            // the file's Whiskers lines are the built-in defaults too (the game says the same without the file)
+            var d = BanterLines.WhiskersDefaults();
+            var a = Pools(w.lines);
+            var b = Pools(d);
+            for (int i = 0; i < a.Length; i++) CollectionAssert.AreEqual(b[i], a[i]);
+        }
+
+        [Test]
+        public void MissingFileFallsBackToConfigAndBuiltIns()
+        {
+            var cfg = DuelConfig.FromJson("{\"botName\": \"OLDNAME\", \"blackpawLines\": {\"botLost\": [\"Legacy.\"]}}");
+            foreach (var json in new[] { null, "", "{ not json" })
+            {
+                var r = CharacterRoster.Load(json, cfg);
+                Assert.IsFalse(r.FromFile);
+                var p = r.Get(CharacterRoster.Pawtruth);
+                Assert.AreEqual("OLDNAME", p.name);
+                CollectionAssert.AreEqual(new[] { "Legacy." }, p.lines.botLost);                 // legacy duel_config key
+                CollectionAssert.AreEqual(new BanterLines().matchStart, p.lines.matchStart);      // built-in
+                var w = r.Get(CharacterRoster.Whiskers);
+                Assert.AreEqual("WHISKERS", w.name);
+                CollectionAssert.AreEqual(BanterLines.WhiskersDefaults().botWon, w.lines.botWon);
+            }
+            // no config at all
+            var bare = CharacterRoster.Load(null, null);
+            Assert.AreEqual("PAWTRUTH", bare.Get(CharacterRoster.Pawtruth).name);
+            Assert.AreEqual("sfx_meow_pawtruth", bare.Get(CharacterRoster.Pawtruth).meow);
+        }
+
+        [Test]
+        public void PartialEntriesFallBackPerContext()
+        {
+            var cfg = DuelConfig.FromJson("{\"blackpawLines\": {\"botLost\": [\"Legacy.\"], \"botWon\": [\"Old win.\"]}}");
+            var r = CharacterRoster.Load(
+                "{\"pawtruth\": {\"lines\": {\"botWon\": [\"New win.\", \"Again.\"], \"lastOne\": []}}," +
+                " \"whiskers\": {\"name\": \"SNOW\", \"lines\": {\"matchWin\": [\"Bye.\"]}}}", cfg);
+            Assert.IsTrue(r.FromFile);
+            var p = r.Get(CharacterRoster.Pawtruth);
+            Assert.AreEqual(cfg.botName, p.name);                                         // no name in the entry
+            CollectionAssert.AreEqual(new[] { "New win.", "Again." }, p.lines.botWon);   // characters.json wins
+            CollectionAssert.AreEqual(new[] { "Legacy." }, p.lines.botLost);              // legacy fallback
+            CollectionAssert.AreEqual(new BanterLines().lastOne, p.lines.lastOne);       // empty list -> built-in
+            var w = r.Get(CharacterRoster.Whiskers);
+            Assert.AreEqual("SNOW", w.name);
+            CollectionAssert.AreEqual(new[] { "Bye." }, w.lines.matchWin);
+            CollectionAssert.AreEqual(BanterLines.WhiskersDefaults().lightning, w.lines.lightning);
+        }
+
+        [Test]
+        public void IdsNormaliseAndLegacyBlackpawIsPawtruth()
+        {
+            var r = CharacterRoster.Load(null, null);
+            Assert.AreSame(r.Get("pawtruth"), r.Get("blackpaw"));
+            Assert.AreSame(r.Get("pawtruth"), r.Get(" PawTruth "));
+            Assert.AreSame(r.Get("pawtruth"), r.Get("nobody"));                          // unknown -> Pawtruth, never null
+            Assert.IsTrue(r.Has("whiskers"));
+            Assert.IsFalse(r.Has("nobody"));
+            Assert.AreEqual(CharacterRoster.Pawtruth, CharacterRoster.OpponentOf(CharacterRoster.Whiskers));
+            Assert.AreEqual(CharacterRoster.Whiskers, CharacterRoster.OpponentOf("blackpaw"));
+            CollectionAssert.AreEqual(new[] { "pawtruth", "whiskers" }, r.Ids);
+        }
+
+        [Test]
+        public void PickerWorksWithEitherCatsLines()
+        {
+            var r = CharacterRoster.Load(ReadData(CharactersPath), DuelConfig.FromJson(ReadData(ConfigPath)));
+            var picker = new BanterPicker(5);
+            foreach (var id in r.Ids)
+            {
+                var lines = r.Get(id).lines;
+                var s = picker.Pick(lines, BanterContext.MatchStart, 0.0);
+                Assert.IsNotNull(s);
+                CollectionAssert.Contains(lines.matchStart, s);
+            }
+        }
+
+        [Test]
+        public void IntroFlagParsesAndDefaultsOn()
+        {
+            Assert.IsTrue(new DuelConfig().introEnabled);
+            Assert.IsTrue(DuelConfig.FromJson(ReadData(ConfigPath)).introEnabled);
+            Assert.IsFalse(DuelConfig.FromJson("{\"introEnabled\": false}").introEnabled);
         }
     }
 

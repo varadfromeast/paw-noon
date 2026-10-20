@@ -47,14 +47,15 @@ namespace PawNoon.Core
         public double gradeGoodMs = 420;
         public double gradeSlowMs = 700;
 
-        // --- bot "Blackpaw" (adaptive: tightens as the player wins rounds)
-        public string botName = "BLACKPAW";
+        // --- bot "Pawtruth" (adaptive: tightens as the player wins rounds)
+        /// <summary>Fallback display name of the bot persona; Resources/Data/characters.json "pawtruth".name wins.</summary>
+        public string botName = "PAWTRUTH";
         public double botMeanStartMs = 300;
         public double botMeanEndMs = 220;
         public double botSdStartMs = 50;
         public double botSdEndMs = 30;
         /// <summary>Player round wins needed to reach the End values (linear in between). 3 = a typical
-        /// 4-hit win meets the sharpest Blackpaw (mean 220 / sd 30) on the finishing round.</summary>
+        /// 4-hit win meets the sharpest Pawtruth (mean 220 / sd 30) on the finishing round.</summary>
         public int botAdaptRounds = 3;
         public double botMinMs = 170;
         public double botMaxMs = 900;
@@ -120,7 +121,7 @@ namespace PawNoon.Core
         public double knockBanditPx = 4.0;
         public double knockHeroPx = 3.0;
         public double knockSeconds = 0.16;
-        /// <summary>Darkening vignette pulse when Blackpaw fires toward the camera (added strength, seconds).</summary>
+        /// <summary>Darkening vignette pulse when the opponent fires toward the camera (added strength, seconds).</summary>
         public double banditShotVignette = 0.22;
         public double vignettePulseSeconds = 0.25;
         /// <summary>Tie ("TOO CLOSE!"): slow-mo at the second shot (scale, real seconds) and the screen
@@ -129,7 +130,7 @@ namespace PawNoon.Core
         public double tieSlowMoSeconds = 0.9;
         public double tieDesaturate = 0.3;
 
-        // --- Blackpaw talks (presentation only)
+        // --- the opponent talks (presentation only)
         /// <summary>Chance per round that he says something (match start and "last one" always speak).</summary>
         public double banterChance = 0.55;
         /// <summary>The bubble appears this long before "3" (the standoff is stretched to fit).</summary>
@@ -139,7 +140,13 @@ namespace PawNoon.Core
         public double banterLowHp = 30;
         /// <summary>How long his match-win line stays up over the result.</summary>
         public double banterMatchEndSeconds = 2.0;
+        /// <summary>LEGACY (one release): duel_config.json "blackpawLines", Pawtruth's lines from before characters.json.
+        /// Used only as the fallback for contexts characters.json does not define (see CharacterRoster).</summary>
         public BanterLines blackpawLines = new BanterLines();
+
+        // --- match intro (SPEC_V2 §8.7, presentation only)
+        /// <summary>First match of a session: both cats slide in and the name plates slam in before the standoff.</summary>
+        public bool introEnabled = true;
 
         // --- difficulty (SPEC_V2 §1): Hard = duel_config.json alone, Easy = duel_config.easy.json merged on top
         public const string DifficultyHard = "hard";
@@ -317,7 +324,8 @@ namespace PawNoon.Core
             c.banterHoldSeconds = PnJson.Num(root, "banterHoldSeconds", c.banterHoldSeconds);
             c.banterLowHp = PnJson.Num(root, "banterLowHp", c.banterLowHp);
             c.banterMatchEndSeconds = PnJson.Num(root, "banterMatchEndSeconds", c.banterMatchEndSeconds);
-            c.blackpawLines = BanterLines.FromJson(PnJson.Obj(root, "blackpawLines"));
+            c.blackpawLines = BanterLines.FromJson(PnJson.Obj(root, "blackpawLines"));   // legacy fallback, see CharacterRoster
+            c.introEnabled = PnJson.Bool(root, "introEnabled", c.introEnabled);
             c.Sanitize();
             return c;
         }

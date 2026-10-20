@@ -13,7 +13,7 @@ Everything here builds on the shipped game (see `Docs/ARCHITECTURE.md`, `Docs/TI
 | D1b | PvP at launch is **recorded ("ghost") duels**: real players' reaction times, played asynchronously. **Live duels** (both phones online, server sends DRAW to both) are phase 2 on the same rules. | Works with any number of concurrent players, costs two HTTP calls per match, and the comparison of two locally measured reactions is identical either way. |
 | D2 | **Reaction time is measured on the device, never by the server.** The server decides *when* to send DRAW, validates the report, and compares reactions. | This is the only way a 30 ms Delhi-to-Mumbai hop and a 180 ms Delhi-to-Frankfurt hop produce the same fair result. It is exactly the "fair ordering by reaction time" model from the literature (see §4.3) and already how our `ShotReport` works. |
 | D3 | Difficulty (Easy / Hard) applies to **solo vs Pawtruth only**. Online PvP always uses Hard rules. | Two humans must play by the same rules. |
-| D4 | Every playable character has a **back view** (you) and a **front view** (your opponent sees you). Launch roster: **Whiskers** (the white cat) and **Pawtruth** (the black cat, the bot persona formerly called Pawtruth). | PvP means your character is somebody's opponent. Pawtruth already has a front view; Whiskers already has a back view; we need the other two (§3). |
+| D4 | Every playable character has a **back view** (you) and a **front view** (your opponent sees you). Launch roster: **Whiskers** (the white cat) and **Pawtruth** (the black cat, the bot persona formerly called Blackpaw). | PvP means your character is somebody's opponent. Pawtruth already has a front view; Whiskers already has a back view; we need the other two (§3). |
 | D5 | Guests can play instantly (device login); Apple/Google sign-in is offered after the first match and **links** the same account. | Zero-friction first duel; progress is never lost. |
 | D7 | Hosting region: **Supabase Mumbai (ap-south-1)** first; more regions when players outside India appear. PvP match = **3 rounds**; Peacemaker at the ₹299 / $2.99 tier (change in §10 if you disagree). | Varad, 20 Oct. |
 | D6 | First purchase: the **Peacemaker** revolver. It changes the **damage curve shape** (bigger reward for PERFECT/LIGHTNING, same for slow shots), plus its own look and sound. In **ranked** PvP guns are **normalised** (cosmetic only). | Paid power that stays fair where it matters. See §6. |
@@ -49,9 +49,10 @@ Implementation: `DuelConfig.Load(hardJson, overlayJson)` using `PnJson` merge; `
 - New screen between title and duel: **CHOOSE YOUR CAT**. Two cards (portrait, name, one-line flavour), swipe or tap to pick, the pick is remembered.
 - `Resources/Data/characters.json`:
   ```json
-  { "whiskers": { "name": "WHISKERS", "back": "Characters/Whiskers", "front": "Characters/WhiskersFront", "portrait": "whiskers_portrait", "lines": "whiskers" },
-    "blackpaw": { "name": "BLACKPAW", "back": "Characters/PawtruthBack", "front": "Characters/Bandit", "portrait": "bandit_portrait", "lines": "blackpaw" } }
+  { "whiskers": { "name": "WHISKERS", "back": "Characters/Whiskers", "front": "Characters/WhiskersFront", "portrait": "whiskers_portrait", "meow": "sfx_meow_whiskers", "lines": { "matchStart": [...], ... } },
+    "pawtruth": { "name": "PAWTRUTH", "back": "Characters/PawtruthBack", "front": "Characters/Bandit", "portrait": "bandit_portrait", "meow": "sfx_meow_pawtruth", "lines": { "matchStart": [...], ... } } }
   ```
+  (Shipped so far, §8.2: `name`, `meow`, `lines` inline; `back` / `front` / `portrait` arrive with M2. The id `blackpaw` is accepted as an alias of `pawtruth`.)
 - Solo: you play your pick; the opponent is the *other* cat as Pawtruth-style bot (the bot persona, banter lines and tunables come from `characters.json`, so Whiskers taunts too when he is the opponent).
 - `DuelActor` already loads a character folder by name; the only change is which folder each slot loads. Positions keep using `heroBottomLeft` for slot 0 and `banditFeet` for slot 1 regardless of character; each character JSON carries its own pivot/foot anchor (already true).
 

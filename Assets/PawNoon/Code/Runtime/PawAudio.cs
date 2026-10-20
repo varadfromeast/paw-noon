@@ -49,7 +49,8 @@ namespace PawNoon.Runtime
                 "sfx_tick_3", "sfx_tick_2", "sfx_tick_1", "sfx_draw", "sfx_gun_hero_1", "sfx_gun_hero_2", "sfx_gun_hero_3",
                 "sfx_gun_bandit_1", "sfx_gun_bandit_2", "sfx_gun_bandit_3", "sfx_cock", "sfx_holster", "sfx_misfire",
                 "sfx_hit", "sfx_hit_cat", "sfx_ricochet", "sfx_shell", "sfx_bodyfall", "sfx_spurs", "sfx_stamp",
-                "sfx_whoosh", "sfx_lightning", "sfx_hp_tick", "sfx_ui_tap", "sfx_ui_back", "sfx_ui_toggle", "sfx_vulture", "sfx_heartbeat"
+                "sfx_whoosh", "sfx_lightning", "sfx_hp_tick", "sfx_ui_tap", "sfx_ui_back", "sfx_ui_toggle", "sfx_vulture", "sfx_heartbeat",
+                "sfx_meow_whiskers", "sfx_meow_pawtruth"   // per-character "meow signature" (SPEC_V2 §8.2, Tools/AudioGen/gen_voice.py)
             };
             for (int i = 0; i < sfx.Length; i++) Clip("Audio/SFX/" + sfx[i], sfx[i]);
             draw.clip = Get("sfx_draw");
@@ -96,6 +97,17 @@ namespace PawNoon.Runtime
             poolBasePitch[(next + PoolSize - 1) % PoolSize] = pitch;
             s.pitch = pitch * curPitch;
             s.Play();
+        }
+
+        /// <summary>
+        /// A character's "meow signature" when his speech bubble pops: volume 0.6, pitch +-4 %. Keys outside the
+        /// registered set (a new cat in characters.json) are loaded from Resources/Audio/SFX once, then cached.
+        /// </summary>
+        public void PlayMeow(string key)
+        {
+            if (!SfxOn || string.IsNullOrEmpty(key)) return;
+            if (!clips.ContainsKey(key)) Clip("Audio/SFX/" + key, key);
+            Play(key, 0.6f, Random.Range(0.96f, 1.04f));
         }
 
         /// <summary>Plays key_1..key_count at random with slight pitch variance.</summary>

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace PawNoon.Core
 {
-    /// <summary>What Blackpaw is reacting to when he speaks (presentation only; never touches the rules).</summary>
+    /// <summary>What the opponent cat is reacting to when he speaks (presentation only; never touches the rules).</summary>
     public enum BanterContext
     {
         None = 0,
@@ -17,8 +17,11 @@ namespace PawNoon.Core
     }
 
     /// <summary>
-    /// Blackpaw's one-liners per context. Defaults here; duel_config.json "blackpawLines" overrides any
-    /// list it contains (keys: matchStart, lastOne, lightning, playerEarly, botWon, botLost, matchWin).
+    /// One character's one-liners per context (keys: matchStart, lastOne, lightning, playerEarly, botWon,
+    /// botLost, matchWin; "bot" = the speaker, "player" = the cat across the street). The field defaults are
+    /// Pawtruth's lines; <see cref="WhiskersDefaults"/> are Whiskers'. Data lives in
+    /// Resources/Data/characters.json (see <see cref="CharacterRoster"/>); duel_config.json "blackpawLines"
+    /// is the legacy fallback for Pawtruth, kept for one release.
     /// </summary>
     [Serializable]
     public sealed class BanterLines
@@ -46,10 +49,43 @@ namespace PawNoon.Core
             }
         }
 
+        /// <summary>Whiskers' built-in lines (used when characters.json is missing or has no whiskers entry).</summary>
+        public static BanterLines WhiskersDefaults()
+        {
+            var b = new BanterLines();
+            b.matchStart = new[] { "Nice hat. Shame about it.", "I'm faster than I look.", "Noon's my nap time. Hurry." };
+            b.lastOne = new[] { "One left. Make it count.", "Last one. No pressure.", "Down to whiskers now." };
+            b.lightning = new[] { "Okay. That was fast.", "Rude. Do it slower.", "Who sharpened your claws?" };
+            b.playerEarly = new[] { "The bell's not a suggestion.", "Somebody's jumpy.", "Wait for the word, big cat." };
+            b.botWon = new[] { "Blink and you miss me.", "Too slow, shadow.", "I'd say sorry. I won't." };
+            b.botLost = new[] { "Fine. Lucky paw.", "That one tickled.", "Noted. Won't happen again." };
+            b.matchWin = new[] { "Go home, shadow.", "Tell 'em a white cat did it." };
+            return b;
+        }
+
         /// <summary>Reads a {"matchStart": [...], ...} object; missing / empty lists keep the defaults.</summary>
         public static BanterLines FromJson(object node)
         {
+            return FromJson(node, null);
+        }
+
+        /// <summary>
+        /// Reads a {"matchStart": [...], ...} object; a missing / empty list takes that context from
+        /// <paramref name="fallback"/> (null = the built-in Pawtruth defaults).
+        /// </summary>
+        public static BanterLines FromJson(object node, BanterLines fallback)
+        {
             var b = new BanterLines();
+            if (fallback != null)
+            {
+                b.matchStart = fallback.matchStart;
+                b.lastOne = fallback.lastOne;
+                b.lightning = fallback.lightning;
+                b.playerEarly = fallback.playerEarly;
+                b.botWon = fallback.botWon;
+                b.botLost = fallback.botLost;
+                b.matchWin = fallback.matchWin;
+            }
             if (node == null) return b;
             b.matchStart = Strings(node, "matchStart", b.matchStart);
             b.lastOne = Strings(node, "lastOne", b.lastOne);
@@ -76,7 +112,7 @@ namespace PawNoon.Core
     }
 
     /// <summary>
-    /// Chooses whether Blackpaw talks before a round and what he says. Seeded, allocation-free per pick,
+    /// Chooses whether the opponent cat talks before a round and what he says. Seeded, allocation-free per pick,
     /// never repeats the previous line (when the pool has another one).
     /// </summary>
     public sealed class BanterPicker
@@ -99,7 +135,7 @@ namespace PawNoon.Core
 
         /// <summary>
         /// Context for the standoff before a round, by priority: match start, either duelist under lowHp
-        /// ("last one"), player's LIGHTNING last round, player drew early last round, Blackpaw won / lost
+        /// ("last one"), player's LIGHTNING last round, player drew early last round, the opponent won / lost
         /// the last round. lastWinner -1 (tie / no result) gives no win/lose context.
         /// </summary>
         public static BanterContext Context(bool matchStart, double hp0, double hp1, double lowHp,

@@ -1,0 +1,83 @@
+{
+  "_note": "Per-character persona (SPEC_V2 sections 2 and 8.2). lines: what the cat says when he is the OPPONENT (botWon/botLost = he won/lost the last round, playerEarly = the other cat drew early). meow: Resources/Audio/SFX key played when his bubble pops. Missing keys fall back to the built-ins (Pawtruth also to duel_config.json blackpawLines).",
+  "whiskers": {
+    "name": "WHISKERS",
+    "meow": "sfx_meow_whiskers",
+    "lines": {
+      "matchStart": [
+        "Nice hat. Shame about it.",
+        "I'm faster than I look.",
+        "Noon's my nap time. Hurry."
+      ],
+      "lastOne": [
+        "One left. Make it count.",
+        "Last one. No pressure.",
+        "Down to whiskers now."
+      ],
+      "lightning": [
+        "Okay. That was fast.",
+        "Rude. Do it slower.",
+        "Who sharpened your claws?"
+      ],
+      "playerEarly": [
+        "The bell's not a suggestion.",
+        "Somebody's jumpy.",
+        "Wait for the word, big cat."
+      ],
+      "botWon": [
+        "Blink and you miss me.",
+        "Too slow, shadow.",
+        "I'd say sorry. I won't."
+      ],
+      "botLost": [
+        "Fine. Lucky paw.",
+        "That one tickled.",
+        "Noted. Won't happen again."
+      ],
+      "matchWin": [
+        "Go home, shadow.",
+        "Tell 'em a white cat did it."
+      ]
+    }
+  },
+  "pawtruth": {
+    "name": "PAWTRUTH",
+    "meow": "sfx_meow_pawtruth",
+    "lines": {
+      "matchStart": [
+        "Yer hand's shakin', kid.",
+        "This town's too small, kid.",
+        "Draw when yer ready."
+      ],
+      "lastOne": [
+        "Last one, pardner.",
+        "One more and we're done.",
+        "This one counts, kid."
+      ],
+      "lightning": [
+        "...Who taught you that?",
+        "Huh. Quick paws.",
+        "Well, I'll be."
+      ],
+      "playerEarly": [
+        "Jumpy, ain't ya?",
+        "Easy on that trigger.",
+        "Wait for it, kid."
+      ],
+      "botWon": [
+        "Too slow, pardner.",
+        "Keep up, kid.",
+        "That all ya got?"
+      ],
+      "botLost": [
+        "Lucky shot.",
+        "Beginner's luck.",
+        "Won't happen twice."
+      ],
+      "matchWin": [
+        "Sleep tight, kid.",
+        "Come back with more whiskers."
+      ]
+    }
+  }
+}
