@@ -8,6 +8,8 @@ import { parseRecording, type PlayableAttempt, playableAttempts, type Recording,
 import { type MatchContext, validateAndScore } from "./validate_recording.ts";
 import { decayRd, expectedScore, updateRating } from "./glicko.ts";
 import { matchDurationSec } from "./server_config.ts";
+import { applyGame, loadRating } from "./ratings.ts";
+import type { Db } from "./db.ts";
 
 const cfg = hardConfig();
 const SEED = 424242;
@@ -137,4 +139,93 @@ Deno.test("glicko-lite", () => {
 Deno.test("match deadline covers the slowest seed", () => {
   const s = matchDurationSec(cfg, SEED);
   assert(s > 9 * (2.1 + 1) && s < 400, String(s));
+});
+
+Deno.test("countdownStartNs is required (the hold-length check cannot be skipped by omitting it)", () => {
+  const rec = honest(SEED, [shot(210), shot(250), shot(231)], [1, 2, 3]);
+  const raw = JSON.parse(JSON.stringify(rec));
+  delete raw.rounds[1].countdownStartNs;
+  let threw = false;
+  try {
+    parseRecording(raw);
+  } catch (e) {
+    threw = e instanceof ShapeError && String(e.message).includes("countdownStartNs");
+  }
+  assert(threw, "a recording without countdownStartNs must be a shape error");
+});
+
+// ---- ratings: optimistic concurrency (review 2026-10-20)
+
+type Row = { user_id: string; season: number; mmr: number; rd: number; matches: number; wins: number; losses: number; draws: number; last_played_at: string | null };
+
+/** Just enough of the PostgREST builder for ratings.ts: from().select/update/insert().eq()...[.maybeSingle()]. */
+function fakeDb(rows: Row[], beforeWrite: () => void): Db {
+  class Q {
+    private op: "select" | "update" | "insert" = "select";
+    private filters: [string, unknown][] = [];
+    private patch: Record<string, unknown> = {};
+    private one = false;
+    select(_cols?: string) { return this; }
+    eq(c: string, v: unknown) { this.filters.push([c, v]); return this; }
+    maybeSingle() { this.one = true; return this; }
+    update(p: Record<string, unknown>) { this.op = "update"; this.patch = p; return this; }
+    insert(p: Record<string, unknown>) { this.op = "insert"; this.patch = p; return this; }
+    private match(r: Row) { return this.filters.every(([c, v]) => (r as unknown as Record<string, unknown>)[c] === v); }
+    private run(): { data: unknown; error: { message: string; code?: string } | null } {
+      if (this.op === "select") {
+        const hit = rows.filter((r) => this.match(r));
+        return { data: this.one ? (hit[0] ? { ...hit[0] } : null) : hit, error: null };
+      }
+      beforeWrite();
+      if (this.op === "insert") {
+        const p = this.patch as unknown as Row;
+        if (rows.some((r) => r.user_id === p.user_id && r.season === p.season)) {
+          return { data: null, error: { message: "duplicate key", code: "23505" } };
+        }
+        rows.push({ ...p });
+        return { data: null, error: null };
+      }
+      const hit = rows.filter((r) => this.match(r));
+      for (const r of hit) Object.assign(r, this.patch);
+      return { data: hit.map((r) => ({ user_id: r.user_id })), error: null };
+    }
+    then<A, B>(ok: (v: ReturnType<Q["run"]>) => A, bad?: (e: unknown) => B) {
+      return Promise.resolve().then(() => this.run()).then(ok, bad);
+    }
+  }
+  return { from: (_t: string) => new Q() } as unknown as Db;
+}
+
+Deno.test("applyGame re-reads and re-applies when the rating row changed under it (no lost update)", async () => {
+  const rows: Row[] = [{ user_id: "u", season: 1, mmr: 1500, rd: 100, matches: 10, wins: 5, losses: 5, draws: 0, last_played_at: null }];
+  let interfered = false;
+  const db = fakeDb(rows, () => {
+    if (interfered) return;
+    interfered = true; // another submit rates the same player first
+    Object.assign(rows[0], { mmr: 1480, matches: 11, losses: 6 });
+  });
+  const now = new Date("2026-10-20T10:00:00Z");
+  const before = await loadRating(db, "u", 1, now);
+  const opp = { mmr: 1500, rd: 100 };
+  await applyGame(db, "u", 1, before, opp, 1, now);
+  assertEquals(rows[0].matches, 12, "both games are counted");
+  assertEquals([rows[0].wins, rows[0].losses], [6, 6]);
+  const expected = updateRating({ mmr: 1480, rd: 100 }, opp, 1);
+  assertClose(rows[0].mmr, expected.mmr, 1e-9, "applied on top of the concurrent result");
+});
+
+Deno.test("applyGame handles a concurrently created first rating row", async () => {
+  const rows: Row[] = [];
+  let interfered = false;
+  const db = fakeDb(rows, () => {
+    if (interfered) return;
+    interfered = true;
+    rows.push({ user_id: "u", season: 1, mmr: 1210, rd: 300, matches: 1, wins: 1, losses: 0, draws: 0, last_played_at: null });
+  });
+  const now = new Date("2026-10-20T10:00:00Z");
+  const fresh = await loadRating(db, "u", 1, now);
+  assert(!fresh.exists);
+  await applyGame(db, "u", 1, fresh, { mmr: 1200, rd: 350 }, 0, now);
+  assertEquals(rows.length, 1);
+  assertEquals([rows[0].matches, rows[0].wins, rows[0].losses], [2, 1, 1]);
 });

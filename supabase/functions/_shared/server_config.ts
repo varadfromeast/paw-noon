@@ -37,6 +37,12 @@ export const MATCH = {
   rejectionsToFlag: 3,
   /** Max request body for match-submit (raw swipe samples included). */
   maxBodyBytes: 256 * 1024,
+  /** match-start calls per player per minute (each call burns one `use` of a pooled recording and
+   *  reveals its reactions, so unthrottled calls could drain or scrape the pool). */
+  maxStartsPerMinute: 6,
+  /** A match left in `submitting` this long (function crashed / timed out mid-submit) is voided by the
+   *  player's next match-start, as `stale_submit` (never counts towards the cheat flag). */
+  staleSubmitMinutes: 5,
 } as const;
 
 export const RATING = {

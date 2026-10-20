@@ -44,6 +44,27 @@ async function expireOpenMatches(db: Db, userId: string): Promise<void> {
   }
 }
 
+/** Throttle (review 2026-10-20): every start burns a pool `use` and reveals a ghost's reactions. */
+async function enforceStartRate(db: Db, userId: string): Promise<void> {
+  const since = new Date(Date.now() - 60_000).toISOString();
+  const { count, error } = await db.from("matches").select("id", { count: "exact", head: true })
+    .eq("player_id", userId).gte("issued_at", since);
+  if (error) must({ data: null, error }, "count recent starts");
+  if ((count ?? 0) >= MATCH.maxStartsPerMinute) {
+    throw new HttpError(429, "rate_limited", "too many matches started, wait a minute", { retryAfterSec: 60 });
+  }
+}
+
+/** Matches stuck in `submitting` (the submit function died mid-way) are voided, never left hanging. */
+async function voidStaleSubmissions(db: Db, userId: string): Promise<void> {
+  const before = new Date(Date.now() - MATCH.staleSubmitMinutes * 60_000).toISOString();
+  must(
+    await db.from("matches").update({ status: "void", void_reason: "stale_submit" })
+      .eq("player_id", userId).eq("status", "submitting").lt("submitted_at", before),
+    "void stale submissions",
+  );
+}
+
 serve("match-start", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
@@ -68,6 +89,8 @@ serve("match-start", async (req) => {
     if (reasons.length) throw new HttpError(403, "ranked_not_allowed", "ranked is not available", { reasons });
   }
 
+  await enforceStartRate(db, user.id);
+  await voidStaleSubmissions(db, user.id);
   await expireOpenMatches(db, user.id);
 
   const season = rankedSeason();

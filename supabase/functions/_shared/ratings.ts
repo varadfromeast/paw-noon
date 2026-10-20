@@ -1,6 +1,8 @@
 // Ratings table access + Glicko-lite application (ranked only).
 import { decayRd, type Rating, updateRating } from "./glicko.ts";
-import { type Db, must } from "./db.ts";
+import type { Db } from "./db.ts";
+import { HttpError } from "./http.ts";
+import { must } from "./must.ts";
 import type { RatingRow } from "./rows.ts";
 import { RATING } from "./server_config.ts";
 
@@ -36,7 +38,18 @@ export async function loadRating(db: Db, userId: string, season: number, now = n
   };
 }
 
-/** Applies one game (score 1 / 0.5 / 0) and writes the row. Returns the new rating. */
+/** Concurrent writers to one rating row (e.g. two players finishing against the same ghost at once). */
+const RATING_WRITE_ATTEMPTS = 4;
+
+/**
+ * Applies one game (score 1 / 0.5 / 0) and writes the row. Returns the new rating.
+ *
+ * Optimistic concurrency (review 2026-10-20): the row's `matches` counter is the version. The update only
+ * lands when `matches` still equals what `current` was read with (an insert only when the row still does
+ * not exist); otherwise somebody else rated this player in between, so the row is re-read and the game is
+ * applied on top of the fresh value. The old read-then-upsert silently dropped one of two concurrent
+ * updates (a lost MMR change for a popular ghost owner).
+ */
 export async function applyGame(
   db: Db,
   userId: string,
@@ -46,22 +59,35 @@ export async function applyGame(
   score: number,
   now = new Date(),
 ): Promise<Rating> {
-  const next = updateRating(current, opponent, score);
-  must(
-    await db.from("ratings").upsert({
-      user_id: userId,
-      season,
+  let cur = current;
+  for (let attempt = 0; attempt < RATING_WRITE_ATTEMPTS; attempt++) {
+    const next = updateRating(cur, opponent, score);
+    const row = {
       mmr: next.mmr,
       rd: next.rd,
-      matches: current.matches + 1,
-      wins: current.wins + (score === 1 ? 1 : 0),
-      losses: current.losses + (score === 0 ? 1 : 0),
-      draws: current.draws + (score === 0.5 ? 1 : 0),
+      matches: cur.matches + 1,
+      wins: cur.wins + (score === 1 ? 1 : 0),
+      losses: cur.losses + (score === 0 ? 1 : 0),
+      draws: cur.draws + (score === 0.5 ? 1 : 0),
       last_played_at: now.toISOString(),
-    }, { onConflict: "user_id,season" }),
-    "save rating",
-  );
-  return next;
+    };
+    if (cur.exists) {
+      const updated = must<{ user_id: string }[] | null>(
+        await db.from("ratings").update(row)
+          .eq("user_id", userId).eq("season", season).eq("matches", cur.matches)
+          .select("user_id"),
+        "save rating",
+      );
+      if (updated && updated.length > 0) return next;
+    } else {
+      const res = await db.from("ratings").insert({ user_id: userId, season, ...row });
+      if (!res.error) return next;
+      // 23505 unique_violation: the first rating row was created concurrently -> re-read and retry
+      if ((res.error as { code?: string }).code !== "23505") must(res, "save rating");
+    }
+    cur = await loadRating(db, userId, season, now);
+  }
+  throw new HttpError(503, "busy", "rating is being updated concurrently, retry");
 }
 
 /** House ghosts have a fixed, confident rating. */

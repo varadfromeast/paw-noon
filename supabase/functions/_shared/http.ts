@@ -8,13 +8,17 @@ export const CORS_HEADERS: Record<string, string> = {
 
 /** Error body for every non-2xx response: { error, message, ...extra } (schemas/error.schema.json). */
 export class HttpError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-    readonly extra: Record<string, unknown> = {},
-  ) {
+  // plain fields, not constructor parameter properties: Node's strip-only TypeScript mode (the
+  // Tools/Parity/run_node_tests.ts fallback runner) cannot load parameter properties
+  readonly status: number;
+  readonly code: string;
+  readonly extra: Record<string, unknown>;
+
+  constructor(status: number, code: string, message: string, extra: Record<string, unknown> = {}) {
     super(message);
+    this.status = status;
+    this.code = code;
+    this.extra = extra;
   }
 }
 
