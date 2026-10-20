@@ -790,5 +790,17 @@
    6,
    6
   ]
+ },
+ "glyph_rupee": {
+  "file": "glyph_rupee",
+  "size": [
+   7,
+   11
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "note": "the shop price sign; fill at (1,1), drawn like font_medium sun1 + outline + shadow"
  }
 }

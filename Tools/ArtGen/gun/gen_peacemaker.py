@@ -273,6 +273,49 @@ def shop_icon():
     return out
 
 
+# ------------------------------------------------------------------------------------------------ rupee glyph
+# The bitmap fonts have no "₹". This is the sign in font_medium's hand (5x7, 2 px strokes), pre-coloured like
+# BitmapText draws the shop price: sun1 fill, 1 px ink outline, ink2 shadow 2 px below. Cell 7x11, the fill's
+# top-left at (1,1), so it sits exactly where a glyph drawn at the same pen position would.
+RUPEE = [
+    "#####",
+    "..###",
+    "#####",
+    "###..",
+    ".##..",
+    "..##.",
+    "...##",
+]
+
+
+def rupee_glyph():
+    w, h = 7, 11
+    fill = np.zeros((h, w), bool)
+    for y, r in enumerate(RUPEE):
+        for x, ch in enumerate(r):
+            if ch == '#':
+                fill[y + 1, x + 1] = True
+    outline = np.zeros_like(fill)
+    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        outline |= np.roll(np.roll(fill, dy, 0), dx, 1)
+    outline &= ~fill
+    body = fill | outline
+    shadow = np.zeros_like(fill)
+    for dx in (-1, 0, 1):
+        shadow |= np.roll(np.roll(fill, 2, 0), dx, 1)
+    shadow &= ~body
+    im = Image.new('RGBA', (w, h), T)
+    for y in range(h):
+        for x in range(w):
+            if fill[y, x]:
+                im.putpixel((x, y), PA['sun1'])
+            elif outline[y, x]:
+                im.putpixel((x, y), PA['ink'])
+            elif shadow[y, x]:
+                im.putpixel((x, y), PA['ink2'])
+    return im
+
+
 # ------------------------------------------------------------------------------------------------ muzzle flash
 # Same construction as fx_v3's muzzle_side (stacked stars, 1 px rim) but 72 px and blue-white: outer
 # sigBlue, middle sky5, cream core, white heart; rim sky1 then sky0 as it dies. One extra spike layer.
@@ -343,6 +386,9 @@ if __name__ == '__main__':
     ico = shop_icon()
     mz = muzzle_peacemaker()
     mzs = strip(mz)
+    rup = rupee_glyph()
+    check_palette(rup, name='glyph_rupee')
+    rup.save(os.path.join(UI, 'glyph_rupee.png'))
     for img, n in ((card, 'peacemaker_card'), (hol, 'holster_peacemaker'), (ico, 'ico_shop'), (mzs, 'muzzle_side_peacemaker')):
         check_palette(img, name=n)
         a = np.asarray(img)
@@ -356,11 +402,13 @@ if __name__ == '__main__':
     register(ui_json, 'holster_peacemaker', {'file': 'holster_peacemaker', 'size': [128, 40], 'pivot': [32, 40], 'cell': [64, 40],
                                              'frames': 2, 'fps': 0, 'loop': False,
                                              'note': 'Peacemaker loadout; same layout as holster_zone (frame 0 idle, frame 1 grip glowing)'})
+    register(ui_json, 'glyph_rupee', {'file': 'glyph_rupee', 'size': [7, 11], 'pivot': [0, 0],
+                                      'note': 'the shop price sign; fill at (1,1), drawn like font_medium sun1 + outline + shadow'})
     register(ui_json, 'ico_shop', {'file': 'ico_shop', 'size': [12, 12], 'pivot': [6, 6]})
     register(os.path.join(FX, 'fx.json'), 'muzzle_side_peacemaker', {'file': 'muzzle_side_peacemaker', 'size': [72 * 3, 72], 'pivot': [9, 36],
                                                                     'cell': [72, 72], 'frames': 3, 'fps': 24, 'loop': False})
     std = Image.open(os.path.join(UI, 'holster_zone.png')).convert('RGBA')
     std_mz = Image.open(os.path.join(FX, 'muzzle_side.png')).convert('RGBA')
-    preview([card, ico, std, hol], os.path.join(HERE, 'preview.png'))
+    preview([card, ico, rup, std, hol], os.path.join(HERE, 'preview.png'))
     preview([std_mz, mzs], os.path.join(HERE, 'preview_muzzle.png'), k=3)
     print('ok')

@@ -393,6 +393,18 @@ namespace PawNoon.Runtime
             else if (hintOn || quietOn) StartDemo(true);
         }
 
+        /// <summary>
+        /// Swaps the holster art for a loadout (M7: "holster_peacemaker"). Same footprint as holster_zone, so the
+        /// layout does not move; an unknown key keeps the current art.
+        /// </summary>
+        public void SetHolster(string key)
+        {
+            var d = kit.Ui.TryGet(key);
+            if (d == null || d == holsterDef) return;
+            holsterDef = d;
+            ApplyHolsterFrame();
+        }
+
         /// <summary>Grip glows while a thumb rests in the zone.</summary>
         public void SetResting(bool resting)
         {

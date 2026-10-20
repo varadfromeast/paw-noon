@@ -673,7 +673,7 @@ namespace PawNoon.Runtime
         private void PresentHeroDraw()
         {
             heroPredictedFire = true;
-            audio.Play("sfx_holster_draw", 0.9f);
+            audio.Play(heroDrawSfx, 0.9f);
             hero.Play("draw_fire");
             restAnim[0] = "aim";
             var d = hero.Sheet("draw_fire");
@@ -707,14 +707,14 @@ namespace PawNoon.Runtime
             float rm = reducedMotion ? 0.5f : 1f;
             float rk = (float)cfg.heroRecoilPx * rm;
             hero.Impulse(new Vector2(-rk, rk * 0.67f), (float)cfg.recoilSeconds);   // gun kicks back and down-left
-            fx.Burst(fx.Fx("muzzle_side"), m, 96, Vector2.zero);
+            fx.Burst(HeroMuzzle, m, 96, Vector2.zero);
             fx.Sparks(m, 97, 3);
             fx.Smoke(m, 95, 2);
             fx.Shell(new Vector2(m.x - 18, m.y + 16), 96, m.y + 70);
-            pipe.FlashScreen(0.22f, new Color(1f, 0.93f, 0.7f));
+            pipe.FlashScreen(0.22f * heroFlashBoost, heroFlashBoost > 1f ? new Color(0.85f, 0.95f, 1f) : new Color(1f, 0.93f, 0.7f));
             pipe.AddShake((float)cfg.shakeShot);
             pipe.Kick(new Vector2(-1.5f, 1f));
-            audio.PlayVariant("sfx_gun_hero", 3);
+            audio.PlayVariant(heroShotSfx, 3);
             audio.Play("sfx_shell", 0.4f);
             PawHaptics.Impact(1);
             if (pendingImpact[0]) Land(0);
@@ -795,7 +795,7 @@ namespace PawNoon.Runtime
             // both muzzle flashes hang in the air together: re-light the earlier one under the slow-mo
             if (fired[firstShooter])
             {
-                if (firstShooter == 0) fx.Burst(fx.Fx("muzzle_side"), muzzleAt[0], 96, Vector2.zero);
+                if (firstShooter == 0) fx.Burst(HeroMuzzle, muzzleAt[0], 96, Vector2.zero);
                 else fx.Burst(fx.Fx("muzzle_front"), muzzleAt[1], 76, Vector2.zero);
             }
             float secs = (float)cfg.tieSlowMoSeconds;

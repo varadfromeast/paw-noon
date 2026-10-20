@@ -1,5 +1,6 @@
 using PawNoon.Core;
 using PawNoon.Runtime.Net;
+using PawNoon.Runtime.Shop;
 using UnityEngine;
 
 namespace PawNoon.Runtime
@@ -28,6 +29,8 @@ namespace PawNoon.Runtime
         public CharacterRoster Roster { get; private set; }
         /// <summary>Online PvP flow (M4). Solo never depends on it.</summary>
         public OnlineDirector Online { get; private set; }
+        /// <summary>Shop, IAP and the equipped gun (M7). Solo never depends on the network.</summary>
+        public ShopDirector Shop { get; private set; }
 
         private PixelParticles particles;
         private DuelHud hud;
@@ -49,6 +52,8 @@ namespace PawNoon.Runtime
         // online PvP (SPEC_V2 §4): always Hard, a ghost in slot 1; restored on the title
         private bool pvpActive;
         private int soloSeed;
+        private bool pvpRanked;
+        private string pvpOpponentGun = Guns.Standard;
 
         /// <summary>Difficulty of the rules the next / current match uses ("easy" / "hard").</summary>
         public string Difficulty { get { return pendingConfig != null ? pendingConfig.Difficulty : Config.Difficulty; } }
@@ -197,6 +202,8 @@ namespace PawNoon.Runtime
             Director.SetStreet(Street);   // LAST LIGHT dawn crossfade
             Online = new OnlineDirector();
             Online.Init(this, kit, Layout, Pipeline, ui, title, matchScreen, transport);
+            Shop = new ShopDirector();
+            Shop.Init(kit, Layout, Pipeline, ui, Online);
 
             Audio.StartAmbience();
             ApplySettings();
@@ -312,6 +319,7 @@ namespace PawNoon.Runtime
             resultPanel.Close();
             matchScreen.Close();
             settings.Close();
+            Shop.Close();
             title.Open();
             Street.SetDawn(1f);
             hero.ResetPose();
@@ -342,6 +350,8 @@ namespace PawNoon.Runtime
             CurrentMode = Mode.Duel;
             Street.SetDawn(0f);
             bestAtMatchStart = PawSettings.BestNs;
+            Shop.Close();
+            Shop.ApplyLoadout(Director, pvpActive, pvpRanked, pvpOpponentGun);   // M7: guns latch at the next countdown
             Director.StartMatch();
         }
 
@@ -362,9 +372,18 @@ namespace PawNoon.Runtime
             BeginDuel();
         }
 
+        /// <summary>PvP loadout for the next StartPvpDuel (OnlineDirector): ranked normalises guns, the ghost's recorded gun.</summary>
+        public void SetPvpLoadout(bool ranked, string opponentGun)
+        {
+            pvpRanked = ranked;
+            pvpOpponentGun = Guns.Normalize(opponentGun);
+        }
+
         /// <summary>Back to solo: the bot, the stored difficulty, the solo seed sequence, REMATCH.</summary>
         private void EndPvp()
         {
+            pvpRanked = false;
+            pvpOpponentGun = Guns.Standard;
             if (!pvpActive) return;
             pvpActive = false;
             Director.SetOpponent(null, null, null);
@@ -433,11 +452,17 @@ namespace PawNoon.Runtime
                 particles.SetBounds(Pipeline.Visible);
             }
 
+            Shop.Tick(PawTime.UnscaledDt, CurrentMode == Mode.Title && title.IsOpen && !title.ChoiceOpen && !settings.IsOpen && !Online.CardOpen);
             switch (CurrentMode)
             {
                 case Mode.Title:
                     Input.Clear();
-                    if (settings.IsOpen)
+                    if (Shop.IsOpen)
+                    {
+                        title.Tick(false);
+                        Shop.TickOpen();
+                    }
+                    else if (settings.IsOpen)
                     {
                         title.Tick(false);
                         if (settings.Tick() == UiAction.CloseSettings) settings.Close();
@@ -447,7 +472,7 @@ namespace PawNoon.Runtime
                         title.Tick(false);
                         Online.TickTitle();
                     }
-                    else
+                    else if (!Shop.TickButton())
                     {
                         var a = title.Tick(true);
                         if (a == UiAction.Play) StartDuel();
