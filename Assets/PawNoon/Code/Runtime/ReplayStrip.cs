@@ -242,13 +242,9 @@ namespace PawNoon.Runtime
         private bool lastTicks, lastLanded;
         private int left, top;
 
-        private static readonly Color32 Bg = Pal.Ink;
-        private static readonly Color32 Frame = Pal.Wood4;
-        private static readonly Color32 Ruler = Pal.Sand3;
-        private static readonly Color32 DrawCol = Pal.SigYellow;
-        private static readonly Color32 YouCol = Pal.Cream0;
-        private static readonly Color32 OppCol = Pal.SigRed;
-        private static readonly Color32 GapCol = Pal.SigYellow;
+        private static readonly Color32 YouCol = ReplayStripPainter.YouCol;
+        private static readonly Color32 OppCol = ReplayStripPainter.OppCol;
+        private static readonly Color32 GapCol = ReplayStripPainter.GapCol;
 
         public ReplayStrip(Transform parent, BitmapFont font, int order)
         {
@@ -353,74 +349,108 @@ namespace PawNoon.Runtime
 
         private void Render(int sweep, bool ticks, int off, bool landed)
         {
-            for (int i = 0; i < px.Length; i++) px[i] = Bg;
-            for (int x = 0; x < W; x++) { Put(x, 0, Frame); Put(x, H - 1, Frame); }
-            for (int y = 0; y < H; y++) { Put(0, y, Frame); Put(W - 1, y, Frame); }
+            ReplayStripPainter.Paint(px, W, H, 0, 0, marks, span, youX, oppX, hasGap, sweep, ticks, off, landed);
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+        }
+    }
+
+    /// <summary>
+    /// Draws the replay strip (frame, ruler, DRAW post, ticks, gap) into any Color32 buffer whose rows run
+    /// bottom-up like a Texture2D. Used by the live strip under the round card (its own 200x24 texture) and by
+    /// the share card (at an offset inside the 270x480 composition), so both are pixel-identical.
+    /// Strip coordinates: x right, y down from the strip's top-left; pixels outside the strip or the buffer are skipped.
+    /// </summary>
+    public static class ReplayStripPainter
+    {
+        private const int W = ReplayStripMath.Width, H = ReplayStripMath.Height;
+        public static readonly Color32 Bg = Pal.Ink;
+        public static readonly Color32 Frame = Pal.Wood4;
+        public static readonly Color32 Ruler = Pal.Sand3;
+        public static readonly Color32 DrawCol = Pal.SigYellow;
+        public static readonly Color32 YouCol = Pal.Cream0;
+        public static readonly Color32 OppCol = Pal.SigRed;
+        public static readonly Color32 GapCol = Pal.SigYellow;
+
+        public static void Paint(Color32[] buf, int bufW, int bufH, int left, int top, ReplayMarks marks, double span,
+            int youX, int oppX, bool hasGap, int sweep, bool ticks, int off, bool landed)
+        {
+            var c = new Target { buf = buf, w = bufW, h = bufH, left = left, top = top };
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++) c.Put(x, y, Bg);
+            for (int x = 0; x < W; x++) { c.Put(x, 0, Frame); c.Put(x, H - 1, Frame); }
+            for (int y = 0; y < H; y++) { c.Put(0, y, Frame); c.Put(W - 1, y, Frame); }
 
             int b = ReplayStripMath.Baseline;
             // ruler, swept in from the left
-            for (int x = ReplayStripMath.RulerLeft; x <= ReplayStripMath.RulerRight && x < sweep; x++) Put(x, b, Ruler);
+            for (int x = ReplayStripMath.RulerLeft; x <= ReplayStripMath.RulerRight && x < sweep; x++) c.Put(x, b, Ruler);
             int n = ReplayStripMath.TickCount(span);
             for (int i = 0; i < n; i++)
             {
                 int x = ReplayStripMath.TickX(i, span);
                 if (x >= sweep) break;
-                Put(x, b + 1, Ruler);
-                Put(x, b + 2, Ruler);
+                c.Put(x, b + 1, Ruler);
+                c.Put(x, b + 2, Ruler);
             }
             // DRAW (0 ms): a bright post with a small star on top
             int dx = ReplayStripMath.RulerLeft;
             if (dx < sweep)
             {
-                for (int y = 8; y <= b + 2; y++) Put(dx, y, DrawCol);
-                Put(dx, 5, DrawCol);
-                Put(dx - 1, 6, DrawCol);
-                Put(dx, 6, Pal.White);
-                Put(dx + 1, 6, DrawCol);
-                Put(dx, 7, DrawCol);
+                for (int y = 8; y <= b + 2; y++) c.Put(dx, y, DrawCol);
+                c.Put(dx, 5, DrawCol);
+                c.Put(dx - 1, 6, DrawCol);
+                c.Put(dx, 6, Pal.White);
+                c.Put(dx + 1, 6, DrawCol);
+                c.Put(dx, 7, DrawCol);
             }
 
             if (ticks)
             {
                 if (landed && hasGap)
                 {
-                    int a = Mathf.Min(youX, oppX), c = Mathf.Max(youX, oppX);
-                    for (int x = a; x <= c; x++) Put(x, b, GapCol);
+                    int a = youX < oppX ? youX : oppX, e = youX < oppX ? oppX : youX;
+                    for (int x = a; x <= e; x++) c.Put(x, b, GapCol);
                 }
                 // the slower / later mark first, so the faster one stays on top where they touch
                 bool youFirst = youX >= oppX;
-                DrawMark(youFirst ? marks.you : marks.opp, youFirst ? youX : oppX, youFirst ? YouCol : OppCol, off);
-                DrawMark(youFirst ? marks.opp : marks.you, youFirst ? oppX : youX, youFirst ? OppCol : YouCol, off);
+                DrawMark(ref c, youFirst ? marks.you : marks.opp, youFirst ? youX : oppX, youFirst ? YouCol : OppCol, off);
+                DrawMark(ref c, youFirst ? marks.opp : marks.you, youFirst ? oppX : youX, youFirst ? OppCol : YouCol, off);
             }
-            tex.SetPixels32(px);
-            tex.Apply(false, false);
         }
 
-        private void DrawMark(ReplayMarkKind k, int x, Color32 c, int off)
+        private static void DrawMark(ref Target c, ReplayMarkKind k, int x, Color32 col, int off)
         {
             if (k == ReplayMarkKind.None) return;
             int b = ReplayStripMath.Baseline;
             if (!ReplayStripMath.IsCrossed(k))
             {
                 // a solid tick with a 3 px cap, landing on a 3 px foot on the ruler
-                for (int d = -1; d <= 1; d++) Put(x + d, 8 + off, c);
-                for (int y = 9 + off; y < b; y++) Put(x, y, c);
-                if (off == 0) for (int d = -1; d <= 1; d++) Put(x + d, b, c);
+                for (int d = -1; d <= 1; d++) c.Put(x + d, 8 + off, col);
+                for (int y = 9 + off; y < b; y++) c.Put(x, y, col);
+                if (off == 0) for (int d = -1; d <= 1; d++) c.Put(x + d, b, col);
                 return;
             }
             // crossed tick: a 5x5 X with a short stem down to the ruler
             for (int i = 0; i < 5; i++)
             {
-                Put(x - 2 + i, 8 + off + i, c);
-                Put(x + 2 - i, 8 + off + i, c);
+                c.Put(x - 2 + i, 8 + off + i, col);
+                c.Put(x + 2 - i, 8 + off + i, col);
             }
-            for (int y = 13 + off; y < b; y++) Put(x, y, c);
+            for (int y = 13 + off; y < b; y++) c.Put(x, y, col);
         }
 
-        private void Put(int x, int y, Color32 c)
+        private struct Target
         {
-            if (x < 0 || x >= W || y < 0 || y >= H) return;
-            px[(H - 1 - y) * W + x] = c;
+            public Color32[] buf;
+            public int w, h, left, top;
+
+            public void Put(int x, int y, Color32 col)
+            {
+                if (x < 0 || x >= W || y < 0 || y >= H) return;
+                int bx = left + x, by = top + y;
+                if (bx < 0 || bx >= w || by < 0 || by >= h) return;
+                buf[(h - 1 - by) * w + bx] = col;
+            }
         }
     }
 }

@@ -705,6 +705,7 @@ namespace PawNoon.Runtime
         private BitmapText diffTag;   // "EASY" / "HARD" after the note line (text only, no art)
         private PopSprite stamp;
         private ReplayStrip replay;
+        private ShareButton share;   // feel wave 2: share card of this round
         private RectInt rect;
         private float stampDelay;
         private string stampName;
@@ -738,6 +739,7 @@ namespace PawNoon.Runtime
             SetDifficulty(false);
             stamp = new PopSprite("Grade", transform, O + 4);
             replay = new ReplayStrip(transform, kit.Small, O + 1);
+            share = new ShareButton(kit, transform, O + 3);
         }
 
         protected override void Layout()
@@ -765,7 +767,12 @@ namespace PawNoon.Runtime
             note.At(x + ix, y + h - iy - 8);
             PlaceTag();
             if (replay != null) replay.PlaceAt(CenterX - ReplayStripMath.Width / 2, y + h + ReplayGapPx);
+            // SHARE sits right of the strip, centred on it (fits the 270-px core: 100 + 3 + 30 <= 135)
+            if (share != null) share.PlaceAt(CenterX + ReplayStripMath.Width / 2 + 3, y + h + ReplayGapPx + (ReplayStripMath.Height - ShareButton.Size) / 2);
         }
+
+        /// <summary>A share sheet was just opened from this card: the director keeps the card up.</summary>
+        public bool ShareHolding { get { return share != null && share.Holding && IsOpen; } }
 
         private const int ReplayGapPx = 2;
 
@@ -834,6 +841,8 @@ namespace PawNoon.Runtime
             stamp.Hide();
             stampDelay = 0.35f;
             replay.Show(v.replay, v.youName, v.botName, PawSettings.ReducedMotion);
+            ShareLog.Capture(v);
+            share.ReleaseHold();
         }
 
         public static string GradeSprite(Grade g)
@@ -862,6 +871,7 @@ namespace PawNoon.Runtime
             }
             stamp.Tick(dt);
             replay.Tick(dt);
+            share.Tick(ShareKind.Round, 0);   // before the director's tap-to-continue (it consumes its own press)
             if (stampName != null && stampDelay > 0f)
             {
                 stampDelay -= dt;
@@ -893,8 +903,10 @@ namespace PawNoon.Runtime
         private BitmapText[] keys = new BitmapText[3];
         private BitmapText[] vals = new BitmapText[3];
         private PixelButton rematch, menu;
+        private ShareButton share;   // feel wave 2: share card of the match (best round + verdict)
         private BitmapText newBest;
         private bool win;
+        private bool standoff;
         // banner drop: two falling steps, land, one small bounce, settle (whole pixels)
         private static readonly int[] BannerDrop = { -18, -9, 0, -4, 0 };
 
@@ -915,6 +927,7 @@ namespace PawNoon.Runtime
             newBest.SetColors(Pal.SigYellow, Pal.Ink, Pal.Ink2);
             rematch = new PixelButton(kit, transform, "btn_large", "btn_large_pressed", "REMATCH", "ico_retry", new RectInt(0, 0, BtnW, BtnH), O + 2);
             menu = new PixelButton(kit, transform, "btn_large_alt", "btn_large_alt_pressed", "MENU", "ico_home", new RectInt(0, 0, BtnW, BtnH), O + 2);
+            share = new ShareButton(kit, transform, O + 2);
         }
 
         /// <summary>Banner + stats sit in the upper third under the HUD, so Pawtruth (canvas y 330+) stays visible.</summary>
@@ -944,6 +957,8 @@ namespace PawNoon.Runtime
             int rematchY = menuY - 6 - BtnH;
             rematch.SetRect(new RectInt(cx - BtnW / 2, rematchY, BtnW, BtnH));
             menu.SetRect(new RectInt(cx - BtnW / 2, menuY, BtnW, BtnH));
+            // SHARE: right of REMATCH, same row (82 + 4 + 30 <= 135, inside the 270-px core)
+            share.PlaceAt(cx + BtnW / 2 + 4, rematchY + (BtnH - ShareButton.Size) / 2);
         }
 
         /// <summary>REMATCH label (PvP: "NEW RIVAL"; null restores REMATCH).</summary>
@@ -966,6 +981,7 @@ namespace PawNoon.Runtime
         {
             win = playerWon;
             bool deadHeat = isDeadHeat;
+            standoff = deadHeat;
             Open();
             var bd = kit.Ui.Get(win ? "banner_win" : "banner_lose");
             int cx = CenterX;
@@ -986,6 +1002,7 @@ namespace PawNoon.Runtime
         {
             RelayoutIfNeeded();
             banner.Tick(PawTime.UnscaledDt);
+            share.Tick(ShareKind.Match, standoff ? -1 : (win ? 0 : 1));
             if (rematch.Tick()) return UiAction.Rematch;
             if (menu.Tick()) return UiAction.Menu;
             return UiAction.None;

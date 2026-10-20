@@ -489,6 +489,18 @@
    6
   ]
  },
+ "ico_share": {
+  "file": "ico_share",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ],
+  "note": "share (tray + up arrow), feel wave 2"
+ },
  "ico_sound_on": {
   "file": "ico_sound_on",
   "size": [

@@ -460,6 +460,7 @@ namespace PawNoon.Runtime
                 case Pres.Result:
                     stateTimer -= PawTime.UnscaledDt;
                     if (panel.Tick()) StampLanded();
+                    if (panel.ShareHolding && stateTimer < 0.5f) stateTimer = 0.5f;   // share sheet up: no auto-advance
                     bool tap = UiPointer.Down && !UiPointer.Consumed && stateTimer < cfg.resultAutoAdvanceSeconds - 0.4f;
                     if (tap) UiPointer.Consumed = true;
                     if (stateTimer <= 0f || tap) AdvanceFromResult();
