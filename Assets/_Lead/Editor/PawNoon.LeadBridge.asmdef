@@ -1,7 +1,7 @@
 {
     "name": "PawNoon.LeadBridge",
     "rootNamespace": "PawNoonLead",
-    "references": [],
+    "references": ["UnityEditor.TestRunner", "UnityEngine.TestRunner"],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
