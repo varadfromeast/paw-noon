@@ -14,6 +14,7 @@ supabase/
   config.toml                  local stack + function settings (verify_jwt, anonymous sign-in, Apple/Google)
   migrations/0001_init.sql     tables, indexes, RLS, triggers, pn_* service helpers
   migrations/0002_review_hardening.sql  profile input checks, flagged owners leave the pool, submitting index
+  migrations/0060_m6_accounts.sql        names only via profile-update, name shape check, after-link hook (linked_at)
   seed.sql                     three house ghosts
   scripts/sync_duel_config.sh  copies Assets/.../duel_config.json into functions/_shared/ (--check for CI)
   functions/
@@ -26,7 +27,8 @@ supabase/
       validate_recording.ts    §4.3 checks + authoritative recompute
       glicko.ts, ratings.ts    Glicko-lite MMR
       auth.ts, db.ts, http.ts, server_config.ts, match_types.ts, rows.ts, server.test.ts
-    match-start/ match-submit/ account-delete/ daily-claim/ purchase-validate/
+      display_name.ts, profile.ts, account.test.ts   (M6; names share Tools/Parity/display_names.json with C#)
+    match-start/ match-submit/ account-delete/ daily-claim/ purchase-validate/ profile-read/ profile-update/
 ```
 
 ---
@@ -68,7 +70,8 @@ python3 Tools/Parity/reference_vectors.py --check       # independent Python ref
 
 1. Dashboard: new project, region **South Asia (Mumbai)**. Note the project ref.
 2. Auth > Providers: enable **Anonymous sign-ins** and **Manual linking**, and configure **Apple** (Services ID, team, key)
-   and **Google** (web + iOS + Android client IDs). Disable email sign-up (§5: no email/password).
+   and **Google** (web + iOS + Android client IDs). Disable email sign-up (§5: no email/password). Step by step,
+   including the Apple Developer and Google Cloud consoles: `Docs/ACCOUNTS.md`.
 3. From the repo root:
 
 ```bash
@@ -77,7 +80,7 @@ supabase link --project-ref <ref>
 supabase db push                                          # migrations
 psql "<connection string from Dashboard > Connect>" -f supabase/seed.sql   # house ghosts (idempotent)
 supabase secrets set PN_SEASON=1 PN_RANKED_BUILDS="1.0.0+42" PN_DAY_TZ=Asia/Kolkata
-supabase functions deploy match-start match-submit account-delete daily-claim purchase-validate
+supabase functions deploy match-start match-submit account-delete daily-claim purchase-validate profile-read profile-update
 ```
 
 The house ghosts are required in production: without them the first player gets `503 no_opponent`.
@@ -103,7 +106,7 @@ Server tunables that are not secrets (3 rounds, 9 max attempts, +60 s submit sla
 
 | Table | Rows | Client access (RLS) |
 |---|---|---|
-| `profiles` | one per auth user (trigger on `auth.users`): name, cat, owned items, coins, stats, daily streak, rejections/flag | select own; update own `display_name`, `character`, `settings` only |
+| `profiles` | one per auth user (trigger on `auth.users`): name, cat, owned items, coins, stats, daily streak, rejections/flag, `linked_at` (M6) | select own; update own `character`, `settings` only (`display_name` only through `profile-update` since 0060) |
 | `recordings` | the ghost pool (+ house ghosts) | **none**: served by `match-start` |
 | `matches` | issued/completed/void matches, opponent snapshot, server result, MMR before/after | select own |
 | `ratings` | Glicko-lite per (user, season) | select own |
@@ -281,6 +284,34 @@ curl -s -X POST "$API/functions/v1/account-delete" -H "Authorization: Bearer $JW
 ```
 200 `{ "deleted": true, "userId": "<uuid>" }`. This hard-deletes the auth user. Cascades remove the profile, the user's
 recordings, matches, ratings, purchases and notifications. Errors: `400 confirm_required`, `500 delete_failed`.
+
+### `POST /profile-read` (M6)
+
+Body `{}`. The caller's profile card (`schemas/profile.response.schema.json`):
+```json
+{ "userId": "5d0b1c9e-...", "displayName": "Stranger #0042", "character": "whiskers", "isGuest": true, "providers": [],
+  "linkedAt": null,
+  "stats": { "matches": 12, "wins": 7, "winRate": 0.583, "bestReactionNs": 198412000, "lightning": 3 },
+  "rating": { "season": 1, "mmr": 1234, "rd": 120, "matches": 4 },
+  "coins": 20, "dailyStreak": 2, "ownedItems": [], "nameRules": { "min": 3, "max": 14, "chars": "A-Z 0-9 space" } }
+```
+`stats` are the server-validated PvP counters that `match-submit` adds to after every completed match (solo duels are
+offline and not counted). `rating` is the current ranked season (1200 / 350 / 0 when unrated). Errors: `409 no_profile`.
+
+### `POST /profile-update` (M6)
+
+Body `{ "displayName"?: string, "character"?: "whiskers" | "pawtruth" }`, at least one. The name is normalised
+(trimmed, runs of spaces collapsed, upper-cased) and must then be 3-14 characters of `A-Z 0-9 space` and not reserved
+(house ghost names; names starting STRANGER, ADMIN, MODERATOR, PAWNOON, PAW NOON, SUPPORT, SYSTEM, HOUSE GHOST). Same
+rules and test vectors as the game's keypad (`Tools/Parity/display_names.json`). The new name is also written onto
+the player's pooled ghost recordings. 200 = the full profile (same shape as `profile-read`).
+Errors: `400 bad_display_name` with `reason: too_short | too_long | bad_chars | reserved`, `400 bad_request`,
+`409 no_profile`.
+
+```bash
+curl -s -X POST "$API/functions/v1/profile-update" -H "Authorization: Bearer $JWT" -H "apikey: $ANON" \
+     -H "Content-Type: application/json" -d '{"displayName":"billy the cat"}'     # -> "displayName": "BILLY THE CAT"
+```
 
 ### `POST /daily-claim`
 

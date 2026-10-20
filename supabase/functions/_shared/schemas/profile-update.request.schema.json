@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/profile-update.request.schema.json",
+  "title": "POST /profile-update body (M6)",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "displayName": { "type": "string", "description": "normalised server-side: trimmed, runs of spaces collapsed, upper-cased; then 3-14 of A-Z 0-9 space, not reserved" },
+    "character": { "enum": ["whiskers", "pawtruth"] }
+  }
+}
