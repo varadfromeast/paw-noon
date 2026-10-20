@@ -92,17 +92,17 @@ namespace PawNoon.Tests
         public void EasyValuesMatchSpec()
         {
             var e = Easy();
-            CollectionAssert.AreEqual(new double[] { 230, 290, 350, 420, 540, 760, 1100, 1500 }, e.damageMs);
+            CollectionAssert.AreEqual(new double[] { 200, 250, 300, 350, 450, 650, 1050, 1500 }, e.damageMs);
             CollectionAssert.AreEqual(new double[] { 40, 36, 30, 24, 16, 8, 4, 2 }, e.damageValue);
-            Assert.AreEqual(280, e.gradeLightningMs, 1e-12);
-            Assert.AreEqual(340, e.gradePerfectMs, 1e-12);
-            Assert.AreEqual(420, e.gradeGreatMs, 1e-12);
-            Assert.AreEqual(540, e.gradeGoodMs, 1e-12);
-            Assert.AreEqual(800, e.gradeSlowMs, 1e-12);
-            Assert.AreEqual(420, e.botMeanStartMs, 1e-12);
-            Assert.AreEqual(340, e.botMeanEndMs, 1e-12);
-            Assert.AreEqual(90, e.botSdStartMs, 1e-12);
-            Assert.AreEqual(70, e.botSdEndMs, 1e-12);
+            Assert.AreEqual(250, e.gradeLightningMs, 1e-12);
+            Assert.AreEqual(300, e.gradePerfectMs, 1e-12);
+            Assert.AreEqual(370, e.gradeGreatMs, 1e-12);
+            Assert.AreEqual(470, e.gradeGoodMs, 1e-12);
+            Assert.AreEqual(750, e.gradeSlowMs, 1e-12);
+            Assert.AreEqual(360, e.botMeanStartMs, 1e-12);
+            Assert.AreEqual(290, e.botMeanEndMs, 1e-12);
+            Assert.AreEqual(70, e.botSdStartMs, 1e-12);
+            Assert.AreEqual(50, e.botSdEndMs, 1e-12);
             Assert.AreEqual(0.15, e.botFeintChance, 1e-12);
             Assert.AreEqual(0.40, e.botFeintMaxChance, 1e-12);
             Assert.AreEqual(0.45, e.botTellChance, 1e-12);
@@ -111,16 +111,14 @@ namespace PawNoon.Tests
         }
 
         [Test]
-        public void EasyDamageAt300MatchesHardAround220()
+        public void EasyDamageAt300MatchesHardAround250()
         {
             var hard = Hard();
             var easy = Easy();
             double e300 = DamageCurve.Evaluate(easy, 300);
-            // ~+80 ms slack: an Easy 300 ms draw hits like a Hard ~220 ms one (same 200..250 band)
-            Assert.AreEqual(DamageCurve.Evaluate(hard, 220), e300, 1.5);
-            Assert.LessOrEqual(e300, DamageCurve.Evaluate(hard, 200) + 1e-9);
-            Assert.GreaterOrEqual(e300, DamageCurve.Evaluate(hard, 250) - 1e-9);
-            Assert.AreEqual(Grading.FromMs(hard, 220), Grading.FromMs(easy, 300));
+            // ~+50 ms slack: an Easy 300 ms draw hits like a Hard 250 ms one
+            Assert.AreEqual(DamageCurve.Evaluate(hard, 250), e300, 1e-9);
+            Assert.AreEqual(Grading.FromMs(hard, 250), Grading.FromMs(easy, 300));
             // every Easy anchor deals what the matching Hard anchor deals
             for (int i = 0; i < hard.damageMs.Length; i++)
                 Assert.AreEqual(DamageCurve.Evaluate(hard, hard.damageMs[i]), DamageCurve.Evaluate(easy, easy.damageMs[i]), 1e-9, "anchor " + i);

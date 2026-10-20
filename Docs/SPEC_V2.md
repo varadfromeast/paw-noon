@@ -24,14 +24,14 @@ Open questions for Varad are in §10.
 
 ## 1. Difficulty: Easy and Hard
 
-Hard = the game exactly as it is today (`duel_config.json`). Easy is an **overlay** file `duel_config.easy.json` merged on top at load; only the keys below change. Selected on the title screen (toggle under DUEL, remembered in PlayerPrefs). Players pick on first launch (card with both options); remembered after that.
+Hard = `duel_config.json` (retuned 20 Oct: Pawtruth draws 270→210 ms with σ 35→22, precise but not perfect). Easy is an **overlay** file `duel_config.easy.json` merged on top at load; only the keys below change. Selected on the title screen (toggle under DUEL, remembered in PlayerPrefs). Players pick on first launch (card with both options); remembered after that.
 
 | Key | Hard (today) | Easy | Effect |
 |---|---|---|---|
-| `damageMs` | 150,200,250,300,400,600,1000,1500 | **230,290,350,420,540,760,1100,1500** | same damage for ~+80 ms slower reactions |
-| `gradeLightningMs / Perfect / Great / Good / Slow` | 200/250/320/420/700 | **280/340/420/540/800** | stamps feel earned |
-| `botMeanStartMs / botMeanEndMs` | 300 / 220 | **420 / 340** | Pawtruth is beatable |
-| `botSdStartMs / botSdEndMs` | 50 / 30 | **90 / 70** | he is also less consistent |
+| `damageMs` | 150,200,250,300,400,600,1000,1500 | **200,250,300,350,450,650,1050,1500** | same damage for ~+50 ms slower reactions |
+| `gradeLightningMs / Perfect / Great / Good / Slow` | 200/250/320/420/700 | **250/300/370/470/750** | stamps feel earned |
+| `botMeanStartMs / botMeanEndMs` | 270 / 210 | **360 / 290** | Pawtruth is beatable |
+| `botSdStartMs / botSdEndMs` | 35 / 22 | **70 / 50** | he is also less consistent |
 | `botFeintChance / botFeintMaxChance` | 0.35 / 0.85 | **0.15 / 0.40** | fewer fake-outs |
 | `botTellChance` | 0.2 | **0.45** | he telegraphs more often |
 | `noShotTimeoutSeconds` | 1.5 | **2.0** | more time before a NO SHOT |
