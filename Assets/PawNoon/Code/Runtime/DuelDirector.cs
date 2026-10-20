@@ -217,6 +217,7 @@ namespace PawNoon.Runtime
 
         public void StartMatch()
         {
+            PawHaptics.Prepare();   // Core Haptics engine up and players precompiled before the first countdown
             pipe.SetTension(0f);
             if (State == Pres.Off) duelVignetteT = 0f;
             authority.Reseed(seed);
@@ -507,7 +508,7 @@ namespace PawNoon.Runtime
                         cues.ShowNumeral(n);
                         audio.Play(n == 3 ? "sfx_tick_3" : (n == 2 ? "sfx_tick_2" : "sfx_tick_1"), n == 3 ? 0.55f : (n == 2 ? 0.68f : 0.82f));
                         audio.Play("sfx_tick_sub", n == 3 ? 0.5f : (n == 2 ? 0.7f : 0.9f));   // low thump for weight (silent if missing)
-                        PawHaptics.Impact(0);
+                        HapticMoments.CountdownTick(n);
                         if (n == 1) PawHaptics.Prepare();
                     }
                     else EnterHold();
@@ -609,11 +610,11 @@ namespace PawNoon.Runtime
             pipe.Strike();
             // the framing stays exactly where the hold left it: nothing on screen moves at the reaction moment
             pipe.Kick(new Vector2(0f, -1.5f));
-            PawHaptics.Impact(2);
             // schedule the DRAW sound at the estimated photon time on the DSP clock
             double ahead = (player.CuePresentedNs - clock.NowNs) / 1e9;
             if (ahead < 0) ahead = 0;
             audio.PlayDrawAt(AudioSettings.dspTime + ahead);
+            HapticMoments.DrawCue(ahead);   // same lead: the haptic lands with the photons (Docs/HAPTICS.md)
             PawTime.FreezeAmbient(Mathf.Max(1, (int)cfg.drawHitStopFrames));
             audio.Duck(0.85f);
             audio.Heartbeat(0f);
@@ -678,6 +679,7 @@ namespace PawNoon.Runtime
             restAnim[0] = "aim";
             var d = hero.Sheet("draw_fire");
             if (d == null || d.FireFrame < 0) HeroFired();
+            else HapticMoments.Swipe();   // the recoil follows at the fire frame
         }
 
         private void PresentHeroFoul()
@@ -691,7 +693,7 @@ namespace PawNoon.Runtime
             cues.ShowStamp("stamp_too_early");
             audio.Play("sfx_misfire");                 // the dry jam click
             audio.Play("sfx_cock", 0.35f, 0.8f);       // hammer catching, low and dull
-            PawHaptics.Notify(1);
+            HapticMoments.Foul();
         }
 
         // ------------------------------------------------------------------ fire / impact
@@ -716,7 +718,7 @@ namespace PawNoon.Runtime
             pipe.Kick(new Vector2(-1.5f, 1f));
             audio.PlayVariant("sfx_gun_hero", 3);
             audio.Play("sfx_shell", 0.4f);
-            PawHaptics.Impact(1);
+            HapticMoments.HeroShot();
             if (pendingImpact[0]) Land(0);
         }
 
@@ -804,7 +806,7 @@ namespace PawNoon.Runtime
             if (UiCatalog.Has("stamp_too_close")) cues.ShowStamp("stamp_too_close");
             else cues.ShowMessage("TOO CLOSE!", secs + 0.9f);
             audio.Play("sfx_lightning");
-            PawHaptics.Impact(2);
+            HapticMoments.Tie();
         }
 
         private void ClearTieFx()
@@ -844,7 +846,8 @@ namespace PawNoon.Runtime
             audio.Play("sfx_hit");
             audio.Play("sfx_hit_cat", 0.9f, victim == 0 ? 1.08f : 0.92f);
             audio.Play("sfx_hp_tick", 0.5f);
-            PawHaptics.Notify(victim == 1 ? 0 : 1);
+            if (victim == 1) HapticMoments.HitDealt(e.killed);
+            else HapticMoments.HitTaken(e.killed);
             if (victim == 0) pipe.HeroHurt(); else pipe.PopAt(hit);
             hud.Hit(victim, (float)(e.targetHpAfter / cfg.maxHp));
             if (e.killed)
@@ -1010,7 +1013,7 @@ namespace PawNoon.Runtime
                     fx.Dust(feet, s == 1 ? 71 : 92, 3, 14f);
                     audio.Play("sfx_bodyfall", 0.9f);
                     pipe.AddShake(1.5f);
-                    PawHaptics.Impact(1);
+                    HapticMoments.BodyFall();
                 }
             }
         }
@@ -1026,7 +1029,7 @@ namespace PawNoon.Runtime
             }
             float vol = Mathf.Lerp(0.74f, 1f, frenzy) * (skipped ? 1.1f : 1f) * LastLightHeartGain;
             audio.Play("sfx_heartbeat", Mathf.Min(1f, vol), Mathf.Lerp(1f, 1.12f, frenzy) + Random.Range(-0.015f, 0.015f));
-            if (frenzy >= 0.35f || skipped) PawHaptics.Impact(0);
+            HapticMoments.HoldBeat(frenzy, skipped);   // lub-dub, gated at frenzy 0.35, 0.3..0.8
             if (!reducedMotion)
             {
                 beatThump = (float)cfg.beatVignette * Mathf.Lerp(0.4f, 1f, frenzy) * (skipped ? 1.4f : 1f);
@@ -1147,8 +1150,7 @@ namespace PawNoon.Runtime
             pipe.AddShake(1f);
             // haptic language (SPEC_V2 §8.6): LIGHTNING triple, PERFECT double, GREAT medium, GOOD/SLOW light,
             // TOO EARLY error, NO SHOT warning
-            if (stampHaptic != null) PawHaptics.Pattern(stampHaptic);
-            else PawHaptics.Impact(1);
+            HapticMoments.Stamp(stampHaptic);
         }
 
         /// <summary>Recorded PvP ended between attempts (after a void): no round panel, straight to the match end.</summary>
@@ -1198,6 +1200,7 @@ namespace PawNoon.Runtime
                 firstMatch = false;
                 Screen.sleepTimeout = SleepTimeout.SystemSetting;
                 var m = authority.Match;
+                HapticMoments.MatchEnd(m.Winner == 0, reducedMotion);   // lands with the match screen banner
                 if (MatchFinished != null) MatchFinished(m.Winner == 0, m.Winner < 0);
             }
         }

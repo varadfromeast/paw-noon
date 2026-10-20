@@ -223,7 +223,7 @@ namespace PawNoon.Runtime
             {
                 pressed = true;
                 UiPointer.Consumed = true;
-                PawHaptics.Impact(0);
+                HapticMoments.UiTap();
                 Layout();
             }
             else if (pressed && UiPointer.Up)
