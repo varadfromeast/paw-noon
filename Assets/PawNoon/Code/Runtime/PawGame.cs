@@ -540,7 +540,9 @@ namespace PawNoon.Runtime
             // a finger that was down when the app went away never sends Ended: drop live gestures (holster glow)
             if ((appPaused || appUnfocused) && Input != null) Input.ResetGestures();
 #if !UNITY_EDITOR
-            bool silent = appPaused || appUnfocused;
+            // on phones only a real pause silences the game: focus also drops for Control Center / notification
+            // banners, and a missed focus-regained event must never leave the whole game muted
+            bool silent = appPaused || (appUnfocused && !Application.isMobilePlatform);
             if (silent)
             {
                 if (Director != null) Director.VoidForLifecycle();
@@ -549,6 +551,7 @@ namespace PawNoon.Runtime
             else
             {
                 AudioListener.pause = false;
+                PawAudio.ApplySession();
                 ApplyFrameRate();
                 if (Input != null) Input.Clear();
             }

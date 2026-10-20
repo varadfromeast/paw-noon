@@ -28,8 +28,23 @@ namespace PawNoon.Runtime
         public bool MusicOn = true;
         public bool SfxOn = true;
 
+#if UNITY_IOS && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern void PawAudio_UsePlaybackSession();
+#endif
+
+        /// <summary>iOS: play through the silent switch (Playback category; mixes with the player's own music).
+        /// Called at start and on every resume, because iOS/Unity may restore their own category after an interruption.</summary>
+        public static void ApplySession()
+        {
+#if UNITY_IOS && !UNITY_EDITOR
+            PawAudio_UsePlaybackSession();
+#endif
+        }
+
         public void Init()
         {
+            ApplySession();
             pool = new AudioSource[PoolSize];
             for (int i = 0; i < PoolSize; i++) pool[i] = NewSource("sfx" + i, false);
             poolBasePitch = new float[PoolSize];
