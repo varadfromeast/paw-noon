@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace PawNoon.Runtime
 {
-    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend }
+    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend, Leaderboard }
 
     /// <summary>Common base: a root object that can be shown/hidden, laid out against the pipeline rects.</summary>
     public abstract class ScreenBase : MonoBehaviour
@@ -111,6 +111,7 @@ namespace PawNoon.Runtime
         private SheetDef logoDef;
         private PixelButton play;
         private PixelButton gear;
+        private PixelButton trophy;     // M5: leaderboards, top-left (mirrors the gear)
         // online (M4): PVP under PLAY (same wood sign); FRIEND beside it only when net_config "friendDuel" is on
         private const int PvpH = 30;
         private PixelButton pvp;
@@ -146,6 +147,7 @@ namespace PawNoon.Runtime
             // wooden sign button; one sprite for both states, the label sinks 1 px when pressed
             play = new PixelButton(kit, transform, "panel_wood", "panel_wood", "PLAY", null, new RectInt(0, 0, 152, 36), 240);
             gear = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_gear", new RectInt(0, 0, 30, 30), 240);
+            trophy = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_trophy", new RectInt(0, 0, 30, 30), 240);
             pvp = new PixelButton(kit, transform, "panel_wood", "panel_wood", "PVP", null, new RectInt(0, 0, 152, PvpH), 240);
             friend = new PixelButton(kit, transform, "panel_wood", "panel_wood", "FRIEND", null, new RectInt(0, 0, 56, PvpH), 240);
             best = LightText("Best", kit.Medium, 242, TextAlign.Center);
@@ -216,6 +218,7 @@ namespace PawNoon.Runtime
             segHardText.At(segHardRect.x + SegW / 2, ty);
             best.At(cx, segY + SegH + 5);
             gear.SetRect(new RectInt(safe.xMax - 4 - 30, safe.y + 2, 30, 30));
+            trophy.SetRect(new RectInt(safe.x + 4, safe.y + 2, 30, 30));
             RefreshDifficulty();
             LayoutChoice();
         }
@@ -288,6 +291,7 @@ namespace PawNoon.Runtime
             diffRoot.gameObject.SetActive(controls);
             best.Visible = controls;
             gear.SetVisible(controls);
+            trophy.SetVisible(controls);
         }
 
         /// <summary>Shows the FRIEND button (room codes, M5) beside PVP. Off unless net_config.json "friendDuel" is true.</summary>
@@ -331,6 +335,7 @@ namespace PawNoon.Runtime
             }
             if (onlineBusy) return UiAction.None;
             if (gear.Tick()) return UiAction.OpenSettings;
+            if (trophy.Tick()) return UiAction.Leaderboard;
             if (play.Tick()) return UiAction.Play;
             if (pvp.Tick()) return UiAction.Pvp;
             if (friend.Tick()) return UiAction.Friend;

@@ -6,6 +6,6 @@
   "mode": "casual",
   "timeoutSeconds": 10,
   "findMinSeconds": 1.2,
-  "friendDuel": false,
+  "friendDuel": true,
   "mock": false
 }

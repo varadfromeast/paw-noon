@@ -142,18 +142,24 @@ namespace PawNoon.Runtime.Net
 
     /// <summary>
     /// PvP strip on the match result screen: "VS &lt;name&gt;" and the server's verdict line (SENDING... until
-    /// match-submit answers). Painted paper like the stats panel, under it.
+    /// match-submit answers). Painted paper like the stats panel, under it. M5: an optional third line
+    /// (<see cref="SetExtra"/>): "RATING 1214 (+12)" after a ranked match, or the host's room note.
     /// </summary>
     public sealed class OnlineResultCard : ScreenBase
     {
         private const int O = 264;          // over the match result screen (260..263)
         private const int W = 180;
-        private const int H = 34;
+        private const int H1 = 34;
+        private const int H2 = 45;
         private static readonly string[] Dots = { "SENDING", "SENDING.", "SENDING..", "SENDING..." };
 
         private SpriteRenderer panel;
-        private BitmapText vs, status;
+        private BitmapText vs, status, extra;
         private int top = -1;
+        private int placeY = -1, placeMax = -1;
+        private bool hasExtra;
+
+        private int H { get { return hasExtra ? H2 : H1; } }
         private bool sending;
         private int dotIndex = -1;
         private float dotT;
@@ -163,11 +169,15 @@ namespace PawNoon.Runtime.Net
             panel = kit.Panel("panel_paper", transform, O, new RectInt(0, 0, W, H));
             vs = InkText("Vs", kit.Medium, O + 2, TextAlign.Center);
             status = InkText("Status", kit.Small, O + 2, TextAlign.Center);
+            extra = InkText("Extra", kit.Small, O + 2, TextAlign.Center);
+            extra.Visible = false;
         }
 
         /// <summary>Card top in canvas px (from MatchResultScreen.ContentBottom / ButtonsTop).</summary>
         public void Place(int y, int maxBottom)
         {
+            placeY = y;
+            placeMax = maxBottom;
             top = Mathf.Min(y, maxBottom - H);
             if (IsOpen) Layout();
         }
@@ -180,10 +190,12 @@ namespace PawNoon.Runtime.Net
             UiKit.SetRect(panel, kit.Ui.Get("panel_paper"), new RectInt(cx - w / 2, y, w, H));
             vs.At(cx, y + 6);
             status.At(cx, y + 6 + kit.Medium.LineHeight + 3);
+            extra.At(cx, y + 6 + kit.Medium.LineHeight + 3 + kit.Small.LineHeight + 3);
         }
 
         public void Show(string vsText, string statusText, Color32 statusColor)
         {
+            SetExtra(null, Pal.Wood3);
             if (!IsOpen) Open();
             vs.SetText(vsText ?? "");
             SetStatus(statusText, statusColor);
@@ -199,6 +211,20 @@ namespace PawNoon.Runtime.Net
             if (sending) TickDots(0f);
             else status.SetText(text);
             status.MarkDirty();
+        }
+
+        /// <summary>Third line (null hides it; the strip grows 11 px and stays above the buttons).</summary>
+        public void SetExtra(string text, Color32 color)
+        {
+            bool has = !string.IsNullOrEmpty(text);
+            extra.SetText(text ?? "");
+            extra.Color = color;
+            extra.Visible = has;
+            extra.MarkDirty();
+            if (has == hasExtra) return;
+            hasExtra = has;
+            if (placeY >= 0) top = Mathf.Min(placeY, placeMax - H);
+            if (IsOpen) Layout();
         }
 
         private void TickDots(float dt)

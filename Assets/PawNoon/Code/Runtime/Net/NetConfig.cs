@@ -23,12 +23,12 @@ namespace PawNoon.Runtime.Net
         public string AnonKey = "";
         /// <summary>Sent as clientBuild (ranked allow-list). Empty = Application.version.</summary>
         public string ClientBuild = "";
-        /// <summary>"casual" or "ranked" for quick duels.</summary>
+        /// <summary>Default pick of the PVP card's CASUAL / RANKED toggle until the player chooses (then PlayerPrefs pawnoon.pvpMode).</summary>
         public string Mode = "casual";
         public int TimeoutSeconds = 10;
         /// <summary>The FINDING A RIVAL card stays up at least this long (feel; 1-3 s).</summary>
         public float FindMinSeconds = 1.2f;
-        /// <summary>Shows the FRIEND button (room codes are M5).</summary>
+        /// <summary>Shows the FRIEND button: friend duels by room code (M5). On in the shipped net_config.json.</summary>
         public bool FriendDuel;
         /// <summary>Play against the built-in fake recording and a local recompute instead of the server.</summary>
         public bool Mock;

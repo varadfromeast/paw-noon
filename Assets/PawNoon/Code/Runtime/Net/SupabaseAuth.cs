@@ -35,6 +35,23 @@ namespace PawNoon.Runtime.Net
         /// <summary>Anonymous until M6 links Apple / Google.</summary>
         public bool IsGuest { get { return true; } }
 
+        /// <summary>
+        /// M5 seam for ranked (M6 does the linking): true once this session is a linked Apple / Google account,
+        /// read from the access token's <c>is_anonymous</c> claim (so it turns true by itself after M6 links and the
+        /// token refreshes). The server checks again on every ranked match-start (403 link_required).
+        /// </summary>
+        public bool IsLinked
+        {
+            get
+            {
+                if (LinkedOverride != 0) return LinkedOverride > 0;
+                return HasSession && JwtClaims.IsLinked(AccessToken);
+            }
+        }
+
+        /// <summary>Review / QA (ReviewDirector.SetLinked): 1 = treat as linked, -1 = guest, 0 = the real token.</summary>
+        public static int LinkedOverride;
+
         public SupabaseAuth(NetConfig cfg)
         {
             this.cfg = cfg;
