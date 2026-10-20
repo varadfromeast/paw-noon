@@ -1,0 +1,7 @@
+{
+  "_note": "Native Sign in with Apple / Google (M6). Client IDs are public; never put a secret here. See Docs/ACCOUNTS.md.",
+  "googleWebClientId": "YOUR-WEB-CLIENT-ID.apps.googleusercontent.com",
+  "googleIosClientId": "YOUR-IOS-CLIENT-ID.apps.googleusercontent.com",
+  "apple": true,
+  "google": true
+}
