@@ -1,0 +1,12 @@
+<!--
+  IL2CPP managed code stripping guard (review 2026-10-20).
+  DuelConfig.CopyFrom swaps the Easy/Hard rules in place by reflecting over DuelConfig's fields, and the
+  EditMode tests reflect over DuelConfig / BanterLines too. The linker cannot see reflection, so keep every
+  member of these two types whatever the Managed Stripping Level is set to.
+-->
+<linker>
+  <assembly fullname="PawNoon.Core">
+    <type fullname="PawNoon.Core.DuelConfig" preserve="all" />
+    <type fullname="PawNoon.Core.BanterLines" preserve="all" />
+  </assembly>
+</linker>

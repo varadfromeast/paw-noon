@@ -214,6 +214,9 @@ namespace PawNoon.Core
         /// Copies every field of <paramref name="other"/> into this instance, so systems that hold this config
         /// by reference (authority, clients, bot, director) see the new rules from the next read on.
         /// Call only between matches (difficulty change on the title screen).
+        /// Reflection keeps this in step with new fields automatically; Assets/PawNoon/link.xml keeps the
+        /// fields from being stripped under IL2CPP (Core is engine-free, so no [Preserve] here), and
+        /// DifficultyTests.CopyFromCopiesEveryField fails if a field is ever skipped.
         /// </summary>
         public void CopyFrom(DuelConfig other)
         {
