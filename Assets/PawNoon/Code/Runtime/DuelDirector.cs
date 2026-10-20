@@ -1010,7 +1010,9 @@ namespace PawNoon.Runtime
             v.dealt = s0.damageDealt;
             v.taken = s1.damageDealt;
             v.frameQuantized = s0.hasReport && s0.report.frameQuantized;
-            if (s0.outcome == SlotOutcome.Shot) PawSettings.SubmitBest(s0.reactionNs);
+            // review: automation (ReviewDirector auto-tap / SimulateSwipe) must never become the all-time BEST
+            if (s0.outcome == SlotOutcome.Shot && !(s0.hasReport && s0.report.inputSource == InputSource.Injected))
+                PawSettings.SubmitBest(s0.reactionNs);
 
             cues.HideDraw();
             cues.HideStamp();
