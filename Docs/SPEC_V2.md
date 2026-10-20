@@ -15,6 +15,7 @@ Everything here builds on the shipped game (see `Docs/ARCHITECTURE.md`, `Docs/TI
 | D3 | Difficulty (Easy / Hard) applies to **solo vs Pawtruth only**. Online PvP always uses Hard rules. | Two humans must play by the same rules. |
 | D4 | Every playable character has a **back view** (you) and a **front view** (your opponent sees you). Launch roster: **Whiskers** (the white cat) and **Pawtruth** (the black cat, the bot persona formerly called Pawtruth). | PvP means your character is somebody's opponent. Pawtruth already has a front view; Whiskers already has a back view; we need the other two (§3). |
 | D5 | Guests can play instantly (device login); Apple/Google sign-in is offered after the first match and **links** the same account. | Zero-friction first duel; progress is never lost. |
+| D7 | Hosting region: **Supabase Mumbai (ap-south-1)** first; more regions when players outside India appear. PvP match = **3 rounds**; Peacemaker at the ₹299 / $2.99 tier (change in §10 if you disagree). | Varad, 20 Oct. |
 | D6 | First purchase: the **Peacemaker** revolver. It changes the **damage curve shape** (bigger reward for PERFECT/LIGHTNING, same for slow shots), plus its own look and sound. In **ranked** PvP guns are **normalised** (cosmetic only). | Paid power that stays fair where it matters. See §6. |
 
 Open questions for Varad are in §10.
@@ -182,7 +183,6 @@ Rules for every milestone: no change to `Code/Core` timing or to `SwipeDraw`; al
 
 ## 10. Open questions for Varad
 
-1. Supabase project region: **Mumbai** (ap-south-1) is the obvious pick for Indian players first. Confirm.
-2. Peacemaker price tier (₹299 / $2.99 suggested) and whether coins exist at launch or only the one gun.
-3. Flavour text for the Whiskers and Pawtruth cards (one line each), or I write them.
-4. Rounds per PvP match: 3 (suggested) or 5.
+1. ~~Region~~ decided: Mumbai first (D7).
+2. Coins at launch or only the Peacemaker? (Spec assumes only the gun.)
+3. Flavour text for the Whiskers and Pawtruth cards: the lead writes them unless you send lines.
