@@ -16,10 +16,25 @@ namespace PawNoon.Core
     /// <summary>Continuous piecewise-linear damage from reaction time (SPEC §1).</summary>
     public static class DamageCurve
     {
+        /// <summary>The standard curve (cfg.damageValue).</summary>
         public static double Evaluate(DuelConfig cfg, double reactionMs)
         {
-            var xs = cfg.damageMs;
-            var ys = cfg.damageValue;
+            return Evaluate(cfg.damageMs, cfg.damageValue, reactionMs);
+        }
+
+        /// <summary>
+        /// The curve of <paramref name="gun"/> (Guns.Standard / Guns.Peacemaker, SPEC_V2 §6). Pass the gun that
+        /// is in effect: ranked PvP always uses Guns.Standard (Guns.Effective).
+        /// </summary>
+        public static double Evaluate(DuelConfig cfg, string gun, double reactionMs)
+        {
+            return Evaluate(cfg.damageMs, Guns.DamageValues(cfg, gun), reactionMs);
+        }
+
+        /// <summary>Piecewise-linear evaluation of anchors <paramref name="xs"/> (ms) -> <paramref name="ys"/> (damage).</summary>
+        public static double Evaluate(double[] xs, double[] ys, double reactionMs)
+        {
+            if (xs == null || ys == null) return 0;
             int n = Math.Min(xs.Length, ys.Length);
             if (n == 0) return 0;
             if (double.IsNaN(reactionMs) || reactionMs < 0) return 0;

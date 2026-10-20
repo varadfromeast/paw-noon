@@ -39,6 +39,11 @@ namespace PawNoon.Core
         // above the last anchor = 0.
         public double[] damageMs = { 150, 200, 250, 300, 400, 600, 1000, 1500 };
         public double[] damageValue = { 40, 36, 30, 24, 16, 8, 4, 2 };
+        /// <summary>
+        /// Peacemaker revolver (SPEC_V2 §6): damage at the same damageMs anchors. RULES: solo and casual PvP only;
+        /// ranked scores every gun with damageValue (see Guns.Effective). Mirrored by the server (config.ts).
+        /// </summary>
+        public double[] damageValuePeacemaker = { 48, 42, 34, 26, 16, 8, 4, 2 };
 
         // --- grades (upper bounds, inclusive, ms)
         public double gradeLightningMs = 200;
@@ -282,6 +287,10 @@ namespace PawNoon.Core
                 c.damageMs = dm;
                 c.damageValue = dv;
             }
+            // the Peacemaker curve shares the damageMs anchors: ignored unless it has one value per anchor
+            var dp = PnJson.NumArray(root, "damageValuePeacemaker");
+            if (dp != null && dp.Length == c.damageMs.Length) c.damageValuePeacemaker = dp;
+            else if (c.damageValuePeacemaker.Length != c.damageMs.Length) c.damageValuePeacemaker = (double[])c.damageValue.Clone();
 
             c.gradeLightningMs = PnJson.Num(root, "gradeLightningMs", c.gradeLightningMs);
             c.gradePerfectMs = PnJson.Num(root, "gradePerfectMs", c.gradePerfectMs);

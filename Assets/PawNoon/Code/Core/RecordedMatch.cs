@@ -120,12 +120,17 @@ namespace PawNoon.Core
         public const long BetweenNs = 1000000000L;
         public const long EarlyAfterStartNs = 1000000000L;
 
+        /// <param name="playerGun">Gun in effect for the player (Guns.Effective: Standard in ranked).</param>
+        /// <param name="opponentGun">Gun in effect for the opponent recording (same rule).</param>
         public static RecordedMatchResult Play(DuelConfig cfg, int seed, int rounds, int maxAttempts,
-            IList<GhostAttempt> player, IList<GhostAttempt> opponent)
+            IList<GhostAttempt> player, IList<GhostAttempt> opponent,
+            string playerGun = Guns.Standard, string opponentGun = Guns.Standard)
         {
             var clock = new ManualClock { Now = T0Ns };
             var net = new LoopbackTransport();
             var a = new LocalAuthority(cfg, clock, net, seed);
+            a.SetGun(0, playerGun);
+            a.SetGun(1, opponentGun);
             a.StartMatch();
             var res = new RecordedMatchResult();
             int resolved = 0, k = 0;
@@ -137,6 +142,7 @@ namespace PawNoon.Core
                 if (k >= maxAttempts) { end = RecordedEnd.MaxAttempts; break; }
                 if (k >= opponent.Count) { end = RecordedEnd.OpponentExhausted; break; }
                 if (k >= player.Count) { end = RecordedEnd.PlayerExhausted; break; }
+                a.SetDamageMultiplier(SuddenDeath.MultiplierFor(cfg, a.Match));   // LAST LIGHT, as recorded_match.ts
                 Exchange(a, clock, net, player[k], opponent[k]);
                 res.RoundNumbers.Add(a.Round.roundNumber);
                 if (!a.Round.isVoid) resolved++;

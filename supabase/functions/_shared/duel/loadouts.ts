@@ -12,14 +12,28 @@ export const GUN_PRODUCT: Record<Exclude<GunId, "standard">, string> = {
   peacemaker: "com.pawnoon.pixel.peacemaker",
 };
 
-/** Peacemaker: top three bands up, slow bands unchanged (same ms anchors as the standard curve). */
-const PEACEMAKER_VALUES = [48, 42, 34, 26, 16, 8, 4, 2] as const;
-
 export function isGunId(v: unknown): v is GunId {
   return typeof v === "string" && (GUNS as readonly string[]).includes(v);
 }
 
+/** Guns.Effective: ranked scores every gun with the standard curve. */
+export function effectiveGun(gun: GunId, ranked: boolean): GunId {
+  return ranked ? "standard" : gun;
+}
+
+/** Item a store product unlocks (purchase-validate), or null. */
+export function gunForProduct(productId: string): Exclude<GunId, "standard"> | null {
+  for (const [gun, pid] of Object.entries(GUN_PRODUCT)) if (pid === productId) return gun as Exclude<GunId, "standard">;
+  return null;
+}
+
+/**
+ * Guns.DamageValues + DamageCurve: the curve a shooter fires with. Peacemaker = cfg.damageValuePeacemaker
+ * (duel_config.json, top three bands up, slow bands unchanged, same ms anchors as the standard curve).
+ */
 export function curveFor(cfg: DuelConfig, gun: GunId, ranked: boolean): DamageCurveDef {
-  if (ranked || gun === "standard") return { damageMs: cfg.damageMs, damageValue: cfg.damageValue };
-  return { damageMs: cfg.damageMs, damageValue: [...PEACEMAKER_VALUES] };
+  if (effectiveGun(gun, ranked) === "peacemaker" && cfg.damageValuePeacemaker.length >= 2) {
+    return { damageMs: cfg.damageMs, damageValue: cfg.damageValuePeacemaker };
+  }
+  return { damageMs: cfg.damageMs, damageValue: cfg.damageValue };
 }

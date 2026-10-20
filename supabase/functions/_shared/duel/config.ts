@@ -17,6 +17,8 @@ export interface DuelConfig {
   maxHp: number;
   damageMs: number[];
   damageValue: number[];
+  /** Peacemaker (SPEC_V2 §6): damage at the damageMs anchors; casual only (loadouts.ts). */
+  damageValuePeacemaker: number[];
   gradeLightningMs: number;
   gradePerfectMs: number;
   gradeGreatMs: number;
@@ -42,6 +44,7 @@ export function defaultConfig(): DuelConfig {
     maxHp: 100.0,
     damageMs: [150, 200, 250, 300, 400, 600, 1000, 1500],
     damageValue: [40, 36, 30, 24, 16, 8, 4, 2],
+    damageValuePeacemaker: [48, 42, 34, 26, 16, 8, 4, 2],
     gradeLightningMs: 200,
     gradePerfectMs: 250,
     gradeGreatMs: 320,
@@ -138,6 +141,10 @@ export function configFromJson(input: unknown): DuelConfig {
     c.damageMs = dm;
     c.damageValue = dv;
   }
+  // DuelConfig.FromNode: the Peacemaker curve shares the damageMs anchors, one value per anchor or ignored
+  const dp = numArray(root, "damageValuePeacemaker");
+  if (dp !== null && dp.length === c.damageMs.length) c.damageValuePeacemaker = dp;
+  else if (c.damageValuePeacemaker.length !== c.damageMs.length) c.damageValuePeacemaker = [...c.damageValue];
   c.gradeLightningMs = num(root, "gradeLightningMs", c.gradeLightningMs);
   c.gradePerfectMs = num(root, "gradePerfectMs", c.gradePerfectMs);
   c.gradeGreatMs = num(root, "gradeGreatMs", c.gradeGreatMs);
