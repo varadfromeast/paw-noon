@@ -77,6 +77,7 @@ namespace PawNoon.Runtime.Net
         public BountyDirector Bounty { get { return bounty; } }
         /// <summary>The guest / linked session (M6 accounts share it).</summary>
         public SupabaseAuth Auth { get { return auth; } }
+        /// <summary>The shared function client (one auth session): the shop's purchase-validate / loadout-equip go through it.</summary>
         public SupabaseApi Api { get { return api; } }
 
         public void Init(PawGame g, UiKit kit, GameLayout layout, PixelPipeline pipe, Transform uiRoot,
@@ -383,12 +384,13 @@ namespace PawNoon.Runtime.Net
             resultCard.Close();
             title.SetOnlineBusy(false);
             state = State.Playing;
+            game.SetPvpLoadout(m.Mode == "ranked", m.OpponentGun);   // M7: guns for this match (ranked = standard curve)
             game.StartPvpDuel(m.Seed, ghost, rules, displayName);
             // after StartPvpDuel: the shared config is Hard now and the match (and its first countdown) is ahead
             recorder.Begin(m.Seed, game.Director.Player);
             recorder.Difficulty = DuelConfig.DifficultyHard;
             recorder.Character = Character;
-            recorder.Gun = "standard";
+            recorder.Gun = game.Shop != null ? game.Shop.RecordingGun() : Guns.Standard;   // server-verified guns only
             recorder.ClientBuild = cfg.Build;
             FillDevice(recorder);
             transport.Tap = recorder;
@@ -489,7 +491,9 @@ namespace PawNoon.Runtime.Net
                 if (mockSubmitT <= 0f)
                 {
                     // what the server would answer: its recompute, done locally with the same rules
-                    var sim = RecordedMatchSim.Play(game.Config, info.Seed, info.Rounds, info.MaxAttempts, recorder.ToGhostAttempts(), info.OpponentAttempts);
+                    bool ranked = info.Mode == "ranked";
+                    var sim = RecordedMatchSim.Play(game.Config, info.Seed, info.Rounds, info.MaxAttempts, recorder.ToGhostAttempts(), info.OpponentAttempts,
+                        Guns.Effective(recorder.Gun, ranked), Guns.Effective(info.OpponentGun, ranked));
                     var v = MatchVerdict.FromSim(info.MatchId, sim);
                     NetMock.Rate(v, info);
                     if (hostRoom != null) { v.Room = hostRoom; hostRoom = null; }

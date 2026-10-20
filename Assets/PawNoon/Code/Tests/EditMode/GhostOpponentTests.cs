@@ -117,6 +117,8 @@ namespace PawNoon.Tests
                     Ghost.Tick(f, LatencyNs);
                     if (!started)
                     {
+                        // DuelDirector.BeginStandoff hands the LAST LIGHT multiplier over before every countdown
+                        Auth.SetDamageMultiplier(SuddenDeath.MultiplierFor(Cfg, Auth.Match));
                         Assert.IsTrue(Auth.StartCountdown(), "StartCountdown");
                         Rules.AttemptStarted();
                         started = true;

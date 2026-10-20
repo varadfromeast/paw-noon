@@ -209,5 +209,23 @@
   "frames": 3,
   "fps": 8,
   "loop": false
+ },
+ "muzzle_side_peacemaker": {
+  "file": "muzzle_side_peacemaker",
+  "size": [
+   216,
+   72
+  ],
+  "pivot": [
+   9,
+   36
+  ],
+  "cell": [
+   72,
+   72
+  ],
+  "frames": 3,
+  "fps": 24,
+  "loop": false
  }
 }

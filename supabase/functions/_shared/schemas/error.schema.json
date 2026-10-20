@@ -7,7 +7,7 @@
   "properties": {
     "error": {
       "type": "string",
-      "description": "Machine code: unauthorized, bad_json, bad_request, body_too_large, method_not_allowed, no_profile, link_required (+reasons[]), ranked_not_allowed (+reasons[]), room_not_found, room_expired, room_used, own_room, room_taken, no_opponent, bad_recording, match_not_found, already_submitted (+matchStatus), recording_rejected (+reason, matchStatus, flagged), confirm_required, delete_failed, bad_display_name (+reason), unknown_product, not_implemented, rate_limited (+retryAfterSec), busy, db_error, internal"
+      "description": "Machine code: unauthorized, bad_json, bad_request, body_too_large, method_not_allowed, no_profile, link_required (+reasons[]), ranked_not_allowed (+reasons[]), room_not_found, room_expired, room_used, own_room, room_taken, no_opponent, bad_recording, match_not_found, already_submitted (+matchStatus), recording_rejected (+reason, matchStatus, flagged), confirm_required, delete_failed, bad_display_name (+reason), unknown_product, bad_receipt, invalid_receipt, wrong_app, product_mismatch, not_in_receipt, not_found, fake_store, sandbox_not_allowed, store_unavailable, store_not_configured, not_owned (+ownedItems), not_implemented, rate_limited (+retryAfterSec), busy, db_error, internal"
     },
     "message": { "type": "string" },
     "reason": { "type": "string", "description": "bad_display_name: too_short | too_long | bad_chars | reserved. recording_rejected: late | loadout_not_owned | version | seed_mismatch | difficulty | round_count | round_numbering | reaction_bounds | kind_mismatch | inconsistent_reaction | non_monotonic | cue_timing | input_source | wall_clock | samples" },

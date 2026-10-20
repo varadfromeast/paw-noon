@@ -11,7 +11,7 @@ namespace PawNoon.Runtime
     {
         public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight",
             "bounty", "profile", "account", "keypad", "delete", "switch",
-            "pvp", "friend", "room", "join", "waiting", "leaderboard", "fastest" };
+            "pvp", "friend", "room", "join", "waiting", "leaderboard", "fastest", "shop" };
 
         private static PawGame Game()
         {
@@ -96,6 +96,11 @@ namespace PawNoon.Runtime
                         if (r != "ok") return r;
                         break;
                     }
+                    case "shop":
+                    case "store":
+                        g.ShowTitle();
+                        g.Shop.Open();
+                        break;
                     default:
                         return "error: unknown state '" + state + "' (use " + string.Join(", ", States) + ")";
                 }
@@ -239,7 +244,8 @@ namespace PawNoon.Runtime
                    " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
                    " opponent=" + (g.Director.Persona != null ? g.Director.Persona.id : "cfg") +
                    " " + (g.Online != null ? g.Online.Status() : "online=none") +
-                   " " + (g.Accounts != null ? g.Accounts.Status() : "account=none");
+                   " " + (g.Accounts != null ? g.Accounts.Status() : "account=none") +
+                   " " + (g.Shop != null ? g.Shop.Status() : "gun=standard shop=none");
         }
 
         // ------------------------------------------------------------------ accounts (M6)
@@ -262,6 +268,42 @@ namespace PawNoon.Runtime
             {
                 return "error: " + e.GetType().Name + ": " + e.Message;
             }
+        }
+
+        // ------------------------------------------------------------------ shop / loadout (M7)
+
+        /// <summary>
+        /// Buys an item through the mock store right now ("peacemaker"): granted locally, never server-verified,
+        /// so it works in solo only (PvP keeps the standard gun until purchase-validate confirms a real purchase).
+        /// </summary>
+        public static string MockBuy(string item)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            string gun = Guns.Normalize(item);
+            if (gun == Guns.Standard) return "error: unknown item '" + item + "' (use peacemaker)";
+            g.Shop.MockBuy(gun);
+            return "ok: " + g.Shop.Status();
+        }
+
+        /// <summary>Equips "peacemaker" or "standard" (must be owned); applies from the next match.</summary>
+        public static string Equip(string gun)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            string s = (gun ?? "").Trim().ToLowerInvariant();
+            if (s != Guns.Peacemaker && s != Guns.Standard) return "error: use peacemaker or standard";
+            if (!g.Shop.Equip(s)) return "error: " + s + " is not owned (MockBuy peacemaker first)";
+            return "ok: " + g.Shop.Status();
+        }
+
+        /// <summary>QA: forgets every gun and the mock store's sales (fresh install).</summary>
+        public static string ResetGuns()
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            g.Shop.ResetGuns();
+            return "ok: " + g.Shop.Status();
         }
 
         // ------------------------------------------------------------------ online PvP (M4)

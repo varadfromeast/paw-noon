@@ -1,0 +1,91 @@
+{
+ "production21007": {
+  "status": 21007
+ },
+ "sandboxOk": {
+  "status": 0,
+  "environment": "Sandbox",
+  "receipt": {
+   "receipt_type": "ProductionSandbox",
+   "bundle_id": "com.pawnoon.pixel",
+   "application_version": "42",
+   "in_app": [
+    {
+     "quantity": "1",
+     "product_id": "com.pawnoon.pixel.other",
+     "transaction_id": "2000000811111111",
+     "original_transaction_id": "2000000811111111",
+     "purchase_date_ms": "1760950000000",
+     "original_purchase_date_ms": "1760950000000",
+     "in_app_ownership_type": "PURCHASED",
+     "is_trial_period": "false"
+    },
+    {
+     "quantity": "1",
+     "product_id": "com.pawnoon.pixel.peacemaker",
+     "transaction_id": "2000000812345678",
+     "original_transaction_id": "2000000812345678",
+     "purchase_date_ms": "1760950000000",
+     "original_purchase_date_ms": "1760950000000",
+     "in_app_ownership_type": "PURCHASED",
+     "is_trial_period": "false"
+    }
+   ]
+  }
+ },
+ "productionRefunded": {
+  "status": 0,
+  "environment": "Production",
+  "receipt": {
+   "bundle_id": "com.pawnoon.pixel",
+   "in_app": [
+    {
+     "quantity": "1",
+     "product_id": "com.pawnoon.pixel.peacemaker",
+     "transaction_id": "2000000812345678",
+     "original_transaction_id": "2000000812345678",
+     "purchase_date_ms": "1760950000000",
+     "original_purchase_date_ms": "1760950000000",
+     "in_app_ownership_type": "PURCHASED",
+     "is_trial_period": "false",
+     "cancellation_date_ms": "1761000000000",
+     "cancellation_reason": "0"
+    }
+   ]
+  }
+ },
+ "otherBundle": {
+  "status": 0,
+  "environment": "Production",
+  "receipt": {
+   "bundle_id": "com.example.other",
+   "in_app": [
+    {
+     "quantity": "1",
+     "product_id": "com.pawnoon.pixel.peacemaker",
+     "transaction_id": "2000000812345678",
+     "original_transaction_id": "2000000812345678",
+     "purchase_date_ms": "1760950000000",
+     "original_purchase_date_ms": "1760950000000",
+     "in_app_ownership_type": "PURCHASED",
+     "is_trial_period": "false"
+    }
+   ]
+  }
+ },
+ "noProduct": {
+  "status": 0,
+  "environment": "Production",
+  "receipt": {
+   "bundle_id": "com.pawnoon.pixel",
+   "in_app": []
+  }
+ },
+ "malformed": {
+  "status": 21002
+ },
+ "badSecret": {
+  "status": 21004
+ },
+ "unity": "{\"Store\": \"AppleAppStore\", \"TransactionID\": \"2000000812345678\", \"Payload\": \"MIITtgYJKoZIhvcNAQcCoIITpzCCE6MCAQExCzAJBgUrDgMCGgUAMIIDVwYJKoZIhvcNAQcBoIIDSASCA0QxggNAMAoCAQgCAQEEAhYAMAoCARQCAQEEAgwAMAsCAQECAQEEAwIBADALAgELAgEBBAMCAQAwCwIBDwIBAQQDAgEAMAsCARACAQEEAwIBADALAgEZAgEBBAMCAQMwDAIBCgIBAQQEFgI0KzAMAgEOAgEBBAQCAgDmMA0CAQMCAQEEBQwDNDIwDQIBDQIBAQQFAgMCJKEwDQIBEwIBAQQFDAMxLjAwDgIBCQIBAQQGAgRQMjU2MBgCAQQCAQIEEPSTEST\"}"
+}

@@ -915,5 +915,58 @@
    6,
    6
   ]
+ },
+ "peacemaker_card": {
+  "file": "peacemaker_card",
+  "size": [
+   80,
+   34
+  ],
+  "pivot": [
+   40,
+   17
+  ]
+ },
+ "holster_peacemaker": {
+  "file": "holster_peacemaker",
+  "size": [
+   128,
+   40
+  ],
+  "pivot": [
+   32,
+   40
+  ],
+  "cell": [
+   64,
+   40
+  ],
+  "frames": 2,
+  "fps": 0,
+  "loop": false,
+  "note": "Peacemaker loadout; same layout as holster_zone (frame 0 idle, frame 1 grip glowing)"
+ },
+ "ico_shop": {
+  "file": "ico_shop",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
+ },
+ "glyph_rupee": {
+  "file": "glyph_rupee",
+  "size": [
+   7,
+   11
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "note": "the shop price sign; fill at (1,1), drawn like font_medium sun1 + outline + shadow"
  }
 }

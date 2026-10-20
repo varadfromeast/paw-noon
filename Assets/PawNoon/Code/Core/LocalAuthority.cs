@@ -101,6 +101,8 @@ namespace PawNoon.Core
         public int winnerSlot = -1;
         /// <summary>Damage multiplier this round was played under (1 = normal, 2 = LAST LIGHT). Fixed at StartCountdown.</summary>
         public double damageMultiplier = 1.0;
+        /// <summary>Gun whose damage curve each slot fires with this round (Guns.*). Fixed at StartCountdown.</summary>
+        public readonly string[] guns = { Guns.Standard, Guns.Standard };
         public readonly SlotRecord[] slots = { new SlotRecord(), new SlotRecord() };
 
         public void Clear()
@@ -114,6 +116,8 @@ namespace PawNoon.Core
             isTie = false;
             winnerSlot = -1;
             damageMultiplier = 1.0;
+            guns[0] = Guns.Standard;
+            guns[1] = Guns.Standard;
             slots[0].Clear();
             slots[1].Clear();
         }
@@ -146,6 +150,7 @@ namespace PawNoon.Core
         private int nextRoundId = 1;
         private bool forceCue;
         private double pendingDamageMultiplier = 1.0;
+        private readonly string[] slotGuns = { Guns.Standard, Guns.Standard };
         private readonly Queue<DuelEvent> events = new Queue<DuelEvent>(16);
 
         public readonly MatchState Match;
@@ -188,6 +193,20 @@ namespace PawNoon.Core
             pendingDamageMultiplier = (double.IsNaN(multiplier) || double.IsInfinity(multiplier) || multiplier < 0) ? 1.0 : multiplier;
         }
 
+        /// <summary>
+        /// Gun (damage curve) <paramref name="slot"/> fires with from the next StartCountdown on (SPEC_V2 §6). The match
+        /// driver passes the gun in effect: Guns.Effective(equipped, ranked), so ranked is always Standard. Kept across
+        /// matches (StartMatch does not reset it); unknown ids mean Standard. Never touches timing or reports.
+        /// </summary>
+        public void SetGun(int slot, string gun)
+        {
+            if (slot < 0 || slot >= Slots) return;
+            slotGuns[slot] = Guns.Normalize(gun);
+        }
+
+        /// <summary>The gun the next StartCountdown latches for <paramref name="slot"/>.</summary>
+        public string GunOf(int slot) { return slot >= 0 && slot < Slots ? slotGuns[slot] : Guns.Standard; }
+
         /// <summary>The multiplier the next StartCountdown will use.</summary>
         public double PendingDamageMultiplier { get { return pendingDamageMultiplier; } }
 
@@ -202,6 +221,8 @@ namespace PawNoon.Core
             Round.schedule = RoundSchedule.Create(cfg, rng);
             Round.countdownStartNs = now;
             Round.damageMultiplier = pendingDamageMultiplier;
+            Round.guns[0] = slotGuns[0];
+            Round.guns[1] = slotGuns[1];
             forceCue = false;
             Phase = RoundPhase.Countdown;
 
@@ -398,17 +419,18 @@ namespace PawNoon.Core
             }
         }
 
-        private double DamageFor(long reactionNs)
+        private double DamageFor(int slot, long reactionNs)
         {
-            // the round's multiplier (LAST LIGHT) is applied here and only here: one multiply per shot
-            return DamageCurve.Evaluate(cfg, DuelConfig.NsToMs(reactionNs)) * Round.damageMultiplier;
+            // the shooter's gun picks the curve (latched for the round); the round's multiplier (LAST LIGHT) is
+            // applied here and only here: one multiply per shot
+            return DamageCurve.Evaluate(cfg, Round.guns[slot], DuelConfig.NsToMs(reactionNs)) * Round.damageMultiplier;
         }
 
         private void Fire(int slot, bool simultaneous)
         {
             var s = Round.slots[slot];
             int target = 1 - slot;
-            double dmg = DamageFor(s.reactionNs);
+            double dmg = DamageFor(slot, s.reactionNs);
             Match.Hp[target] = Math.Max(0, Match.Hp[target] - dmg);
             CommitShot(slot, s, dmg, simultaneous);
         }
@@ -417,8 +439,8 @@ namespace PawNoon.Core
         {
             var s0 = Round.slots[0];
             var s1 = Round.slots[1];
-            double d0 = DamageFor(s0.reactionNs);
-            double d1 = DamageFor(s1.reactionNs);
+            double d0 = DamageFor(0, s0.reactionNs);
+            double d1 = DamageFor(1, s1.reactionNs);
             // a tie: both shots land, whatever the HP (double KO possible). Decided only from the two
             // validated reactions, so every client sees the same outcome.
             Round.isTie = true;
