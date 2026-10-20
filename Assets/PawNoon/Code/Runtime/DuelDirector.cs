@@ -241,11 +241,13 @@ namespace PawNoon.Runtime
             PawTime.ClearEffects();
             dead[0] = dead[1] = false;
             fallStage[0] = fallStage[1] = 0;
+            bool playIntro = MatchIntro.ShouldPlay(cfg.introEnabled, autoTapNs >= 0);
+            if (playIntro) intro.CaptureTitlePose();   // before the standoff switches the cats to "ready"
             hero.ResetPose();
             bandit.ResetPose();
             hud.ShowHolster(true);
             BeginStandoff(1.4f, BanterContext.MatchStart);
-            if (MatchIntro.ShouldPlay(cfg.introEnabled, autoTapNs >= 0)) intro.Begin(reducedMotion, firstMatch);
+            if (playIntro) intro.Begin(reducedMotion, firstMatch);
             audio.PlayMusic(PawAudio.Track.DuelBed);   // composed standoff bed (falls back to music_standoff)
             audio.DuelAmbience(1f);
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
