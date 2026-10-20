@@ -23,6 +23,10 @@ namespace PawNoon.Runtime
             public bool lastLow;
             public Vector2Int barPos;
             public Vector2Int portraitPos;
+            // name plate: resting rect (Relayout) + the match intro's slam (hidden / vertical offset)
+            public int plateX, plateTop, plateW;
+            public int plateDy;
+            public bool plateHidden;
             // floating "-34" lost-HP text
             public BitmapText lost;
             public float lostT = 99f;
@@ -462,6 +466,38 @@ namespace PawNoon.Runtime
 
         public void Hurt(int slot, float seconds) { sides[slot].hurtLeft = seconds; }
 
+        /// <summary>Name on a slot's plate (the opponent's persona name; re-lays the plate out to fit).</summary>
+        public void SetName(int slot, string name)
+        {
+            var s = sides[slot];
+            if (s.name == null) return;
+            s.name.SetText(name ?? "");
+            s.name.MarkDirty();
+            if (kit != null) Relayout();
+        }
+
+        /// <summary>
+        /// Match intro (SPEC_V2 §8.7): hides a name plate or offsets it vertically by whole pixels (the slam).
+        /// SetNamePlate(slot, true, 0) restores the resting plate.
+        /// </summary>
+        public void SetNamePlate(int slot, bool visible, int dy)
+        {
+            var s = sides[slot];
+            if (s.plate == null || (s.plateHidden == !visible && s.plateDy == dy)) return;
+            s.plateHidden = !visible;
+            s.plateDy = dy;
+            PlacePlate(s);
+        }
+
+        private void PlacePlate(Side s)
+        {
+            int y = s.plateTop + s.plateDy;
+            UiKit.SetRect(s.plate, kit.Ui.Get("name_plate"), new RectInt(s.plateX, y, s.plateW, 14));
+            s.name.At(s.right ? s.plateX + s.plateW - 6 : s.plateX + 6, y + 2);
+            s.plate.enabled = !s.plateHidden;
+            s.name.Visible = !s.plateHidden;
+        }
+
         private void Relayout()
         {
             laidOutVersion = pipe.LayoutVersion;
@@ -481,10 +517,10 @@ namespace PawNoon.Runtime
                 int bx = s.right ? fx - 3 - bw : fx + frameSize.x + 3;
                 int by = top + 14;
                 // name plate sits on the bar's outer edge, same row on both sides
-                int plateW = s.name.Width + 12;
-                int plateX = s.right ? bx + bw - plateW : bx;
-                UiKit.SetRect(s.plate, kit.Ui.Get("name_plate"), new RectInt(plateX, top, plateW, 14));
-                s.name.At(s.right ? plateX + plateW - 6 : plateX + 6, top + 2);
+                s.plateW = s.name.Width + 12;
+                s.plateX = s.right ? bx + bw - s.plateW : bx;
+                s.plateTop = top;
+                PlacePlate(s);
                 PawGfx.Place(s.barFrame, bx, by);
                 s.barPos = new Vector2Int(bx + barInner.x, by + barInner.y);
                 s.lastW = -1;

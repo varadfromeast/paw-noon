@@ -109,8 +109,25 @@ namespace PawNoon.Runtime
         {
             var g = Game();
             if (g == null) return NotRunning();
+            MatchIntro.SkipNextForReview = true;   // automated runs skip the match intro unless SetIntro on
             g.StartDuel();
             return "ok: duel started (seed " + g.Director.Seed + ")";
+        }
+
+        /// <summary>
+        /// Match intro (SPEC_V2 §8.7) for review: "on" = play it at every StartDuel (review runs included, ignores the
+        /// once-per-session rule), "off" = never, "auto" = default (first match of a session, not in review runs,
+        /// cfg.introEnabled), "reset" = auto and forget that it was shown this session.
+        /// </summary>
+        public static string SetIntro(string mode)
+        {
+            string s = (mode ?? "").Trim().ToLowerInvariant();
+            if (s == "on" || s == "1" || s == "true") MatchIntro.ReviewMode = 1;
+            else if (s == "off" || s == "0" || s == "false") MatchIntro.ReviewMode = -1;
+            else if (s == "auto" || s == "") MatchIntro.ReviewMode = 0;
+            else if (s == "reset") { MatchIntro.ReviewMode = 0; MatchIntro.ShownThisSession = false; }
+            else return "error: expected on, off, auto or reset";
+            return "ok: intro " + MatchIntro.StatusText;
         }
 
         /// <summary>Injects a press timestamped now through the real input queue and player client.</summary>
@@ -160,7 +177,9 @@ namespace PawNoon.Runtime
             return "screen=" + g.CurrentMode + " settings=" + g.SettingsOpenState + " difficulty=" + g.Config.Difficulty +
                    (g.Difficulty != g.Config.Difficulty ? "->" + g.Difficulty : "") + " " + g.Director.StatusLine() +
                    " fps=" + UnityEngine.Application.targetFrameRate + " virtual=" + g.Pipeline.VirtualW + "x" + g.Pipeline.VirtualH +
-                   " preciseInput=" + g.Input.HasPreciseTimestamps;
+                   " preciseInput=" + g.Input.HasPreciseTimestamps +
+                   " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
+                   " opponent=" + (g.Director.Opponent != null ? g.Director.Opponent.id : "cfg");
         }
 
         /// <summary>Seed for the next match (authority RNG and bot RNG derive from it).</summary>
