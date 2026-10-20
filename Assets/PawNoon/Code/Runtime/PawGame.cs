@@ -495,6 +495,8 @@ namespace PawNoon.Runtime
         /// </summary>
         private void ApplyLifecycle()
         {
+            // a finger that was down when the app went away never sends Ended: drop live gestures (holster glow)
+            if ((appPaused || appUnfocused) && Input != null) Input.ResetGestures();
 #if !UNITY_EDITOR
             bool silent = appPaused || appUnfocused;
             if (silent)
