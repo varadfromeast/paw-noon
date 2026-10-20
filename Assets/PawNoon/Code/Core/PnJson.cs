@@ -121,6 +121,35 @@ namespace PawNoon.Core
             return r;
         }
 
+        /// <summary>
+        /// Overlay merge: returns a new object with every key of <paramref name="baseObj"/>, then every key of
+        /// <paramref name="overlay"/> on top. When both sides hold an object under the same key, the two are
+        /// merged one level deep (overlay keys win); anything else (numbers, strings, arrays) is replaced
+        /// whole. Neither input is modified. A null side counts as an empty object.
+        /// </summary>
+        public static Dictionary<string, object> Merge(Dictionary<string, object> baseObj, Dictionary<string, object> overlay)
+        {
+            var r = baseObj != null ? new Dictionary<string, object>(baseObj) : new Dictionary<string, object>();
+            if (overlay == null) return r;
+            foreach (var kv in overlay)
+            {
+                object prev;
+                var bo = r.TryGetValue(kv.Key, out prev) ? prev as Dictionary<string, object> : null;
+                var oo = kv.Value as Dictionary<string, object>;
+                if (bo != null && oo != null)
+                {
+                    var m = new Dictionary<string, object>(bo);
+                    foreach (var inner in oo) m[inner.Key] = inner.Value;
+                    r[kv.Key] = m;
+                }
+                else
+                {
+                    r[kv.Key] = kv.Value;
+                }
+            }
+            return r;
+        }
+
         // ---------------------------------------------------------------- reader
 
         private sealed class Reader

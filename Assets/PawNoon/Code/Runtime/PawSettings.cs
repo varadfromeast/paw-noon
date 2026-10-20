@@ -1,4 +1,5 @@
 using System.Globalization;
+using PawNoon.Core;
 using UnityEngine;
 
 namespace PawNoon.Runtime
@@ -16,6 +17,8 @@ namespace PawNoon.Runtime
         private const string KHaptics = "pawnoon.haptics";
         private const string KReduced = "pawnoon.reducedMotion";
         private const string KBest = "pawnoon.bestNs";
+        /// <summary>Difficulty ("easy" / "hard", SPEC_V2 §1). Absent until the player picks on first launch.</summary>
+        private const string KDifficulty = "pn_difficulty";
 
         public static bool Music = true;
         public static bool ClassicMusic;
@@ -24,6 +27,10 @@ namespace PawNoon.Runtime
         public static bool ReducedMotion;
         /// <summary>All-time best reaction in ns, or -1.</summary>
         public static long BestNs = -1;
+        /// <summary>"easy" or "hard" (hard until chosen).</summary>
+        public static string Difficulty = DuelConfig.DifficultyHard;
+        /// <summary>False on first launch: the title shows the one-time EASY / HARD card.</summary>
+        public static bool DifficultyChosen;
 
         private static int Int(string key, string legacyKey, int def)
         {
@@ -36,6 +43,7 @@ namespace PawNoon.Runtime
         {
             // defaults first, so a storage failure still leaves sane values
             Music = true; ClassicMusic = false; Sfx = true; Haptics = true; ReducedMotion = false; BestNs = -1;
+            Difficulty = DuelConfig.DifficultyHard; DifficultyChosen = false;
             try
             {
                 Music = Int(KMusic, "pn.music", 1) == 1;
@@ -46,6 +54,8 @@ namespace PawNoon.Runtime
                 string best = PlayerPrefs.HasKey(KBest) ? PlayerPrefs.GetString(KBest, "-1") : PlayerPrefs.GetString("pn.bestNs", "-1");
                 long v;
                 BestNs = long.TryParse(best, NumberStyles.Integer, CultureInfo.InvariantCulture, out v) && v > 0 ? v : -1;
+                DifficultyChosen = PlayerPrefs.HasKey(KDifficulty);
+                Difficulty = DuelConfig.NormalizeDifficulty(PlayerPrefs.GetString(KDifficulty, DuelConfig.DifficultyHard));
             }
             catch (System.Exception e)
             {
@@ -68,6 +78,38 @@ namespace PawNoon.Runtime
             catch (System.Exception e)
             {
                 Debug.LogWarning("[PawNoon] settings save failed: " + e.Message);
+            }
+        }
+
+        /// <summary>Stores the difficulty (marks the first-launch choice as made).</summary>
+        public static void SaveDifficulty(string d)
+        {
+            Difficulty = DuelConfig.NormalizeDifficulty(d);
+            DifficultyChosen = true;
+            try
+            {
+                PlayerPrefs.SetString(KDifficulty, Difficulty);
+                PlayerPrefs.Save();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[PawNoon] difficulty save failed: " + e.Message);
+            }
+        }
+
+        /// <summary>Forgets the difficulty so the next title shows the first-launch choice again (review / QA).</summary>
+        public static void ClearDifficulty()
+        {
+            Difficulty = DuelConfig.DifficultyHard;
+            DifficultyChosen = false;
+            try
+            {
+                PlayerPrefs.DeleteKey(KDifficulty);
+                PlayerPrefs.Save();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[PawNoon] difficulty clear failed: " + e.Message);
             }
         }
 

@@ -9,7 +9,7 @@ namespace PawNoon.Runtime
     /// </summary>
     public static class ReviewDirector
     {
-        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul" };
+        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty" };
 
         private static PawGame Game()
         {
@@ -18,7 +18,8 @@ namespace PawNoon.Runtime
 
         private static string NotRunning() { return "error: game not running (enter Play mode)"; }
 
-        /// <summary>Forces a deterministic still: title, countdown2, draw, roundresult, win, lose, settings, foul.</summary>
+        /// <summary>Forces a deterministic still: title, countdown2, draw, roundresult, win, lose, settings, foul,
+        /// difficulty (title with the first-launch EASY / HARD card; the stored pick is kept).</summary>
         public static string Show(string state)
         {
             var g = Game();
@@ -58,6 +59,10 @@ namespace PawNoon.Runtime
                         g.EnterReviewDuel();
                         g.Director.ReviewFoul();
                         break;
+                    case "difficulty":
+                    case "choice":
+                        g.ShowDifficultyChoice(false);
+                        break;
                     default:
                         return "error: unknown state '" + state + "' (use " + string.Join(", ", States) + ")";
                 }
@@ -67,6 +72,37 @@ namespace PawNoon.Runtime
                 return "error: " + e.GetType().Name + ": " + e.Message;
             }
             return "ok: showing " + s;
+        }
+
+        /// <summary>
+        /// Sets the difficulty ("easy" / "hard"), stored like the title toggle (PlayerPrefs "pn_difficulty").
+        /// Applies now on the title screen, otherwise from the next match. "reset" forgets the pick and shows
+        /// the first-launch card on the title.
+        /// </summary>
+        public static string SetDifficulty(string difficulty)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            string s = (difficulty ?? "").Trim().ToLowerInvariant();
+            try
+            {
+                if (s == "reset" || s == "clear")
+                {
+                    g.ShowDifficultyChoice(true);
+                    return "ok: difficulty cleared, first-launch choice shown";
+                }
+                if (s != DuelConfig.DifficultyEasy && s != DuelConfig.DifficultyHard)
+                    return "error: expected easy, hard or reset";
+                g.SetDifficulty(s);
+            }
+            catch (System.Exception e)
+            {
+                return "error: " + e.GetType().Name + ": " + e.Message;
+            }
+            bool now = g.Config.Difficulty == s;
+            return "ok: difficulty " + s + (now ? " (active now)" : " (from the next match)") +
+                   " active: botMeanStart=" + g.Config.botMeanStartMs.ToString("0", CultureInfo.InvariantCulture) +
+                   " holdMax=" + g.Config.holdMaxSeconds.ToString("0.0", CultureInfo.InvariantCulture);
         }
 
         public static string StartDuel()
@@ -121,7 +157,8 @@ namespace PawNoon.Runtime
         {
             var g = Game();
             if (g == null) return NotRunning();
-            return "screen=" + g.CurrentMode + " settings=" + g.SettingsOpenState + " " + g.Director.StatusLine() +
+            return "screen=" + g.CurrentMode + " settings=" + g.SettingsOpenState + " difficulty=" + g.Config.Difficulty +
+                   (g.Difficulty != g.Config.Difficulty ? "->" + g.Difficulty : "") + " " + g.Director.StatusLine() +
                    " fps=" + UnityEngine.Application.targetFrameRate + " virtual=" + g.Pipeline.VirtualW + "x" + g.Pipeline.VirtualH +
                    " preciseInput=" + g.Input.HasPreciseTimestamps;
         }

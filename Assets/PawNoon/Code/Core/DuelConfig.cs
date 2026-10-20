@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace PawNoon.Core
 {
@@ -139,6 +141,19 @@ namespace PawNoon.Core
         public double banterMatchEndSeconds = 2.0;
         public BanterLines blackpawLines = new BanterLines();
 
+        // --- difficulty (SPEC_V2 §1): Hard = duel_config.json alone, Easy = duel_config.easy.json merged on top
+        public const string DifficultyHard = "hard";
+        public const string DifficultyEasy = "easy";
+        /// <summary>"hard" or "easy": which rule set this config was loaded as (set by Load, not read from JSON).</summary>
+        public string Difficulty = DifficultyHard;
+        public bool IsEasy { get { return Difficulty == DifficultyEasy; } }
+
+        /// <summary>Maps any input to "easy" or "hard" (unknown / empty = hard).</summary>
+        public static string NormalizeDifficulty(string d)
+        {
+            return string.Equals((d ?? "").Trim(), DifficultyEasy, StringComparison.OrdinalIgnoreCase) ? DifficultyEasy : DifficultyHard;
+        }
+
         public static DuelConfig Default() { return new DuelConfig(); }
 
         private static double Clamp01(double v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
@@ -165,8 +180,59 @@ namespace PawNoon.Core
         /// <summary>Parses JSON text; returns defaults (never null) on any problem.</summary>
         public static DuelConfig FromJson(string json)
         {
+            return FromNode(PnJson.ParseObject(json));
+        }
+
+        /// <summary>Hard rules: the base JSON alone (same as FromJson, Difficulty = "hard").</summary>
+        public static DuelConfig Load(string hardJson)
+        {
+            return Load(hardJson, null, DifficultyHard);
+        }
+
+        /// <summary>
+        /// Base JSON with an overlay merged on top (PnJson.Merge: overlay keys win, nested objects merged one
+        /// level, arrays replaced). A null / empty / malformed overlay leaves the base untouched.
+        /// Difficulty is "easy" when an overlay was applied, else "hard".
+        /// </summary>
+        public static DuelConfig Load(string hardJson, string overlayJson)
+        {
+            return Load(hardJson, overlayJson, null);
+        }
+
+        /// <summary>As Load(hard, overlay) with an explicit difficulty label (null = derive from the overlay).</summary>
+        public static DuelConfig Load(string hardJson, string overlayJson, string difficulty)
+        {
+            var root = PnJson.ParseObject(hardJson);
+            var overlay = PnJson.ParseObject(overlayJson);
+            if (overlay != null) root = PnJson.Merge(root, overlay);
+            var c = FromNode(root);
+            c.Difficulty = difficulty != null ? NormalizeDifficulty(difficulty) : (overlay != null ? DifficultyEasy : DifficultyHard);
+            return c;
+        }
+
+        /// <summary>
+        /// Copies every field of <paramref name="other"/> into this instance, so systems that hold this config
+        /// by reference (authority, clients, bot, director) see the new rules from the next read on.
+        /// Call only between matches (difficulty change on the title screen).
+        /// </summary>
+        public void CopyFrom(DuelConfig other)
+        {
+            if (other == null || ReferenceEquals(other, this)) return;
+            var fields = typeof(DuelConfig).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            for (int i = 0; i < fields.Length; i++)
+            {
+                var f = fields[i];
+                if (f.IsInitOnly || f.IsLiteral) continue;
+                var v = f.GetValue(other);
+                var arr = v as double[];
+                if (arr != null) v = (double[])arr.Clone();
+                f.SetValue(this, v);
+            }
+        }
+
+        private static DuelConfig FromNode(Dictionary<string, object> root)
+        {
             var c = new DuelConfig();
-            var root = PnJson.ParseObject(json);
             if (root == null) return c;
             c.countdownBeats = PnJson.Int(root, "countdownBeats", c.countdownBeats);
             c.beatSeconds = PnJson.Num(root, "beatSeconds", c.beatSeconds);

@@ -1,0 +1,26 @@
+{
+  "damageMs": [
+    230,
+    290,
+    350,
+    420,
+    540,
+    760,
+    1100,
+    1500
+  ],
+  "gradeLightningMs": 280,
+  "gradePerfectMs": 340,
+  "gradeGreatMs": 420,
+  "gradeGoodMs": 540,
+  "gradeSlowMs": 800,
+  "botMeanStartMs": 420,
+  "botMeanEndMs": 340,
+  "botSdStartMs": 90,
+  "botSdEndMs": 70,
+  "botFeintChance": 0.15,
+  "botFeintMaxChance": 0.4,
+  "botTellChance": 0.45,
+  "noShotTimeoutSeconds": 2.0,
+  "holdMaxSeconds": 3.0
+}

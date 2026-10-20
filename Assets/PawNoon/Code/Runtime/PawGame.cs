@@ -37,6 +37,13 @@ namespace PawNoon.Runtime
         private int boundsVersion = -1;
         private long bestAtMatchStart = -1;
         private bool reviewSettings;
+        // difficulty (SPEC_V2 §1): Hard = duel_config.json, Easy = duel_config.easy.json merged on top
+        private string hardJson;
+        private string easyOverlayJson;
+        private DuelConfig pendingConfig;   // rules picked mid-match, applied at the next StartDuel
+
+        /// <summary>Difficulty of the rules the next / current match uses ("easy" / "hard").</summary>
+        public string Difficulty { get { return pendingConfig != null ? pendingConfig.Difficulty : Config.Difficulty; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
@@ -84,11 +91,15 @@ namespace PawNoon.Runtime
             var ta = Resources.Load<TextAsset>("Data/duel_config");
             string json = ta != null ? ta.text : null;
             if (ta == null) ArtLib.Warn("cfg", "Missing Resources/Data/duel_config.json -> built-in defaults");
-            Config = DuelConfig.FromJson(json);
+            var easyTa = Resources.Load<TextAsset>("Data/duel_config.easy");
+            if (easyTa == null) ArtLib.Warn("cfg.easy", "Missing Resources/Data/duel_config.easy.json -> Easy plays as Hard");
+            hardJson = json;
+            easyOverlayJson = easyTa != null ? easyTa.text : null;
+            PawSettings.Load();
+            Config = BuildConfig(PawSettings.Difficulty);
             Layout = GameLayout.FromJson(PnJson.Parse(json));
             Layout.ApplyEnvironment(ArtLib.Json("Art/Environment/environment"));
             Px.SetCanvas(Layout.Canvas);
-            PawSettings.Load();
 
             // --- render pipeline
             var pgo = new GameObject("Pipeline");
@@ -171,6 +182,63 @@ namespace PawNoon.Runtime
 
             Audio.StartAmbience();
             ApplySettings();
+            ApplyDifficultyTags();
+            ShowTitle();
+        }
+
+        // ------------------------------------------------------------------ difficulty
+
+        private DuelConfig BuildConfig(string difficulty)
+        {
+            string d = DuelConfig.NormalizeDifficulty(difficulty);
+            return DuelConfig.Load(hardJson, d == DuelConfig.DifficultyEasy ? easyOverlayJson : null, d);
+        }
+
+        /// <summary>
+        /// Stores the difficulty (PlayerPrefs "pn_difficulty") and reloads the rules. The config object is
+        /// shared by reference with the authority, clients, bot and director, so it is updated in place:
+        /// immediately on the title screen, otherwise at the next StartDuel (a running match keeps its rules).
+        /// </summary>
+        public void SetDifficulty(string difficulty)
+        {
+            PawSettings.SaveDifficulty(difficulty);
+            var next = BuildConfig(PawSettings.Difficulty);
+            if (CurrentMode == Mode.Title)
+            {
+                Config.CopyFrom(next);
+                pendingConfig = null;
+                ApplyDifficultyTags();
+            }
+            else
+            {
+                pendingConfig = next;
+            }
+            if (title.IsOpen)
+            {
+                if (title.ChoiceOpen) title.CloseChoice();
+                else title.RefreshDifficulty();
+            }
+        }
+
+        private void ApplyPendingConfig()
+        {
+            if (pendingConfig == null) return;
+            Config.CopyFrom(pendingConfig);
+            pendingConfig = null;
+            ApplyDifficultyTags();
+        }
+
+        private void ApplyDifficultyTags()
+        {
+            hud.SetDifficulty(Config.IsEasy);
+            resultPanel.SetDifficulty(Config.IsEasy);
+        }
+
+        /// <summary>Review: title with the first-launch EASY / HARD card; clear = also forget the stored pick.</summary>
+        public void ShowDifficultyChoice(bool clear)
+        {
+            if (clear) PawSettings.ClearDifficulty();
+            else title.ForceChoice();
             ShowTitle();
         }
 
@@ -201,6 +269,7 @@ namespace PawNoon.Runtime
             reviewSettings = false;
             Screen.sleepTimeout = SleepTimeout.SystemSetting; // the duel keeps the screen awake; menus must not
             Director.Stop();
+            ApplyPendingConfig();
             hud.SetVisible(false);
             cues.HideAll();
             resultPanel.Close();
@@ -220,6 +289,8 @@ namespace PawNoon.Runtime
             title.Close();
             settings.Close();
             matchScreen.Close();
+            if (title.ChoiceOpen) title.CloseChoice();
+            ApplyPendingConfig();
             CurrentMode = Mode.Duel;
             Street.SetDawn(0f);
             bestAtMatchStart = PawSettings.BestNs;
@@ -298,6 +369,8 @@ namespace PawNoon.Runtime
                         var a = title.Tick(true);
                         if (a == UiAction.Play) StartDuel();
                         else if (a == UiAction.OpenSettings) OpenSettings();
+                        else if (a == UiAction.ChooseEasy) SetDifficulty(DuelConfig.DifficultyEasy);
+                        else if (a == UiAction.ChooseHard) SetDifficulty(DuelConfig.DifficultyHard);
                     }
                     break;
                 case Mode.Duel:

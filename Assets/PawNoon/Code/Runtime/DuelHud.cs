@@ -45,6 +45,7 @@ namespace PawNoon.Runtime
         private RectInt portraitInner = new RectInt(2, 2, 28, 28);
         private SpriteRenderer roundSign;
         private BitmapText roundText;
+        private BitmapText diffText;   // "EASY" / "HARD" tag right of the round sign (text only)
         private SpriteRenderer badge;
         private SpriteRenderer hint;
         private bool hintOn, quietOn, onceUsed, reducedMotion;
@@ -120,6 +121,9 @@ namespace PawNoon.Runtime
             roundText = kit.Text("RoundText", transform, kit.Small, Order + 2, TextAlign.Center, "ROUND 1");
             roundText.SetColors(Pal.Cream0, Pal.Wood4, Pal.Ink2);
             roundText.Shadow = false;
+            diffText = kit.Text("DifficultyTag", transform, kit.Small, Order + 2, TextAlign.Left, "HARD");
+            diffText.Shadow = false;
+            SetDifficulty(false);
 
             var b = kit.Ui.TryGet("hud_badge");
             if (b != null)
@@ -392,6 +396,23 @@ namespace PawNoon.Runtime
             signPop = reducedMotion ? 0f : 0.35f; // Reduced Motion: the sign just changes
         }
 
+        /// <summary>Difficulty tag beside the round sign (set when a match's rules are applied).</summary>
+        public void SetDifficulty(bool easy)
+        {
+            diffText.SetText(easy ? "EASY" : "HARD");
+            diffText.SetColors(easy ? Pal.SigGreen : Pal.Brass1, Pal.Ink, Pal.Ink2);
+            diffText.MarkDirty();
+        }
+
+        private void PlaceRoundSign(SheetDef rs, int cx, int ry)
+        {
+            PawGfx.Place(roundSign, cx - rs.Cell.x / 2 + rs.Pivot.x, ry + rs.Pivot.y);
+            int ty = ry + Mathf.Max(0, (rs.Cell.y - roundText.Height) / 2) + 1;
+            roundText.At(cx, ty);
+            // tag sits just right of the sign on the same text row (the row below the sign belongs to the result card)
+            diffText.At(cx - rs.Cell.x / 2 + rs.Cell.x + 3, ty);
+        }
+
         public void ShowBadge(bool v) { if (badge != null) badge.enabled = v; }
 
         /// <summary>Snap HP display (new match / review).</summary>
@@ -473,8 +494,7 @@ namespace PawNoon.Runtime
             var rs = kit.Ui.Get("round_sign");
             int cx = pipe.Visible.x + pipe.Visible.width / 2;
             int ry = top + frameSize.y + 2;
-            PawGfx.Place(roundSign, cx - rs.Cell.x / 2 + rs.Pivot.x, ry + rs.Pivot.y);
-            roundText.At(cx, ry + Mathf.Max(0, (rs.Cell.y - roundText.Height) / 2) + 1);
+            PlaceRoundSign(rs, cx, ry);
             if (badge != null)
             {
                 var b = kit.Ui.Get("hud_badge");
@@ -562,8 +582,7 @@ namespace PawNoon.Runtime
                 var rs = roundSignDef;
                 int cx = pipe.Visible.x + pipe.Visible.width / 2;
                 int ry = pipe.Safe.y + layout.HudMargin + frameSize.y + 2 + off;
-                PawGfx.Place(roundSign, cx - rs.Cell.x / 2 + rs.Pivot.x, ry + rs.Pivot.y);
-                roundText.At(cx, ry + Mathf.Max(0, (rs.Cell.y - roundText.Height) / 2) + 1);
+                PlaceRoundSign(rs, cx, ry);
             }
         }
     }
