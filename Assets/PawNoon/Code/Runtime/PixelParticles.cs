@@ -159,6 +159,25 @@ namespace PawNoon.Runtime
             }
         }
 
+        /// <summary>
+        /// Celebration coins (daily bounty): spinning fx "coin" sprites thrown up and out from a point, falling
+        /// back under gravity; whole-pixel positions like every particle. Silent no-op without the art.
+        /// </summary>
+        public void Coins(Vector2 canvas, int order, int count)
+        {
+            var s = fx.TryGet("coin");
+            if (s == null) return;
+            for (int k = 0; k < count; k++)
+            {
+                var v = new Vector2(Random.Range(-70f, 70f), Random.Range(-190f, -120f));
+                int i = Burst(s, canvas + new Vector2(Random.Range(-6f, 6f), 0f), order, v, 420f, Random.Range(0.9f, 1.25f));
+                if (i < 0) continue;
+                ps[i].loopAnim = true;
+                ps[i].age = Random.Range(0f, s.Duration);   // spins out of phase
+                ps[i].life += ps[i].age;
+            }
+        }
+
         /// <summary>Single-pixel debris (tinted white pixels).</summary>
         public void Pixels(Vector2 canvas, int order, int count, Color32 color, float speed, float gravity)
         {

@@ -365,6 +365,13 @@
    108,
    20
   ],
+  "titleText": [
+   49,
+   7,
+   54,
+   9
+  ],
+  "titleTextNote": "baked HIGH NOON lettering incl. its 1 px ink outline (badge px); BadgeTitle covers it with LAST LIGHT in sudden death",
   "inner": [
    24,
    27,
@@ -481,6 +488,37 @@
    6,
    6
   ]
+ },
+ "ico_flame": {
+  "file": "ico_flame",
+  "size": [
+   16,
+   10
+  ],
+  "cell": [
+   8,
+   10
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "frames": 2,
+  "fps": 6,
+  "loop": true,
+  "note": "daily bounty streak flame (title), 2-frame flicker, feel wave 2"
+ },
+ "ico_share": {
+  "file": "ico_share",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ],
+  "note": "share (tray + up arrow), feel wave 2"
  },
  "ico_sound_on": {
   "file": "ico_sound_on",

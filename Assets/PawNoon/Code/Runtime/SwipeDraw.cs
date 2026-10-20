@@ -358,5 +358,20 @@ namespace PawNoon.Runtime
             queue.Clear();
             Progress = 0f;
         }
+
+        /// <summary>
+        /// Forgets every live gesture (touch tracks and the mouse track) without touching queued presses.
+        /// Called when the app is paused or loses focus: an Ended / Canceled event may never arrive for a
+        /// finger that was down at that moment, and its track would keep the holster glowing forever
+        /// (REVIEW_2026-10-20 D3). Presentation only: no timestamps, thresholds or queued shots change.
+        /// </summary>
+        public void ResetGestures()
+        {
+            tracks.Clear();
+            dead.Clear();
+            mouseTrack = null;
+            FingerResting = false;
+            Progress = 0f;
+        }
     }
 }

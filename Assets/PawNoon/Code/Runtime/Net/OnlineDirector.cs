@@ -35,6 +35,7 @@ namespace PawNoon.Runtime.Net
         private GhostOpponent ghost;
         private RecordingBuilder recorder;
         private RecordedMatchRules rules;
+        private BountyDirector bounty;   // daily bounty + streak on the title (SPEC_V2 §7, feel wave 2)
 
         private bool mockOverride;
         private bool mockOverrideSet;
@@ -60,6 +61,8 @@ namespace PawNoon.Runtime.Net
         public bool InPvp { get { return state == State.Playing || state == State.Result; } }
         public bool Mock { get { return mockOverrideSet ? mockOverride : cfg.Mock; } }
         public NetConfig Config { get { return cfg; } }
+        /// <summary>Daily bounty (PvP wins today, streak, daily-claim).</summary>
+        public BountyDirector Bounty { get { return bounty; } }
 
         public void Init(PawGame g, UiKit kit, GameLayout layout, PixelPipeline pipe, Transform uiRoot,
             TitleScreen titleScreen, MatchResultScreen resultScreen, TapTransport tap)
@@ -89,8 +92,12 @@ namespace PawNoon.Runtime.Net
             recorder = new RecordingBuilder(0, g.Config);
             title.SetFriendDuel(cfg.FriendDuel);
 
-            // anything a previous session could not send goes out now (silently)
+            bounty = new BountyDirector(api, cfg, () => Mock, kit, pipe, uiRoot, title);
+
+            // anything a previous session could not send goes out now (silently); a bounty owed from an
+            // offline day is claimed now, or once the queue has drained
             if (cfg.IsConfigured && !cfg.Mock && api.Queue.Count > 0) api.Flush();
+            else bounty.TryClaim();
         }
 
         // ------------------------------------------------------------------ title side
@@ -268,6 +275,7 @@ namespace PawNoon.Runtime.Net
             recorder.Finish();
             state = State.Result;
             localWinner = won ? 0 : (draw ? -1 : 1);
+            bounty.OnPvpFinished(won, matchIsMock);   // counted locally now; the server validates on daily-claim
             matchScreen.SetRematchLabel("NEW RIVAL");
             resultCard.Place(matchScreen.ContentBottom + 4, matchScreen.ButtonsTop - 8);
             resultCard.Show("VS " + displayName, null, Pal.Wood3);
@@ -289,6 +297,7 @@ namespace PawNoon.Runtime.Net
             {
                 string err;
                 var v = MatchVerdict.Parse(r.Body, out err);
+                bounty.TryClaim();   // this win is on the server now
                 if (v != null) { ShowVerdict(v, false); return; }
                 Debug.LogWarning("[PawNoon] match-submit answer unreadable: " + err);
                 resultCard.SetStatus("SENT", Pal.Wood3);
@@ -362,6 +371,7 @@ namespace PawNoon.Runtime.Net
             resultCard.Close();
             title.SetOnlineBusy(false);
             title.SetFriendDuel(cfg.FriendDuel);
+            bounty.OnTitle();
         }
 
         // ------------------------------------------------------------------ review / QA

@@ -4,9 +4,12 @@ using UnityEngine;
 namespace PawNoon.Runtime
 {
     /// <summary>
-    /// Match intro (SPEC_V2 §8.7), presentation only. On the first match of a session the opponent slides in from
-    /// the right and the hero from the bottom-left (idle frames, whole-pixel offsets, stepped ease at 12 steps/s),
-    /// then the two name plates slam down onto the HUD with the stamp sfx, then the normal standoff runs.
+    /// Match intro (SPEC_V2 §8.7), presentation only. On the first match of a session it starts from the title
+    /// positions (both cats are on screen there, so nothing may jump): the hero stays and settles into his stance
+    /// (2 px, 1 px, rest), the opponent steps out past the right edge and walks back in to his mark (or just
+    /// settles, feel_config "introOpponent": "stay"), then the two name plates slam down onto the HUD with the
+    /// stamp sfx, then the normal standoff runs. Timeline and offsets: <see cref="IntroMath"/> (idle frames,
+    /// whole pixels, 12 steps/s).
     /// Tap to skip. Owned and ticked by <see cref="DuelDirector"/> while it is in Standoff; it never touches the
     /// authority, the round schedule or input timing (the countdown simply has not started yet).
     /// Reduced Motion: no slides, the plates just appear (with the stamp) and the intro is shorter.
@@ -35,15 +38,8 @@ namespace PawNoon.Runtime
             get { return (ReviewMode > 0 ? "on" : (ReviewMode < 0 ? "off" : "auto")) + (ShownThisSession ? "(shown)" : ""); }
         }
 
-        // ---- timeline (seconds)
-        private const float StepHz = 12f;          // stepped motion: positions update 12 times a second
-        private const float OppFrom = 0.00f, OppTo = 0.85f;
-        private const float HeroFrom = 0.15f, HeroTo = 1.05f;
-        private const float HeroPlateAt = 1.10f, OppPlateAt = 1.24f;
-        private const float Total = 1.60f;
-        private const float RmHeroPlateAt = 0.20f, RmOppPlateAt = 0.40f, RmTotal = 0.90f;
+        // ---- timeline: IntroMath (seconds, offsets)
         private const float SkipAfter = 0.15f;      // ignore the press that started the duel
-        private const int HeroDrop = 40;            // the hero also rises in from below (px)
         /// <summary>Slam: plate y offset per 40 ms step (drop in, 1 px overshoot, rest).</summary>
         private static readonly int[] Slam = { -7, -2, 1 };
         private const float SlamStep = 0.04f;
@@ -61,7 +57,10 @@ namespace PawNoon.Runtime
         private bool reduced;
         private bool hintAfter;
         private float t;
-        private int heroDx, heroDy, oppDx;
+        private int exitDx;
+        private bool oppWalks;
+        private bool heroSettled;
+        private int lastHeroDy = int.MinValue, lastOppDx = int.MinValue, lastOppDy = int.MinValue;
         private readonly bool[] slammed = new bool[2];
 
         public MatchIntro(DuelActor hero, DuelActor opponent, DuelHud hud, DuelCues cues, PawAudio audio, PixelPipeline pipe)
@@ -93,6 +92,18 @@ namespace PawNoon.Runtime
             return cfgEnabled && !ShownThisSession && !reviewRun && !autoTapping;
         }
 
+        private int heroTitleFrame = -1, oppTitleFrame = -1;
+
+        /// <summary>
+        /// Call before the standoff is set up (it switches both cats to "ready"): remembers the idle frame each cat
+        /// shows on the title so <see cref="Begin"/> continues the same loop on the same frame.
+        /// </summary>
+        public void CaptureTitlePose()
+        {
+            heroTitleFrame = hero.IsPlaying("idle") ? hero.Anim.Frame : -1;
+            oppTitleFrame = opp.IsPlaying("idle") ? opp.Anim.Frame : -1;
+        }
+
         /// <summary>Starts the intro (call right after the standoff was set up). hintAfter = show the swipe tutorial when done.</summary>
         public void Begin(bool reducedMotion, bool hintAfter)
         {
@@ -103,14 +114,16 @@ namespace PawNoon.Runtime
             slammed[0] = slammed[1] = false;
             ShownThisSession = true;
 
-            var vis = pipe.Visible;
-            // fully off the visible rect: opponent past the right edge, hero past the left edge (and a little low)
-            oppDx = reduced ? 0 : Mathf.Max(0, vis.xMax - (opp.Anchor.x - opp.Def.Pivot.x)) + 2;
-            heroDx = reduced ? 0 : -(Mathf.Max(0, hero.Anchor.x - hero.Def.Pivot.x + hero.Def.Cell.x - vis.x) + 2);
-            heroDy = reduced ? 0 : HeroDrop;
+            // start from where the title left them (rest marks, idle): frame 0 has every offset at 0
+            exitDx = IntroMath.ExitDistance(pipe.Visible.xMax, opp.Anchor.x - opp.Def.Pivot.x);
+            oppWalks = FeelConfig.Current.IntroOpponentWalks;
+            heroSettled = false;
+            lastHeroDy = lastOppDx = lastOppDy = int.MinValue;
 
-            hero.Play("idle");
-            opp.Play("idle");
+            // keep the title's idle loops on the frame they showed (no pose pop on the DUEL tap)
+            if (heroTitleFrame >= 0) hero.Play("idle", heroTitleFrame); else hero.Loop("idle");
+            if (oppTitleFrame >= 0) opp.Play("idle", oppTitleFrame); else opp.Loop("idle");
+            heroTitleFrame = oppTitleFrame = -1;
             cues.ShowGetReady(false);
             hud.ShowHint(false);
             hud.SetNamePlate(0, false, 0);
@@ -130,7 +143,7 @@ namespace PawNoon.Runtime
             }
             t += unscaledDt;
             Apply();
-            if (t >= (reduced ? RmTotal : Total)) { Finish(); return false; }
+            if (t >= IntroMath.Duration(reduced)) { Finish(); return false; }
             return true;
         }
 
@@ -146,7 +159,7 @@ namespace PawNoon.Runtime
         {
             active = false;
             Rest();
-            hero.Play("ready");
+            hero.Loop("ready");
             opp.Play("ready");
             cues.ShowGetReady(true);
             if (hintAfter) hud.ShowHint(true);
@@ -156,6 +169,7 @@ namespace PawNoon.Runtime
         {
             hero.Offset = Vector2.zero;
             opp.Offset = Vector2.zero;
+            lastHeroDy = lastOppDx = lastOppDy = 0;
             if (oppShadow != null) PawGfx.Place(oppShadow, shadowAt.x, shadowAt.y);
             hud.SetNamePlate(0, true, 0);
             hud.SetNamePlate(1, true, 0);
@@ -163,24 +177,28 @@ namespace PawNoon.Runtime
 
         private void Apply()
         {
-            float o = 1f - Progress(t, OppFrom, OppTo);
-            float h = 1f - Progress(t, HeroFrom, HeroTo);
-            int ox = Mathf.RoundToInt(oppDx * o);
-            hero.Offset = new Vector2(Mathf.RoundToInt(heroDx * h), Mathf.RoundToInt(heroDy * h));
-            opp.Offset = new Vector2(ox, 0f);
-            if (oppShadow != null) PawGfx.Place(oppShadow, shadowAt.x + ox, shadowAt.y);
-            Plate(0, reduced ? RmHeroPlateAt : HeroPlateAt);
-            Plate(1, reduced ? RmOppPlateAt : OppPlateAt);
-        }
-
-        /// <summary>Stepped ease-out: time quantised to StepHz, cubic ease, whole pixels downstream.</summary>
-        private static float Progress(float time, float from, float to)
-        {
-            if (time <= from) return 0f;
-            if (time >= to) return 1f;
-            float steps = Mathf.Max(1f, Mathf.Round((to - from) * StepHz));
-            float k = Mathf.Floor((time - from) / (to - from) * steps) / steps;
-            return Ease.OutCubic(k);
+            var p = IntroMath.Sample(t, reduced, oppWalks, exitDx);
+            // only touch transforms when a stepped value changes (12 Hz motion, no per-frame work otherwise)
+            if (p.heroDy != lastHeroDy)
+            {
+                lastHeroDy = p.heroDy;
+                hero.Offset = new Vector2(0f, p.heroDy);
+            }
+            if (p.oppDx != lastOppDx || p.oppDy != lastOppDy)
+            {
+                lastOppDx = p.oppDx;
+                lastOppDy = p.oppDy;
+                opp.Offset = new Vector2(p.oppDx, p.oppDy);
+                // the ground shadow slides with him but stays on the ground (no bob)
+                if (oppShadow != null) PawGfx.Place(oppShadow, shadowAt.x + p.oppDx, shadowAt.y);
+            }
+            if (p.heroReady && !heroSettled)
+            {
+                heroSettled = true;
+                hero.Loop("ready");   // settled into his stance
+            }
+            Plate(0, IntroMath.HeroPlate(reduced));
+            Plate(1, IntroMath.OppPlate(reduced));
         }
 
         private void Plate(int slot, float at)

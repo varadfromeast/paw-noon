@@ -7,7 +7,7 @@ namespace PawNoon.Runtime
     /// Review / automation hooks (screenshots, MCP, tests in Play mode). Every method takes zero or
     /// one string and returns a short status string. Never throws.
     /// </summary>
-    public static class ReviewDirector
+    public static partial class ReviewDirector
     {
         public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight" };
 

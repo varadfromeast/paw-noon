@@ -51,6 +51,7 @@ namespace PawNoon.Runtime
         private BitmapText roundText;
         private BitmapText diffText;   // "EASY" / "HARD" tag right of the round sign (text only)
         private SpriteRenderer badge;
+        private BadgeTitle badgeTitle;   // "LAST LIGHT" over the baked HIGH NOON (feel wave 2)
         private SpriteRenderer hint;
         private bool hintOn, quietOn, onceUsed, reducedMotion;
         // swipe tutorial (sign + ghost paw)
@@ -134,6 +135,7 @@ namespace PawNoon.Runtime
             {
                 badge = PawGfx.NewSprite("Badge", transform, 150);
                 badge.sprite = b.First;
+                badgeTitle = new BadgeTitle(kit, transform, 151);
             }
 
             // holster widget (SPEC §11): holster + grip at the bottom centre, arrow + text above it
@@ -446,7 +448,16 @@ namespace PawNoon.Runtime
             diffText.At(cx - rs.Cell.x / 2 + rs.Cell.x + 3, ty);
         }
 
-        public void ShowBadge(bool v) { if (badge != null) badge.enabled = v; }
+        public void ShowBadge(bool v)
+        {
+            if (badge != null) badge.enabled = v;
+            if (badgeTitle != null) badgeTitle.SetBadgeShown(v);
+        }
+
+        /// <summary>Sudden death: the badge's title reads LAST LIGHT instead of the baked HIGH NOON.</summary>
+        public void SetBadgeLastLight(bool on) { if (badgeTitle != null) badgeTitle.Show(on); }
+
+        public bool BadgeLastLightShown { get { return badgeTitle != null && badgeTitle.Visible; } }
 
         /// <summary>Snap HP display (new match / review).</summary>
         public void SetHpImmediate(int slot, float frac)
@@ -569,6 +580,7 @@ namespace PawNoon.Runtime
                 int bx = layout.Cue.x - (bwx + bww / 2);
                 int by = layout.Cue.y - (bwy + bwh / 2);
                 PawGfx.Place(badge, bx + b.Pivot.x, by + b.Pivot.y);
+                if (badgeTitle != null) badgeTitle.Place(bx, by);
             }
             // holster: bottom centre of the safe area (thumb reach), arrow and text stacked above it
             int hcx = pipe.Visible.x + pipe.Visible.width / 2;

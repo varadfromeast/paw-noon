@@ -1,0 +1,8 @@
+{
+  "_note": "Client-only presentation tunables (feel wave 2). Not mirrored to the server. See Docs/DECISIONS.md 'Feel wave 2'.",
+  "introOpponent": "walk",
+  "bountyEnabled": true,
+  "bountyWinsRequired": 3,
+  "bountyReward": 20,
+  "shareEnabled": true
+}
