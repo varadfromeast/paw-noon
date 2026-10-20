@@ -33,6 +33,7 @@ namespace PawNoon.Runtime
             // x2 (or x1, which also restores a previous LAST LIGHT) for the round this standoff leads into
             authority.SetDamageMultiplier(SuddenDeath.MultiplierFor(cfg, m));
             if (street != null) street.SetDawn(lastLight ? 1f : 0f);
+            hud.SetBadgeLastLight(lastLight);
         }
 
         /// <summary>After the normal standoff set-up: swap GET READY for the flat line and the round sign.</summary>
@@ -58,6 +59,7 @@ namespace PawNoon.Runtime
             lastLight = false;
             authority.SetDamageMultiplier(1.0);
             if (street != null) street.SetDawn(0f);
+            hud.SetBadgeLastLight(false);
         }
 
         /// <summary>Hold music gain on top of the normal hold duck: -suddenDeathMusicDuckDb during LAST LIGHT.</summary>
@@ -132,6 +134,7 @@ namespace PawNoon.Runtime
             hud.SetHpImmediate(0, 0.18f);
             hud.SetHpImmediate(1, 0.12f);
             hud.SetRoundLabel(LastLightLabel);
+            hud.SetBadgeLastLight(true);
             hero.Play("ready");
             bandit.Play("ready");
             hud.ShowHolster(true);
