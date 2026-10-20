@@ -62,12 +62,13 @@ namespace PawNoon.Runtime
         private SpriteRenderer signSprite, demo;
         private int demoX, demoY;
         private bool drawnShown;
+        private SwipeCue cue;              // the swipe-up teaching cue (ghost thumb + chevrons), 20 Oct redesign
         private SpriteRenderer[] trail;
         private float[] trailAge;
         private float signT, pawT, quietLeft, lastTrailY;
         private bool ghostGlow;
         private int signX, signY, pawX, pawY, pawRise = 56;
-        private const int SignW = 72, SignH = 16, TrailN = 12;
+        private const int SignW = 100, SignH = 16, TrailN = 12;
         private static readonly int[] Swing = { -1, 1, -1, 1, 0 };
         private SpriteRenderer arrow;
         private SheetDef holsterDef;
@@ -225,9 +226,21 @@ namespace PawNoon.Runtime
             quietLeft = 3f;
             StartDemo(true);
             ghostPaw.enabled = false;
+            if (cue != null) cue.Show(false);
         }
 
         public void SetReducedMotion(bool on) { reducedMotion = on; }
+
+        /// <summary>Which beat of the rule the cue teaches now (standoff: grip; countdown + hold: wait; DRAW: go).</summary>
+        public void SetCueMode(SwipeCue.Mode m)
+        {
+            if (cue == null) return;
+            cue.SetMode(m);
+            signText.SetText(m == SwipeCue.Mode.Grip ? "REST THUMB HERE" : (m == SwipeCue.Mode.Wait ? "WAIT FOR DRAW!" : "NOW! SWIPE UP"));
+            signText.MarkDirty();
+            if (m == SwipeCue.Mode.Go) signT = 0f;   // the sign swings again on DRAW
+            PlaceSign();
+        }
 
         private void StartDemo(bool on)
         {
@@ -241,6 +254,7 @@ namespace PawNoon.Runtime
             ghostPaw.enabled = false;
             demo.enabled = false;
             for (int i = 0; i < TrailN; i++) { trailAge[i] = -1f; trail[i].enabled = false; }
+            if (cue != null) { cue.SetReducedMotion(reducedMotion); cue.SetMode(SwipeCue.Mode.Grip); cue.Show(on && holsterVisible && !quietOn); if (on) SetCueMode(SwipeCue.Mode.Grip); }
             ApplyHolsterFrame();
             PlaceSign();
         }
@@ -248,18 +262,20 @@ namespace PawNoon.Runtime
         private void BuildSwipeDemo()
         {
             signPanel = kit.Panel("panel_wood", transform, Order + 3, new RectInt(0, 0, SignW, SignH));
-            signText = kit.Text("SignText", transform, kit.Small, Order + 5, TextAlign.Center, "YANK IT UP!");
+            signText = kit.Text("SignText", transform, kit.Small, Order + 5, TextAlign.Center, "REST THUMB HERE");
             signText.SetColors(Pal.Cream0, Pal.Ink, Pal.Ink);
             signText.Shadow = false;
-            signDef = kit.Ui.TryGet("hint_sign");
+            signDef = null;   // painted YANK IT UP! sign + paw frames retired 20 Oct: the plain sign + thumb cue reads faster
             signSprite = PawGfx.NewSprite("HintSign", transform, Order + 5);
             if (signDef != null) signSprite.sprite = signDef.Frames[0];
             signSprite.enabled = false;
-            demoDef = kit.Ui.TryGet("holster_demo");
+            demoDef = null;
             demo = PawGfx.NewSprite("HolsterDemo", transform, Order + 1);
             demo.enabled = false;
             ghostPaw = PawGfx.NewSprite("GhostPaw", transform, Order + 6);
             ghostPaw.sprite = MakePawSprite();
+            ghostPaw.enabled = false;
+            cue = new SwipeCue(transform, Order + 6);
             trail = new SpriteRenderer[TrailN];
             trailAge = new float[TrailN];
             for (int i = 0; i < TrailN; i++)
@@ -370,41 +386,12 @@ namespace PawNoon.Runtime
                 }
                 return;
             }
-            // ghost paw cycle: rest 0.5 s -> rise 0.35 s -> fade 0.25 s -> pause (2.2 s total)
-            pawT += dt;
-            if (pawT >= 2.2f) { pawT -= 2.2f; lastTrailY = 0f; }
-            float t = pawT;
-            float rise = t < 0.5f ? 0f : Mathf.Clamp01((t - 0.5f) / 0.35f);
-            float ease = 1f - (1f - rise) * (1f - rise);
-            float a = 0f;
-            if (t < 1.1f) a = t < 0.1f ? t / 0.1f : (t < 0.85f ? 1f : 1f - (t - 0.85f) / 0.25f);
-            bool show = a > 0.01f;
-            ghostPaw.enabled = show;
-            ghostGlow = t < 0.5f;
-            ApplyHolsterFrame();
-            int py = pawY - Mathf.RoundToInt(ease * pawRise);
-            if (show)
+            if (cue != null)
             {
-                ghostPaw.color = new Color(1f, 1f, 1f, 0.55f * Stepped(a));
-                PawGfx.Place(ghostPaw, pawX, py);
-            }
-            // dotted trail: one 2x2 dot every 6 px travelled
-            if (t >= 0.5f && t < 0.85f)
-            {
-                float travelled = pawY - py;
-                while (lastTrailY + 6f <= travelled)
-                {
-                    lastTrailY += 6f;
-                    SpawnDot(pawX + 5, pawY - Mathf.RoundToInt(lastTrailY) + 12);
-                }
-            }
-            for (int i = 0; i < TrailN; i++)
-            {
-                if (trailAge[i] < 0f) continue;
-                trailAge[i] += dt;
-                float k = 1f - trailAge[i] / 0.4f;
-                if (k <= 0f) { trailAge[i] = -1f; trail[i].enabled = false; continue; }
-                trail[i].color = new Color(Pal.Cream0.r / 255f, Pal.Cream0.g / 255f, Pal.Cream0.b / 255f, 0.8f * Stepped(k));
+                cue.Tick(dt);
+                ghostGlow = cue.Gripping;
+                ApplyHolsterFrame();
+                if (drawnShown) cue.Show(false);
             }
         }
 
@@ -654,6 +641,8 @@ namespace PawNoon.Runtime
             pawY = htop + hh / 2 - 2;   // paw top-left while resting on the grip
             signX = hcx - SignW / 2;
             signY = Mathf.Max(safe.y + 2, pawY - pawRise - 4 - SignH);
+            // thumb cue: grip centre ~14 px below the holster top (painted art), rising to just under the sign
+            if (cue != null) cue.Place(hcx, htop + 14, signY + SignH + 4);
             if (demoDef != null && signDef != null)
                 signY = Mathf.Max(safe.y + 2, hbottom - demoDef.Cell.y - 2 - signDef.Cell.y);   // just above the yanked gun
             hint1.At(hcx, htop - 4 - (lh * 2 + 1));

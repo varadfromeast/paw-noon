@@ -31,6 +31,9 @@ namespace PawNoon.Runtime
         public static string Difficulty = DuelConfig.DifficultyHard;
         /// <summary>False on first launch: the title shows the one-time EASY / HARD card.</summary>
         public static bool DifficultyChosen;
+        /// <summary>SWIPE UP TO DRAW cue every round; on until the player switches it off in Settings.</summary>
+        public static bool SwipeHint = true;
+        private const string KSwipe = "pn_swipeHint";
 
         private static int Int(string key, string legacyKey, int def)
         {
@@ -43,7 +46,7 @@ namespace PawNoon.Runtime
         {
             // defaults first, so a storage failure still leaves sane values
             Music = true; ClassicMusic = false; Sfx = true; Haptics = true; ReducedMotion = false; BestNs = -1;
-            Difficulty = DuelConfig.DifficultyHard; DifficultyChosen = false;
+            Difficulty = DuelConfig.DifficultyHard; DifficultyChosen = false; SwipeHint = true;
             try
             {
                 Music = Int(KMusic, "pn.music", 1) == 1;
@@ -55,6 +58,7 @@ namespace PawNoon.Runtime
                 long v;
                 BestNs = long.TryParse(best, NumberStyles.Integer, CultureInfo.InvariantCulture, out v) && v > 0 ? v : -1;
                 DifficultyChosen = PlayerPrefs.HasKey(KDifficulty);
+                SwipeHint = PlayerPrefs.GetInt(KSwipe, 1) == 1;
                 Difficulty = DuelConfig.NormalizeDifficulty(PlayerPrefs.GetString(KDifficulty, DuelConfig.DifficultyHard));
             }
             catch (System.Exception e)
@@ -68,6 +72,7 @@ namespace PawNoon.Runtime
             try
             {
                 PlayerPrefs.SetInt(KMusic, Music ? 1 : 0);
+                PlayerPrefs.SetInt(KSwipe, SwipeHint ? 1 : 0);
                 PlayerPrefs.SetInt(KClassic, ClassicMusic ? 1 : 0);
                 PlayerPrefs.SetInt(KSfx, Sfx ? 1 : 0);
                 PlayerPrefs.SetInt(KHaptics, Haptics ? 1 : 0);

@@ -404,22 +404,23 @@ namespace PawNoon.Runtime
         private PixelButton back;
         private PixelButton account;   // M6: Settings > ACCOUNT (link Apple / Google, delete account)
         private const int AccountH = 26;
-        private readonly BitmapText[] labels = new BitmapText[5];
-        private readonly SpriteRenderer[] icons = new SpriteRenderer[5];
-        private readonly SpriteRenderer[] toggles = new SpriteRenderer[5];
+        private readonly BitmapText[] labels = new BitmapText[NRows];
+        private readonly SpriteRenderer[] icons = new SpriteRenderer[NRows];
+        private readonly SpriteRenderer[] toggles = new SpriteRenderer[NRows];
         private SpriteRenderer segOrig, segClassic;
         private BitmapText segOrigText, segClassicText;
-        private readonly RectInt[] rows = new RectInt[5];
+        private readonly RectInt[] rows = new RectInt[NRows];
         private RectInt segOrigRect, segClassicRect;
         private RectInt panelRect;
-        private readonly bool[] shown = new bool[5];
-        private readonly float[] slideLeft = new float[5];
+        private readonly bool[] shown = new bool[NRows];
+        private readonly float[] slideLeft = new float[NRows];
         private Sprite midToggle;
         private bool midTried;
         private const float SlideSeconds = 0.07f;
-        private static readonly string[] Names = { "Music", "Music style", "Sound FX", "Haptics", "Reduced Motion" };
-        private static readonly string[] IconOn = { "ico_music_on", "ico_music_on", "ico_sound_on", "ico_haptic_on", "ico_motion" };
-        private static readonly string[] IconOff = { "ico_music_off", "ico_music_on", "ico_sound_off", "ico_haptic_off", "ico_motion" };
+        private const int NRows = 6;
+        private static readonly string[] Names = { "Music", "Music style", "Sound FX", "Haptics", "Reduced Motion", "Swipe Hint" };
+        private static readonly string[] IconOn = { "ico_music_on", "ico_music_on", "ico_sound_on", "ico_haptic_on", "ico_motion", "tap_hint" };
+        private static readonly string[] IconOff = { "ico_music_off", "ico_music_on", "ico_sound_off", "ico_haptic_off", "ico_motion", "tap_hint" };
 
         /// <summary>Raised after any change (game applies settings).</summary>
         public System.Action Changed;
@@ -434,7 +435,7 @@ namespace PawNoon.Runtime
             title.SetText("SETTINGS");
             back = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_back", new RectInt(0, 0, 26, 26), O + 2);
             account = new PixelButton(kit, transform, "btn_large_alt", "btn_large_alt_pressed", "ACCOUNT", null, new RectInt(0, 0, 140, AccountH), O + 2);
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < NRows; i++)
             {
                 labels[i] = InkText("L" + i, kit.Medium, O + 3, TextAlign.Left);
                 labels[i].SetText(Names[i]);
@@ -465,7 +466,7 @@ namespace PawNoon.Runtime
             dim.transform.position = Px.World(vis.x, vis.yMax);
             dim.transform.localScale = new Vector3(vis.width, vis.height, 1f);
             int w = Mathf.Min(232, vis.width - 16);
-            int h = RowsTop + 5 * RowH + 6 + 13 + HowTo.Length * 10 + 10 + AccountH + 8;
+            int h = RowsTop + NRows * RowH + 6 + 13 + HowTo.Length * 10 + 10 + AccountH + 8;
             int x = CenterX - w / 2;
             var safe = pipe.Safe;
             int y = Mathf.Max(safe.y + 8, vis.y + (vis.height - h) / 2 - 10);
@@ -474,7 +475,7 @@ namespace PawNoon.Runtime
             UiKit.SetRect(panel, kit.Ui.Get("panel_paper"), panelRect);
             back.SetRect(new RectInt(x + 6, y + 6, 26, 26));
             title.At(x + w / 2, y + 14);
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < NRows; i++)
             {
                 int ry = y + RowsTop + i * RowH;
                 rows[i] = new RectInt(x + 6, ry, w - 12, RowH);
@@ -494,7 +495,7 @@ namespace PawNoon.Runtime
             segOrigRect = new RectInt(segClassicRect.x - 2 - segW, sy, segW, segH);
             segOrigText.At(segOrigRect.x + segW / 2, segOrigRect.y + (segH - kit.Small.LineHeight) / 2 + 1);
             segClassicText.At(segClassicRect.x + segW / 2, segClassicRect.y + (segH - kit.Small.LineHeight) / 2 + 1);
-            int hy = y + RowsTop + 5 * RowH + 6;
+            int hy = y + RowsTop + NRows * RowH + 6;
             howTitle.At(x + 14, hy);
             for (int i = 0; i < howLines.Length; i++) howLines[i].At(x + 14, hy + 13 + i * 10);
             account.SetRect(new RectInt(x + w / 2 - 70, hy + 13 + howLines.Length * 10 + 6, 140, AccountH));
@@ -526,6 +527,7 @@ namespace PawNoon.Runtime
                 case 2: return PawSettings.Sfx;
                 case 3: return PawSettings.Haptics;
                 case 4: return PawSettings.ReducedMotion;
+                case 5: return PawSettings.SwipeHint;
                 default: return true;
             }
         }
@@ -534,7 +536,7 @@ namespace PawNoon.Runtime
 
         private void Refresh(bool animate)
         {
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < NRows; i++)
             {
                 bool v = Value(i);
                 var icon = kit.Ui.TryGet(v ? IconOn[i] : IconOff[i]);
@@ -659,7 +661,7 @@ namespace PawNoon.Runtime
         {
             RelayoutIfNeeded();
             float sdt = PawTime.UnscaledDt;
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < NRows; i++)
             {
                 if (slideLeft[i] <= 0f) continue;
                 slideLeft[i] -= sdt;
@@ -673,7 +675,7 @@ namespace PawNoon.Runtime
             account.SetVisible(AccountsUi.Enabled);
             if (AccountsUi.Enabled && account.Tick()) return UiAction.OpenAccount;
             if (!UiPointer.Down || UiPointer.Consumed) return UiAction.None;
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < NRows; i++)
             {
                 if (!UiPointer.In(rows[i])) continue;
                 UiPointer.Consumed = true;
@@ -688,6 +690,7 @@ namespace PawNoon.Runtime
                     case 2: PawSettings.Sfx = !PawSettings.Sfx; break;
                     case 3: PawSettings.Haptics = !PawSettings.Haptics; break;
                     case 4: PawSettings.ReducedMotion = !PawSettings.ReducedMotion; break;
+                    case 5: PawSettings.SwipeHint = !PawSettings.SwipeHint; break;
                 }
                 PawSettings.Save();
                 if (Changed != null) Changed();

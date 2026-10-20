@@ -324,7 +324,7 @@ namespace PawNoon.Runtime
             hud.SetRound(authority.Match.RoundNumber);
             PresentLastLightStandoff();
             hud.SetDrawn(false);
-            hud.ShowHint(firstMatch && authority.Match.RoundNumber == 1);   // the swipe tutorial: once, first turn
+            hud.ShowHint(PawSettings.SwipeHint);   // the swipe cue every round until it is switched off in Settings
             hud.ShowHolster(true);
             input.Clear();
 
@@ -510,6 +510,7 @@ namespace PawNoon.Runtime
                     lastNumeral = n;
                     if (n > 0)
                     {
+                        if (n == 3) hud.SetCueMode(SwipeCue.Mode.Wait);   // the teaching cue: from "3" on, do not move
                         cues.ShowNumeral(n);
                         audio.Play(n == 3 ? "sfx_tick_3" : (n == 2 ? "sfx_tick_2" : "sfx_tick_1"), n == 3 ? 0.55f : (n == 2 ? 0.68f : 0.82f));
                         audio.Play("sfx_tick_sub", n == 3 ? 0.5f : (n == 2 ? 0.7f : 0.9f));   // low thump for weight (silent if missing)
@@ -602,6 +603,7 @@ namespace PawNoon.Runtime
 
         private void PresentDraw(long frameStartNs)
         {
+            hud.SetCueMode(SwipeCue.Mode.Go);
             cuePresented = true;
             holdPresented = false;
             sweatT = -1f;
@@ -680,7 +682,8 @@ namespace PawNoon.Runtime
         {
             heroPredictedFire = true;
             audio.Play(heroDrawSfx, 0.9f);
-            hud.SetDrawn(true);   // holster shows empty (frame 2) until the next standoff
+            hud.SetDrawn(true);
+            // holster shows empty (frame 2) until the next standoff
             hero.Play("draw_fire");
             restAnim[0] = "aim";
             var d = hero.Sheet("draw_fire");
@@ -1204,6 +1207,7 @@ namespace PawNoon.Runtime
                 panel.Close();
                 cues.HideAll();
                 firstMatch = false;
+                if (PawSettings.SwipeHint) { PawSettings.SwipeHint = false; PawSettings.Save(); }   // one taught match is enough; Settings can bring it back
                 Screen.sleepTimeout = SleepTimeout.SystemSetting;
                 var m = authority.Match;
                 HapticMoments.MatchEnd(m.Winner == 0, reducedMotion);   // lands with the match screen banner

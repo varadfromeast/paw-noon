@@ -185,6 +185,9 @@ namespace PawNoonLead
             switch (cmd)
             {
                 case "refresh":
+                    // never reload scripts under a running game: the MonoBehaviours survive the domain reload with
+                    // their private fields nulled and Update() throws every frame (lesson of 20 Oct)
+                    if (EditorApplication.isPlaying) { EditorApplication.isPlaying = false; Out("ok stopped play first"); }
                     SaveResume();
                     AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
                     File.Delete(Path.Combine(Root, "resume.txt"));
@@ -192,6 +195,7 @@ namespace PawNoonLead
                     if (EditorApplication.isCompiling) SaveResume();
                     break;
                 case "recompile":
+                    if (EditorApplication.isPlaying) { EditorApplication.isPlaying = false; Out("ok stopped play first"); }
                     SaveResume();
                     CompilationPipeline.RequestScriptCompilation();
                     Out("ok compile requested");
