@@ -9,12 +9,14 @@ import { requireUser } from "../_shared/auth.ts";
 import { admin } from "../_shared/db.ts";
 import { isGunId } from "../_shared/duel/loadouts.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
+import { takeRate } from "../_shared/rate.ts";
 
 serve("loadout-equip", async (req) => {
-  const user = await requireUser(req);
+  const db = admin();
+  const user = await requireUser(req, db);
   const body = await readJson(req, 1024);
   if (!isGunId(body.gun)) throw new HttpError(400, "bad_request", "gun must be a known gun id");
-  const db = admin();
+  await takeRate(db, user.id, "loadout_equip");
   const { data, error } = await db.rpc("pn_set_equipped_gun", { p_user: user.id, p_gun: body.gun });
   if (error) {
     console.error("[loadout-equip]", error);

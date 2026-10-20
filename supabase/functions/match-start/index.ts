@@ -13,7 +13,7 @@ import { rankedSeason } from "../_shared/server_config.ts";
 serve("match-start", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
-  const body = await readJson(req);
+  const body = await readJson(req, 1024);
 
   const mode = parseMode(body.mode);
   if (!mode) throw new HttpError(400, "bad_request", 'mode must be "casual" or "ranked"');

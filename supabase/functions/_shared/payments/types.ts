@@ -25,6 +25,13 @@ export interface StoreEntitlement {
   purchasedAt: string | null;
   /** Which check produced it. */
   source: "jws" | "server_api" | "verify_receipt" | "play_api";
+  /**
+   * The account the purchase was made for, as the store echoes it back (review pass 2): Apple `appAccountToken`
+   * (a UUID: Unity IAP's SetApplicationUsername sets SKPayment.applicationUsername, which StoreKit copies here when it
+   * is a UUID), Google `obfuscatedExternalAccountId`. Null when the client did not set one (older builds, restores of
+   * purchases made before binding). See binding.ts.
+   */
+  accountToken?: string | null;
   /** Google: the purchase still needs acknowledging (done by the function when enabled). */
   needsAcknowledge?: boolean;
   /** Store answer, trimmed to what support needs (no receipts, no tokens). */

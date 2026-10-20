@@ -8,8 +8,16 @@ import type { AttemptKind } from "./duel/recorded_match.ts";
 import { type GunId, isGunId } from "./duel/loadouts.ts";
 
 export const RECORDING_VERSION = 1;
-export const CHARACTERS = ["whiskers", "blackpaw"] as const;
+/** Persona ids (SPEC_V2 §8.2): Pawtruth was called Blackpaw before the rename. */
+export const CHARACTERS = ["whiskers", "pawtruth"] as const;
 export type CharacterId = typeof CHARACTERS[number];
+/** Ids accepted on the wire: the canonical ones plus the legacy alias (old clients / old recordings). */
+export const CHARACTER_ALIASES: Readonly<Record<string, CharacterId>> = { whiskers: "whiskers", pawtruth: "pawtruth", blackpaw: "pawtruth" };
+
+/** Canonical persona id for a wire id ("blackpaw" -> "pawtruth"), or null when unknown. Case-sensitive like the schema. */
+export function normalizeCharacter(v: unknown): CharacterId | null {
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(CHARACTER_ALIASES, v) ? CHARACTER_ALIASES[v] : null;
+}
 export const INPUT_SOURCES = ["unknown", "touch", "mouse", "keyboard", "bot", "injected", "remote"] as const;
 export type InputSourceName = typeof INPUT_SOURCES[number];
 
@@ -134,6 +142,12 @@ function parseDevice(device: O): Recording["device"] {
   return d;
 }
 
+function characterOf(o: O): CharacterId {
+  const c = normalizeCharacter(o.character);
+  if (c === null) throw new ShapeError(`recording.character must be one of ${Object.keys(CHARACTER_ALIASES).join("|")}`);
+  return c;
+}
+
 /** Strict shape check. Throws ShapeError with a JSON-path-like message. Unknown keys are dropped. */
 export function parseRecording(v: unknown): Recording {
   const o = obj(v, "recording");
@@ -151,7 +165,7 @@ export function parseRecording(v: unknown): Recording {
     version: safeInt(o, "version", "recording"),
     seed,
     difficulty: oneOf(o, "difficulty", "recording", ["hard"] as const),
-    character: oneOf(o, "character", "recording", CHARACTERS),
+    character: characterOf(o),
     loadout: { gun: loadout.gun },
     rounds: o.rounds.map(parseRound),
     device: parseDevice(device),

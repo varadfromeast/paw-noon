@@ -19,7 +19,7 @@ interface RoomRow {
 serve("room-create", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
-  await readJson(req); // body is {} (validated as JSON for a uniform 400)
+  await readJson(req, 1024); // body is {} (validated as JSON for a uniform 400)
 
   const profile = must<{ id: string } | null>(
     await db.from("profiles").select("id").eq("id", user.id).maybeSingle(),

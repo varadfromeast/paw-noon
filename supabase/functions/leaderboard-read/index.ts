@@ -5,13 +5,15 @@ import { requireUser } from "../_shared/auth.ts";
 import { admin, must } from "../_shared/db.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import type { LeaderboardResponse } from "../_shared/match_types.ts";
+import { takeRate } from "../_shared/rate.ts";
 import { isWeeklySeason, nextWeekStart, parseRankedBoard, rankedBoardName } from "../_shared/season.ts";
 import { LEADERBOARD, rankedSeason } from "../_shared/server_config.ts";
 
 serve("leaderboard-read", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
-  const body = await readJson(req);
+  const body = await readJson(req, 1024);
+  await takeRate(db, user.id, "leaderboard_read");
   const name = body.board === undefined || body.board === null || body.board === "" ? "ranked" : body.board;
   if (typeof name !== "string") throw new HttpError(400, "bad_request", "board must be a string");
 

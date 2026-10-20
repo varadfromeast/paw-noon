@@ -149,6 +149,26 @@ export function requireSamplesRanked(): boolean {
   return env("PN_REQUIRE_SAMPLES") === "true";
 }
 
+/**
+ * Per-user rate limits (review pass 2) for the functions match-start / room-create did not already throttle.
+ * `windowSec` / `max`: at most `max` calls in any `windowSec`; enforced by pn_rate_take (migrations/0061).
+ * Generous for people, tight for scripts. room-join: polling every ROOM.pollSec (3 s) is 20 calls a minute;
+ * `room_miss` counts only answers that reveal nothing (no such room / taken / own room), so guessing codes is
+ * slow (12 wrong codes in 10 minutes) while a waiting friend can poll for the whole room lifetime.
+ */
+export const RATE = {
+  room_join: { windowSec: 60, max: 40 },
+  room_miss: { windowSec: 600, max: 12 },
+  profile_update: { windowSec: 3600, max: 12 },
+  profile_read: { windowSec: 60, max: 30 },
+  purchase_validate: { windowSec: 600, max: 30 },
+  daily_claim: { windowSec: 60, max: 12 },
+  leaderboard_read: { windowSec: 60, max: 30 },
+  loadout_equip: { windowSec: 60, max: 20 },
+  account_delete: { windowSec: 3600, max: 6 },
+} as const;
+export type RateKind = keyof typeof RATE;
+
 export const DAILY = {
   winsRequired: 3,
   coins: 20,

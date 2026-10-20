@@ -17,14 +17,14 @@ values
      {"roundNumber":3,"kind":"shot","reactionNs":455250000}]'::jsonb,
    '{"source":"house"}'::jsonb, 388000000, null),
 
-  ('00000000-0000-4000-8000-000000000002', null, true, 1002, 'hard', 'ranked', 'blackpaw', 'standard',
+  ('00000000-0000-4000-8000-000000000002', null, true, 1002, 'hard', 'ranked', 'pawtruth', 'standard',
    'Marshal Mittens', 1200,
    '[{"roundNumber":1,"kind":"shot","reactionNs":268400000},
      {"roundNumber":2,"kind":"shot","reactionNs":301100000},
      {"roundNumber":3,"kind":"shot","reactionNs":247900000}]'::jsonb,
    '{"source":"house"}'::jsonb, 247900000, null),
 
-  ('00000000-0000-4000-8000-000000000003', null, true, 1003, 'hard', 'ranked', 'blackpaw', 'standard',
+  ('00000000-0000-4000-8000-000000000003', null, true, 1003, 'hard', 'ranked', 'pawtruth', 'standard',
    'Old Tom', 1400,
    '[{"roundNumber":1,"kind":"shot","reactionNs":221300000},
      {"roundNumber":2,"kind":"shot","reactionNs":236800000},

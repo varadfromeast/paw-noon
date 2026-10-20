@@ -13,6 +13,7 @@ import { beforeIssue, issueMatch, responseFromMatch } from "../_shared/match_iss
 import type { RoomWaitingResponse } from "../_shared/match_types.ts";
 import { normalizeRoomCode, type RoomJoinState, roomJoinError } from "../_shared/rooms.ts";
 import type { MatchRow, RecordingRow } from "../_shared/rows.ts";
+import { noteRate, rateExhausted, rateLimited, takeRate } from "../_shared/rate.ts";
 import { ROOM } from "../_shared/server_config.ts";
 
 interface JoinAnswer {
@@ -28,9 +29,13 @@ interface JoinAnswer {
 serve("room-join", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
-  const body = await readJson(req);
+  const body = await readJson(req, 1024);
   const code = normalizeRoomCode(body.code);
   if (!code) throw new HttpError(400, "bad_request", "code must be 4 letters A-Z");
+  // review pass 2: polls are cheap but bounded, and wrong codes are counted so nobody can sweep the 26^4 codes
+  // (the first joiner holds a room's friend slot)
+  await takeRate(db, user.id, "room_join");
+  if (await rateExhausted(db, user.id, "room_miss")) throw rateLimited("room_miss");
 
   const profile = must<{ id: string } | null>(
     await db.from("profiles").select("id").eq("id", user.id).maybeSingle(),
@@ -42,7 +47,10 @@ serve("room-join", async (req) => {
   if (!ans) throw new HttpError(500, "db_error", "database error: join room");
 
   const err = roomJoinError(ans.state);
-  if (err) throw new HttpError(err.status, err.code, err.message);
+  if (err) {
+    await noteRate(db, user.id, "room_miss");
+    throw new HttpError(err.status, err.code, err.message);
+  }
 
   if (ans.state === "waiting") {
     const res: RoomWaitingResponse = {

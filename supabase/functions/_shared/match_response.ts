@@ -1,6 +1,7 @@
 // The match-start response (schemas/match-start.response.schema.json). Pure, so it is unit-tested without
 // supabase-js; match_issue.ts uses it for match-start and room-join.
 import type { MatchStartResponse, Mode, OpponentSnapshot } from "./match_types.ts";
+import { normalizeCharacter } from "./recording.ts";
 import { MATCH } from "./server_config.ts";
 
 export function buildResponse(
@@ -22,7 +23,7 @@ export function buildResponse(
     opponent: {
       recordingId: snap.recordingId,
       displayName: snap.displayName,
-      character: snap.character,
+      character: normalizeCharacter(snap.character) ?? snap.character,   // snapshots from before 0061 may say "blackpaw"
       loadout: { gun: snap.gun },
       mmr: snap.mmr,
       isHouse: snap.isHouse,

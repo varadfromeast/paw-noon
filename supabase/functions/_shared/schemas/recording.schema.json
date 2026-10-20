@@ -9,7 +9,7 @@
     "version": { "const": 1 },
     "seed": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647, "description": "The seed issued by match-start." },
     "difficulty": { "const": "hard" },
-    "character": { "enum": ["whiskers", "blackpaw"] },
+    "character": { "enum": ["whiskers", "pawtruth", "blackpaw"], "description": "Persona id. \"blackpaw\" is the legacy alias of \"pawtruth\" (accepted, stored as pawtruth)." },
     "loadout": {
       "type": "object",
       "required": ["gun"],

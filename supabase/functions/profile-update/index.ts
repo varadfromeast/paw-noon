@@ -8,13 +8,14 @@ import { admin, must } from "../_shared/db.ts";
 import { validateDisplayName } from "../_shared/display_name.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
 import { readProfile } from "../_shared/profile.ts";
-
-const CHARACTERS = ["whiskers", "pawtruth"];
+import { CHARACTERS, normalizeCharacter } from "../_shared/recording.ts";
+import { takeRate } from "../_shared/rate.ts";
 
 serve("profile-update", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
   const body = await readJson(req, 4 * 1024);
+  await takeRate(db, user.id, "profile_update");
   const patch: Record<string, string> = {};
 
   if ("displayName" in body) {
@@ -23,8 +24,8 @@ serve("profile-update", async (req) => {
     patch.display_name = v.name;
   }
   if ("character" in body) {
-    const c = typeof body.character === "string" ? body.character.toLowerCase() : "";
-    if (!CHARACTERS.includes(c)) throw new HttpError(400, "bad_request", `character must be one of ${CHARACTERS.join(", ")}`);
+    const c = normalizeCharacter(typeof body.character === "string" ? body.character.toLowerCase() : null);
+    if (c === null) throw new HttpError(400, "bad_request", `character must be one of ${CHARACTERS.join(", ")}`);
     patch.character = c;
   }
   if (Object.keys(patch).length === 0) throw new HttpError(400, "bad_request", "nothing to update (displayName, character)");

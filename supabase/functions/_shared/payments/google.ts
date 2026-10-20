@@ -108,6 +108,7 @@ export async function entitlementFromProductPurchase(
     status,
     purchasedAt: iso(p.purchaseTimeMillis),
     source: "play_api",
+    accountToken: typeof p.obfuscatedExternalAccountId === "string" && p.obfuscatedExternalAccountId.length > 0 ? p.obfuscatedExternalAccountId : null,
     needsAcknowledge: status === "valid" && Number(p.acknowledgementState ?? 0) === 0,
     raw: pickPlay(p),
   };
@@ -116,7 +117,7 @@ export async function entitlementFromProductPurchase(
 function pickPlay(p: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const k of ["orderId", "purchaseTimeMillis", "purchaseState", "consumptionState", "purchaseType", "acknowledgementState",
-    "regionCode", "kind", "quantity", "refundableQuantity"]) {
+    "regionCode", "kind", "quantity", "refundableQuantity", "obfuscatedExternalAccountId"]) {
     if (p[k] !== undefined) out[k] = p[k];
   }
   return out;

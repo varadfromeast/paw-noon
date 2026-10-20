@@ -7,12 +7,14 @@
 import { requireUser } from "../_shared/auth.ts";
 import { admin } from "../_shared/db.ts";
 import { HttpError, json, readJson, serve } from "../_shared/http.ts";
+import { takeRate } from "../_shared/rate.ts";
 
 serve("account-delete", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
-  const body = await readJson(req);
+  const body = await readJson(req, 1024);
   if (body.confirm !== "DELETE") throw new HttpError(400, "confirm_required", 'send { "confirm": "DELETE" }');
+  await takeRate(db, user.id, "account_delete");
 
   const { error } = await db.auth.admin.deleteUser(user.id, false); // hard delete
   if (error) {

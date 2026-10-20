@@ -69,8 +69,10 @@ export function entitlementFromAppleTransaction(
     status: p.revocationDate != null ? "refunded" : "valid",
     purchasedAt: iso(p.originalPurchaseDate ?? p.purchaseDate),
     source,
+    accountToken: str(p.appAccountToken),
     raw: pick(p, ["transactionId", "originalTransactionId", "productId", "purchaseDate", "originalPurchaseDate", "signedDate",
-      "type", "inAppOwnershipType", "revocationDate", "revocationReason", "environment", "storefront", "transactionReason"]),
+      "type", "inAppOwnershipType", "revocationDate", "revocationReason", "environment", "storefront", "transactionReason",
+      "appAccountToken"]),
   };
 }
 
@@ -106,8 +108,9 @@ export function entitlementFromVerifyReceipt(
     status: hit.cancellation_date_ms != null || hit.cancellation_date != null ? "refunded" : "valid",
     purchasedAt: iso(hit.original_purchase_date_ms ?? hit.purchase_date_ms),
     source: "verify_receipt",
+    accountToken: str(hit.app_account_token),
     raw: pick(hit, ["transaction_id", "original_transaction_id", "product_id", "purchase_date_ms", "original_purchase_date_ms",
-      "cancellation_date_ms", "cancellation_reason", "in_app_ownership_type"]),
+      "cancellation_date_ms", "cancellation_reason", "in_app_ownership_type", "app_account_token"]),
   };
 }
 

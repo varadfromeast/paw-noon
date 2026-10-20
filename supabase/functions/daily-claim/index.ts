@@ -7,11 +7,13 @@
 import { requireUser } from "../_shared/auth.ts";
 import { admin, must } from "../_shared/db.ts";
 import { json, serve } from "../_shared/http.ts";
+import { takeRate } from "../_shared/rate.ts";
 import { DAILY, dayTimeZone } from "../_shared/server_config.ts";
 
 serve("daily-claim", async (req) => {
   const db = admin();
   const user = await requireUser(req, db);
+  await takeRate(db, user.id, "daily_claim");
   const tz = dayTimeZone();
   const rows = must<{ claimed: boolean; already_claimed: boolean; wins_today: number; coins: number; streak: number; day: string }[]>(
     await db.rpc("pn_claim_daily", { p_user: user.id, p_tz: tz, p_required: DAILY.winsRequired, p_coins: DAILY.coins }),

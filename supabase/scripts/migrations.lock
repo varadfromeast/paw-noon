@@ -1,0 +1,7 @@
+# Applied order of supabase/migrations (scripts/check_migrations.sh). Append only; never rename a listed file.
+0001_init.sql
+0002_review_hardening.sql
+0003_m5.sql
+0007_m7_payments.sql
+0060_m6_accounts.sql
+0061_review2.sql
