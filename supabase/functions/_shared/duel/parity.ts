@@ -3,6 +3,7 @@
 import type { DuelConfig } from "./config.ts";
 import { beatNs } from "./config.ts";
 import { evaluateDamage, gradeFromMs } from "./damage.ts";
+import { curveFor, isGunId } from "./loadouts.ts";
 import { NetRandom } from "./rng.ts";
 import { createSchedule } from "./schedule.ts";
 import { type AttemptInput, playRecordedMatch, playSingleExchange } from "./recorded_match.ts";
@@ -62,6 +63,7 @@ export function checkMeta(cfg: DuelConfig, v: Any): string[] {
     suddenDeathEnabled: cfg.suddenDeathEnabled,
     suddenDeathHp: cfg.suddenDeathHp,
     suddenDeathDamageMultiplier: cfg.suddenDeathDamageMultiplier,
+    damageValuePeacemaker: cfg.damageValuePeacemaker,
   };
   const { source: _s, generator: _g, ...expected } = m;
   compare("meta", expected, actual, out);
@@ -91,8 +93,9 @@ export function checkSchedules(cfg: DuelConfig, v: Any): string[] {
 export function checkDamage(cfg: DuelConfig, v: Any): string[] {
   const out: string[] = [];
   for (const d of v.damage) {
-    compare(`damage[ms=${d.ms}]`, { damage: d.damage, grade: d.grade }, {
+    compare(`damage[ms=${d.ms}]`, { damage: d.damage, damagePeacemaker: d.damagePeacemaker, grade: d.grade }, {
       damage: evaluateDamage(cfg, d.ms),
+      damagePeacemaker: evaluateDamage(curveFor(cfg, "peacemaker", false), d.ms),
       grade: gradeFromMs(cfg, d.ms),
     }, out);
   }
@@ -111,9 +114,12 @@ export function checkRounds(cfg: DuelConfig, v: Any): string[] {
 export function checkMatches(cfg: DuelConfig, v: Any): string[] {
   const out: string[] = [];
   for (const c of v.matches) {
+    // loadouts exactly as match-submit passes them: each side's gun, normalised to standard in ranked
+    const guns = (c.guns ?? ["standard", "standard"]).map((g: unknown) => (isGunId(g) ? g : "standard"));
+    const ranked = c.ranked === true;
     const got = playRecordedMatch(
       cfg,
-      { seed: c.seed, rounds: c.rounds, maxAttempts: c.maxAttempts },
+      { seed: c.seed, rounds: c.rounds, maxAttempts: c.maxAttempts, curves: [curveFor(cfg, guns[0], ranked), curveFor(cfg, guns[1], ranked)] },
       c.a.map(attempt),
       c.b.map(attempt),
     );

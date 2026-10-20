@@ -1,7 +1,9 @@
 # Paw Noon backend (Supabase)
 
-Milestone M3 of `Docs/SPEC_V2.md`: Postgres schema, Auth, and Edge Functions for **recorded ("ghost") PvP duels**
-(D1, D1b), plus account deletion, the daily bounty, and the purchase-validation contract.
+Milestones M3 + M5 of `Docs/SPEC_V2.md`: Postgres schema, Auth, and Edge Functions for **recorded ("ghost") PvP duels**
+(D1, D1b), plus account deletion, the daily bounty, and the purchase-validation contract. M5 adds friend duels by
+room code, casual / ranked with weekly seasons and leaderboards, the plausibility checks of `Docs/M5_PLAUSIBILITY.md`,
+and the one-transaction match completion (`pn_complete_match`, review D1).
 
 - Hosted project: **Supabase, region South Asia (Mumbai), `ap-south-1`** (D7). You choose the region when you
   create the project in the dashboard. It is not a `config.toml` setting and cannot be changed later.
@@ -14,7 +16,11 @@ supabase/
   config.toml                  local stack + function settings (verify_jwt, anonymous sign-in, Apple/Google)
   migrations/0001_init.sql     tables, indexes, RLS, triggers, pn_* service helpers
   migrations/0002_review_hardening.sql  profile input checks, flagged owners leave the pool, submitting index
+  migrations/0003_m5.sql       rooms, quarantine / shadow pool, account_stats, plausibility_log, pn_room_*,
+                               pn_complete_match (D1), pn_leaderboard
+  migrations/0007_m7_payments.sql   purchases.item, profiles.equipped_gun, pn_grant_entitlement (M7)
   migrations/0060_m6_accounts.sql        names only via profile-update, name shape check, after-link hook (linked_at)
+  tests/pg/run.sh              SQL tests on a REAL Postgres (throwaway initdb cluster, no Docker): m5.test.sql
   seed.sql                     three house ghosts
   scripts/sync_duel_config.sh  copies Assets/.../duel_config.json into functions/_shared/ (--check for CI)
   functions/
@@ -25,10 +31,16 @@ supabase/
       duel_config.json         byte copy of the game's rules (keep in sync!)
       recording.ts             Recording type + strict parser       schemas/*.json  JSON Schemas
       validate_recording.ts    §4.3 checks + authoritative recompute
-      glicko.ts, ratings.ts    Glicko-lite MMR
-      auth.ts, db.ts, http.ts, server_config.ts, match_types.ts, rows.ts, server.test.ts
+      glicko.ts, ratings.ts    Glicko-lite MMR (+ weekly season carry-over, planGame for pn_complete_match)
+      season.ts                ISO-week seasons (YYYYWW), board names ranked_YYYY_WW
+      match_issue.ts           the one issue path shared by match-start and room-join (match_response.ts: response)
+      ranked.ts, rooms.ts      ranked gate (link_required), room-code rules
+      plausibility.ts          A4 margin vs ghost, B5-B9 rolling stats, hold / shadow / quarantine decision
+      auth.ts, db.ts, http.ts, server_config.ts, match_types.ts, rows.ts, server.test.ts, m5.test.ts
       display_name.ts, profile.ts, account.test.ts   (M6; names share Tools/Parity/display_names.json with C#)
-    match-start/ match-submit/ account-delete/ daily-claim/ purchase-validate/ profile-read/ profile-update/
+      payments/                M7: der.ts + jws.ts (Apple JWS chain, WebCrypto only), apple.ts, google.ts,
+                               receipt.ts (Unity IAP receipts), validate.ts, payments.test.ts + fixtures/
+    match-start/ match-submit/ room-create/ room-join/ leaderboard-read/ account-delete/ daily-claim/ purchase-validate/ profile-read/ profile-update/ loadout-equip/
 ```
 
 ---
@@ -60,11 +72,20 @@ Every function call then sends `Authorization: Bearer $JWT` and `apikey: $ANON`.
 ### Tests
 
 ```bash
-deno test --allow-read supabase/functions/_shared/      # parity + validator + Glicko
+deno test --allow-read --allow-env supabase/functions/_shared/   # parity + validator + Glicko + M5 (rooms, seasons, plausibility)
+node Tools/Parity/run_node_tests.ts                     # same tests without Deno (Node >= 22.18): 45 tests
+supabase/tests/pg/run.sh                                # SQL: pn_complete_match atomicity, rooms, quarantine, leaderboards
 supabase/scripts/sync_duel_config.sh --check            # rules copy in sync
-node Tools/Parity/run_node_tests.ts                     # same tests without Deno (Node >= 22.18)
 python3 Tools/Parity/reference_vectors.py --check       # independent Python reference agrees with vectors.json
 ```
+
+`supabase/tests/pg/run.sh` needs only Postgres 15+ binaries (`initdb`, `pg_ctl`, `psql`; on a Mac
+`brew install postgresql@16`). It creates a throwaway cluster in a temp dir, loads `tests/pg/auth_stub.sql` (the bits of
+the Supabase stack the migrations need: `auth.users`, `auth.uid()`, the three roles), every migration, `seed.sql`, then
+runs `tests/pg/*.test.sql`. `PN_PG_URL=<url>` runs against an existing empty database instead; against `supabase start`
+use `PN_PG_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres PN_PG_SKIP_SCHEMA=1` after `supabase db reset`.
+The Edge Functions themselves are thin over these SQL functions and the pure TypeScript above; end-to-end, use the
+Unity smoke test in `Docs/ONLINE_CLIENT.md` against `supabase start`.
 
 ## Deploy to the Mumbai project
 
@@ -79,8 +100,8 @@ supabase login
 supabase link --project-ref <ref>
 supabase db push                                          # migrations
 psql "<connection string from Dashboard > Connect>" -f supabase/seed.sql   # house ghosts (idempotent)
-supabase secrets set PN_SEASON=1 PN_RANKED_BUILDS="1.0.0+42" PN_DAY_TZ=Asia/Kolkata
-supabase functions deploy match-start match-submit account-delete daily-claim purchase-validate profile-read profile-update
+supabase secrets set PN_RANKED_BUILDS="1.0.0+42" PN_DAY_TZ=Asia/Kolkata
+supabase functions deploy match-start match-submit room-create room-join leaderboard-read account-delete daily-claim purchase-validate profile-read profile-update loadout-equip
 ```
 
 The house ghosts are required in production: without them the first player gets `503 no_opponent`.
@@ -90,15 +111,22 @@ The house ghosts are required in production: without them the first player gets 
 | Variable | Where | Meaning |
 |---|---|---|
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY` | injected by the Edge Runtime | the functions use the service role after authenticating the caller |
-| `PN_SEASON` | secret | ranked season number (`ratings.season`, leaderboard `ranked_season_N`), default 1 |
+| `PN_SEASON` | secret, normally **unset** | M5: seasons are weekly (ISO week, `ratings.season` = YYYYWW, board `ranked_YYYY_WW`). A positive integer pins one fixed season instead (board `ranked_season_N`) |
+| `PN_QUARANTINE_MATCHES` | secret | further clean matches before a new recording is served to strangers (default 2; `0` on a local stack) |
+| `PN_REQUIRE_SAMPLES` | secret | `true`: ranked recordings must carry raw swipe samples (A3). Leave unset until the client sends them |
 | `PN_RANKED_BUILDS` | secret | comma-separated client builds allowed in ranked, `*` = any, empty = ranked closed |
 | `PN_DAY_TZ` | secret | calendar day of the daily bounty, default `Asia/Kolkata` |
 | `PN_RANKED_ALLOW_GUESTS` | **local only** | `true` lets guests play ranked (no Apple/Google on `supabase start`) |
 | `PN_ALLOW_INJECTED` | **local only** | `true` accepts `inputSource: "injected"` (ReviewDirector smoke test) |
 | `SUPABASE_AUTH_EXTERNAL_APPLE_*`, `..._GOOGLE_*` | shell env for `supabase start` | local OAuth (optional) |
+| `APPLE_BUNDLE_ID`, `APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | secret | App Store Server API (purchase-validate), see `Docs/PAYMENTS.md` |
+| `APPLE_SHARED_SECRET` | secret, optional | verifyReceipt password (fallback path) |
+| `GOOGLE_PACKAGE_NAME`, `GOOGLE_SERVICE_ACCOUNT_JSON` | secret | Play Developer API (purchase-validate) |
+| `PN_IAP_ALLOW_SANDBOX`, `PN_GOOGLE_ACKNOWLEDGE` | secret, optional | default `true` both |
 
 Server tunables that are not secrets (3 rounds, 9 max attempts, +60 s submit slack, pool 30 days / 20 uses,
-3 rejections to flag, daily 3 wins / 20 coins) are in `functions/_shared/server_config.ts`.
+3 rejections to flag, daily 3 wins / 20 coins, `ROOM`, `LEADERBOARD`, `PLAUSIBILITY` thresholds) are in
+`functions/_shared/server_config.ts`. The plausibility thresholds are never sent to clients.
 
 ---
 
@@ -112,9 +140,28 @@ Server tunables that are not secrets (3 rounds, 9 max attempts, +60 s submit sla
 | `ratings` | Glicko-lite per (user, season) | select own |
 | `purchases` | validated store transactions (unique per store transaction) | select own |
 | `notifications` | e.g. "Stranger #1234 beat your 231 ms" | select own; update own `read_at` only |
+| `rooms` (M5) | friend-duel rooms: code, host, status open / recorded / used / expired / cancelled, reserved recording | **none**: room-create / room-join |
+| `account_stats` (M5) | rolling plausibility window per account (last 60 shots + margin counters) | none |
+| `plausibility_log` (M5) | every tripped check with its data (reject / hold / shadow / log) | none |
+
+M5 columns: `profiles.shadow` (C11 shadow flag, set by the rolling checks, cleared by ops only), `recordings.quarantine_left`
+(C10: further clean matches of the owner before strangers are served it) and `recordings.held` (tripped a check: kept for
+audit, never served), `matches.room_id`.
 
 Every write goes through a function with the service role. `pn_pick_opponent`, `pn_register_rejection`,
-`pn_record_match_stats` and `pn_claim_daily` are `SECURITY DEFINER` helpers executable by `service_role` only.
+`pn_record_match_stats`, `pn_claim_daily`, `pn_room_create`, `pn_room_join`, `pn_room_unclaim`, `pn_complete_match` and
+`pn_leaderboard` are `SECURITY DEFINER` helpers executable by `service_role` only.
+
+**Pool rules (M5).** `pn_pick_opponent` serves a recording only when `quarantine_left = 0` and not `held`. Flagged
+(3 rejections) and shadow accounts form a separate pool: they meet house ghosts and each other, nobody else meets them,
+and they are left off the public leaderboards (their own `you` row still shows the rank they would have).
+
+**Atomic completion (review D1).** `pn_complete_match(match, result, rating, recording, plaus)` writes the player's and the
+ghost owner's ratings (optimistic: each carries the `matches` count it was computed from; a changed row answers
+`conflict` and nothing at all is written), the quarantine step, the pooled recording, the room reservation, the match row,
+profile stats, the rolling plausibility state + log and the owner's notification, in one transaction guarded by
+`status = 'submitting'`. A deleted ghost owner only skips the owner's rating and notification (savepoint). match-submit
+only computes, retries a `conflict` up to 4 times, and otherwise answers `503 busy` with the match back in `issued`.
 
 ---
 
@@ -133,8 +180,9 @@ Every write goes through a function with the service role. `pn_pick_opponent`, `
    9 attempts, or the **opponent recording running out of attempts** (`opponent_exhausted`, possible only
    when you void an attempt the ghost did not). The player's recording must stop exactly there.
 5. Winner: KO winner, else more HP left (= more total damage dealt), equal = draw.
-6. Damage: ranked uses the standard curve for both; casual uses each side's gun (`loadouts.ts`, Peacemaker
-   `[48,42,34,26,16,8,4,2]`).
+6. Damage: ranked uses the standard curve for both; casual uses each side's gun (`loadouts.ts`, Peacemaker =
+   `damageValuePeacemaker` in `duel_config.json`, `[48,42,34,26,16,8,4,2]`). The client does the same
+   (`Guns.Effective`, `LocalAuthority.SetGun`); `vectors.json` match cases carry `guns` + `ranked`.
 
 Client requirements this implies: in PvP, backgrounding the app must not call `VoidRound` (record a no-shot
 instead), and the ghost's early foul is replayed at `inputOffsetNs` after "3" when present.
@@ -153,7 +201,7 @@ Common errors: `401 unauthorized`, `400 bad_json`, `405 method_not_allowed`, `41
 Issues a match against a ghost (closest MMR, never yourself, never one you have faced, ±150 widening;
 otherwise a house ghost on a fresh seed). Any match you left open is expired, and in ranked it counts as a loss.
 
-Request (`schemas/match-start.request.schema.json`):
+Request (`schemas/match-start.request.schema.json`). M5: `mode` is optional and defaults to `casual`.
 ```json
 { "mode": "casual", "clientBuild": "1.0.0+42" }
 ```
@@ -192,7 +240,8 @@ curl -s -X POST "$API/functions/v1/match-start" -H "Authorization: Bearer $JWT" 
   }
 }
 ```
-Errors: `400 bad_request`; `403 ranked_not_allowed` with `reasons: ["link_account" | "account_flagged" | "client_build"]`;
+Errors: `400 bad_request`; ranked: `403 link_required` (a guest: sign in with Apple / Google; `reasons` lists everything
+that blocks, `link_account` first) or `403 ranked_not_allowed` (linked, but `reasons: ["account_flagged" | "client_build"]`);
 `409 no_profile`; `429 rate_limited` (`retryAfterSec`, more than `MATCH.maxStartsPerMinute` starts in a minute);
 `503 no_opponent`. Each start also voids this player's matches stuck in `submitting` for over
 `MATCH.staleSubmitMinutes` (`void_reason: "stale_submit"`, not counted towards the flag).
@@ -257,7 +306,8 @@ recording cannot skip that check by leaving it out (missing = `400 bad_recording
   "recordingId": "5d0b1c9e-1f7e-4d53-a1a6-6f3f8b9d2c44"
 }
 ```
-In ranked, `rating` is `{ "season": 1, "before": 1200, "after": 1162, "delta": -38, "rd": 290 }` and the ghost's
+In ranked, `rating` is `{ "season": 202643, "before": 1200, "after": 1162, "delta": -38, "rd": 290 }` (`delta` =
+`after - before` of the rounded values, so the client can print "RATING 1162 (-38)") and the ghost's
 owner is rated too. The owner of a non-house ghost gets a `notifications` row (`kind: "ghost_result"`,
 `payload: { matchId, mode, result: "won"|"lost"|"draw", from: {displayName, character}, yourBestNs,
 theirBestNs, mmrDelta, message }`).
@@ -265,16 +315,65 @@ theirBestNs, mmrDelta, message }`).
 Errors:
 - `400 bad_request | bad_recording` (shape). The match stays open, so the client may fix and resend before the deadline.
 - `404 match_not_found`, `409 already_submitted` (`matchStatus`). There is one submission per match id.
-- `500 db_error | internal`: if nothing was written yet the match goes back to `issued`, so the client may resend
-  before `deadlineAt`; if a rating was already written it is voided as `server_error` (never counted). A retry that
-  then gets `409` with `matchStatus: "void"` must not be resent. Failures that only concern the ghost's owner (their
-  rating, their notification) or that happen after the match is completed (stats) are logged and do not fail the call.
-- `503 busy`: the rating row kept changing under concurrent submits; the match is voided as `server_error`.
+- `500 db_error | internal`: M5 (D1): everything is written in one transaction, so a failure means nothing was written;
+  the match goes back to `issued` and the client may resend before `deadlineAt`. Failures that only concern the ghost's
+  owner (their rating, their notification) are skipped inside the transaction and do not fail the call.
+- `503 busy`: the rating rows kept changing under concurrent submits (4 tries); nothing was written, the match is back in
+  `issued`, resend.
 - `422 recording_rejected` with `reason`, `matchStatus: "void"`, `flagged`. The match is void and the reason is logged.
   Reasons (§4.3): `late` (after `deadlineAt`, does **not** count towards the flag), `loadout_not_owned`, `version`,
   `seed_mismatch`, `difficulty`, `round_count`, `round_numbering`, `reaction_bounds`, `kind_mismatch`,
-  `inconsistent_reaction`, `non_monotonic`, `cue_timing`, `input_source`. Three counted rejections flag the account
+  `inconsistent_reaction`, `non_monotonic`, `cue_timing`, `input_source`, and M5: `wall_clock` (A1: the recording spans
+  more phone time than the server saw pass since match-start, +2 s, or less than its own countdowns and holds need),
+  `input_source` in ranked for anything but touch with OS timestamps (A2), `samples` (A3, ranked: raw swipe samples that
+  do not reproduce `inputNs`, start outside the holster band, go sideways, or are not spaced like a real digitizer;
+  required only with `PN_REQUIRE_SAMPLES=true`, checked whenever present). Three counted rejections flag the account
   (ranked disabled).
+
+M5 response field: `room: { "code": "HOWL", "status": "recorded" }` when this recording was reserved for the friend of
+the player's open room. The plausibility checks that do not reject (A4 margin against the ghost, B5-B9 rolling
+statistics) never change the response: a tripped match only holds the recording, leaves the best reaction off the
+leaderboard and may set the shadow flag (see `Docs/M5_PLAUSIBILITY.md` and `plausibility_log`).
+
+### `POST /room-create` (M5)
+
+Body `{}`. Opens a friend-duel room for 10 minutes and reserves the caller's **next** recording (the next match they
+complete, issued after this call, any mode) for the one friend who joins. A new room cancels the caller's room that is
+still waiting; a room that already holds a recording stays playable until it expires.
+```json
+{ "code": "HOWL", "status": "open", "expiresAt": "2026-10-20T10:10:00.000Z", "ttlSec": 600 }
+```
+Codes are 4 letters without I and O and never a word on `ROOM.blocked`. Errors: `409 no_profile`, `429 rate_limited`
+(5 rooms per 10 minutes), `503 busy` (no free code).
+
+### `POST /room-join` (M5)
+
+Request `{ "code": "HOWL" }` (case-insensitive). The first caller holds the room's friend slot.
+- `202` while the host has not recorded yet; poll again every `pollAfterSec` until `expiresAt`:
+  ```json
+  { "status": "waiting", "code": "HOWL", "hostName": "Pardner Pete", "expiresAt": "2026-10-20T10:10:00.000Z", "pollAfterSec": 3 }
+  ```
+- `200` once it is in: a **match-start response** (issued through the same code path: throttle, abandon penalty,
+  deadline, snapshot) with `"status": "ready"`, `"mode": "casual"`, the host's seed and recording as the opponent, and
+  `"room": { "code": "HOWL" }`. Submit it with `match-submit` like any match. Calling again after a lost answer returns the
+  same match while it is still open.
+
+Errors: `400 bad_request` (not 4 letters), `404 room_not_found`, `410 room_expired` (closed before the host recorded),
+`410 room_used`, `409 own_room`, `409 room_taken` (another friend holds it), `409 no_profile`, `429 rate_limited`.
+
+### `POST /leaderboard-read` (M5)
+
+Request `{ "board": "ranked" }` (default; this week), `"ranked_2026_42"` (a past week) or `"best_reaction_hard"`.
+```json
+{ "board": "ranked_2026_43", "kind": "ranked", "unit": "mmr", "season": 202643, "closesAt": "2026-10-26T00:00:00.000Z",
+  "minMatches": 5, "total": 412,
+  "top": [ { "rank": 1, "displayName": "Old Tom", "character": "blackpaw", "value": 1702, "matches": 30, "you": false } ],
+  "you": { "rank": 87, "value": 1214, "matches": 9, "eligible": true } }
+```
+Top 50; ties share a rank. Ranked lists players with at least `minMatches` rated matches this week (`you.rank` is null
+until then). `best_reaction_hard`: `unit: "ns"`, `value` = the fastest server-validated shot (matches that tripped a
+plausibility check do not count), all time, `you` null before the first shot. Weekly seasons start on Monday 00:00 UTC
+from last week's rating pulled 25 % towards 1200 with RD at least 200.
 
 ### `POST /account-delete`
 
@@ -323,23 +422,40 @@ Body `{}`. It pays `20` coins once per `PN_DAY_TZ` day after `3` **server-valida
 ```
 `claimed: false` with `alreadyClaimed: false` means not enough wins yet. Calling it is idempotent.
 
-### `POST /purchase-validate` (stub until M7)
+### `POST /purchase-validate`
 
-Request:
+Validates a store purchase and grants the item (SPEC_V2 §6). The game sends Unity IAP's `Product.receipt` as is:
 ```json
 { "store": "app_store", "productId": "com.pawnoon.pixel.peacemaker", "restore": false,
-  "signedTransaction": "<StoreKit 2 JWS>" }
+  "receipt": "{\"Store\":\"AppleAppStore\",\"TransactionID\":\"2000000812345678\",\"Payload\":\"MIIT...\"}" }
 ```
-(`google_play` sends `"purchaseToken"` instead of `signedTransaction`.)
+Alternatives: `signedTransaction` (StoreKit 2 JWS), `transactionId`, `appReceipt` for `app_store`; `purchaseToken` for
+`google_play`. Apple is checked by (1) the client's JWS verified against Apple Root CA - G3, else (2) the App Store Server
+API v2 `GET /inApps/v1/transactions/{id}` (production, then sandbox) with its signed answer verified the same way, else
+(3) `verifyReceipt` (deprecated by Apple, used only when the API key is not configured). Google: Play Developer API
+`purchases.products.get` with a service-account token, then `:acknowledge`. Details: `Docs/PAYMENTS.md`.
 
-The final 200 response (M7):
+200:
 ```json
 { "entitlements": [ { "item": "peacemaker", "productId": "com.pawnoon.pixel.peacemaker", "store": "app_store",
-                      "transactionId": "2000000123456789", "environment": "production", "status": "valid" } ],
-  "profile": { "ownedItems": ["peacemaker"], "coins": 0 } }
+                      "transactionId": "2000000812345678", "environment": "sandbox", "status": "valid" } ],
+  "outcome": "granted",
+  "profile": { "ownedItems": ["peacemaker"], "coins": 0, "equippedGun": "peacemaker" } }
 ```
-Today it validates the request (`400 bad_request | unknown_product`) and then always answers
-`501 { "error": "not_implemented", "message": "...", "entitlements": [] }`.
+`outcome`: `granted` | `already_owned` (same purchase again: idempotent) | `transferred` (the purchase was on another
+account: it moves here, the old account loses the item) | `pending` | `refunded` (store status, nothing granted).
+`transactionId` is the canonical key: Apple's original transaction id, Google's order id. A fresh purchase equips the gun;
+a restore does not change the loadout.
+
+Errors: `400 bad_request | unknown_product | bad_receipt`; permanent `422 invalid_receipt | wrong_app | product_mismatch |
+not_in_receipt | not_found | fake_store | sandbox_not_allowed` (the client finishes the store transaction without the
+item); transient `503 store_unavailable | store_not_configured` (the client keeps the transaction pending and retries).
+
+### `POST /loadout-equip`
+
+`{ "gun": "peacemaker" }` -> `200 { "equippedGun": "peacemaker", "ownedItems": ["peacemaker"] }`; `403 not_owned`;
+`400 bad_request`. Clients may also update `profiles.equipped_gun` directly (RLS own row); a check constraint keeps it
+to `standard` or an owned item.
 
 ---
 

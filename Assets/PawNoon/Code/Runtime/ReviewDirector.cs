@@ -9,7 +9,9 @@ namespace PawNoon.Runtime
     /// </summary>
     public static partial class ReviewDirector
     {
-        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight", "bounty", "profile", "account", "keypad", "delete", "switch" };
+        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight",
+            "bounty", "profile", "account", "keypad", "delete", "switch",
+            "pvp", "friend", "room", "join", "waiting", "leaderboard", "fastest", "shop" };
 
         private static PawGame Game()
         {
@@ -81,6 +83,24 @@ namespace PawNoon.Runtime
                         if (r != "ok") return r;
                         break;
                     }
+                    // M5 online screens, always on the mock (no server needed)
+                    case "pvp":
+                    case "friend":
+                    case "room":
+                    case "join":
+                    case "waiting":
+                    case "leaderboard":
+                    case "fastest":
+                    {
+                        string r = g.Online.ReviewShow(s);
+                        if (r != "ok") return r;
+                        break;
+                    }
+                    case "shop":
+                    case "store":
+                        g.ShowTitle();
+                        g.Shop.Open();
+                        break;
                     default:
                         return "error: unknown state '" + state + "' (use " + string.Join(", ", States) + ")";
                 }
@@ -224,7 +244,8 @@ namespace PawNoon.Runtime
                    " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
                    " opponent=" + (g.Director.Persona != null ? g.Director.Persona.id : "cfg") +
                    " " + (g.Online != null ? g.Online.Status() : "online=none") +
-                   " " + (g.Accounts != null ? g.Accounts.Status() : "account=none");
+                   " " + (g.Accounts != null ? g.Accounts.Status() : "account=none") +
+                   " " + (g.Shop != null ? g.Shop.Status() : "gun=standard shop=none");
         }
 
         // ------------------------------------------------------------------ accounts (M6)
@@ -247,6 +268,42 @@ namespace PawNoon.Runtime
             {
                 return "error: " + e.GetType().Name + ": " + e.Message;
             }
+        }
+
+        // ------------------------------------------------------------------ shop / loadout (M7)
+
+        /// <summary>
+        /// Buys an item through the mock store right now ("peacemaker"): granted locally, never server-verified,
+        /// so it works in solo only (PvP keeps the standard gun until purchase-validate confirms a real purchase).
+        /// </summary>
+        public static string MockBuy(string item)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            string gun = Guns.Normalize(item);
+            if (gun == Guns.Standard) return "error: unknown item '" + item + "' (use peacemaker)";
+            g.Shop.MockBuy(gun);
+            return "ok: " + g.Shop.Status();
+        }
+
+        /// <summary>Equips "peacemaker" or "standard" (must be owned); applies from the next match.</summary>
+        public static string Equip(string gun)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            string s = (gun ?? "").Trim().ToLowerInvariant();
+            if (s != Guns.Peacemaker && s != Guns.Standard) return "error: use peacemaker or standard";
+            if (!g.Shop.Equip(s)) return "error: " + s + " is not owned (MockBuy peacemaker first)";
+            return "ok: " + g.Shop.Status();
+        }
+
+        /// <summary>QA: forgets every gun and the mock store's sales (fresh install).</summary>
+        public static string ResetGuns()
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            g.Shop.ResetGuns();
+            return "ok: " + g.Shop.Status();
         }
 
         // ------------------------------------------------------------------ online PvP (M4)
@@ -287,21 +344,45 @@ namespace PawNoon.Runtime
             return "ok: net mock " + (on ? "on" : "off") + " (" + g.Online.Status() + ")";
         }
 
-        /// <summary>Same as tapping PVP on the title (goes to the title first). Uses the server unless mock is on.</summary>
-        public static string StartPvp()
+        /// <summary>
+        /// FIND RIVAL from the title, skipping the PVP card: "casual" / "ranked", or empty for the card's stored pick.
+        /// Uses the server unless mock is on. (Ranked against a server needs a linked account: SetLinked on is only
+        /// the client's view; the server still answers 403 link_required for a guest unless PN_RANKED_ALLOW_GUESTS.)
+        /// </summary>
+        public static string StartPvp() { return StartPvp(null); }
+
+        /// <summary>See StartPvp(): "casual" or "ranked".</summary>
+        public static string StartPvp(string mode)
         {
             var g = Game();
             if (g == null) return NotRunning();
             try
             {
                 g.ShowTitle();
-                g.Online.BeginQuickDuel();
+                string m = (mode ?? "").Trim().ToLowerInvariant();
+                g.Online.FindRival(m == "ranked" || m == "casual" ? m : g.Online.PvpMode);
             }
             catch (System.Exception e)
             {
                 return "error: " + e.GetType().Name + ": " + e.Message;
             }
             return "ok: " + g.Online.Status();
+        }
+
+        /// <summary>
+        /// Ranked toggle preview (SupabaseAuth.IsLinked seam until M6): "on" = treat the account as linked, "off" = guest,
+        /// "auto" = read the session token.
+        /// </summary>
+        public static string SetLinked(string mode)
+        {
+            var g = Game();
+            if (g == null) return NotRunning();
+            string s = (mode ?? "").Trim().ToLowerInvariant();
+            if (s == "on" || s == "1" || s == "true") Net.SupabaseAuth.LinkedOverride = 1;
+            else if (s == "off" || s == "0" || s == "false") Net.SupabaseAuth.LinkedOverride = -1;
+            else if (s == "auto" || s == "") Net.SupabaseAuth.LinkedOverride = 0;
+            else return "error: expected on, off or auto";
+            return "ok: linked=" + (g.Online.Linked ? "yes" : "no") + " (" + (Net.SupabaseAuth.LinkedOverride == 0 ? "token" : "override") + ")";
         }
 
         /// <summary>Drops the stored guest session; the next PVP signs in as a new guest (so it can be matched against your previous recording).</summary>

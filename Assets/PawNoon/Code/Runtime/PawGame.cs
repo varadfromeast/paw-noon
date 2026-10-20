@@ -1,5 +1,6 @@
 using PawNoon.Core;
 using PawNoon.Runtime.Net;
+using PawNoon.Runtime.Shop;
 using UnityEngine;
 
 namespace PawNoon.Runtime
@@ -30,6 +31,8 @@ namespace PawNoon.Runtime
         public OnlineDirector Online { get; private set; }
         /// <summary>Accounts (M6): profile card, KEEP YOUR BOUNTY, Apple / Google link, delete.</summary>
         public AccountDirector Accounts { get; private set; }
+        /// <summary>Shop, IAP and the equipped gun (M7). Solo never depends on the network.</summary>
+        public ShopDirector Shop { get; private set; }
 
         private PixelParticles particles;
         private DuelHud hud;
@@ -51,6 +54,8 @@ namespace PawNoon.Runtime
         // online PvP (SPEC_V2 §4): always Hard, a ghost in slot 1; restored on the title
         private bool pvpActive;
         private int soloSeed;
+        private bool pvpRanked;
+        private string pvpOpponentGun = Guns.Standard;
 
         /// <summary>Difficulty of the rules the next / current match uses ("easy" / "hard").</summary>
         public string Difficulty { get { return pendingConfig != null ? pendingConfig.Difficulty : Config.Difficulty; } }
@@ -201,6 +206,8 @@ namespace PawNoon.Runtime
             Online.Init(this, kit, Layout, Pipeline, ui, title, matchScreen, transport);
             Accounts = new AccountDirector();
             Accounts.Init(this, kit, Layout, Pipeline, ui, Online);
+            Shop = new ShopDirector();
+            Shop.Init(kit, Layout, Pipeline, ui, Online);
 
             Audio.StartAmbience();
             ApplySettings();
@@ -317,6 +324,7 @@ namespace PawNoon.Runtime
             resultPanel.Close();
             matchScreen.Close();
             settings.Close();
+            Shop.Close();
             title.Open();
             Street.SetDawn(1f);
             hero.ResetPose();
@@ -347,6 +355,8 @@ namespace PawNoon.Runtime
             CurrentMode = Mode.Duel;
             Street.SetDawn(0f);
             bestAtMatchStart = PawSettings.BestNs;
+            Shop.Close();
+            Shop.ApplyLoadout(Director, pvpActive, pvpRanked, pvpOpponentGun);   // M7: guns latch at the next countdown
             Director.StartMatch();
         }
 
@@ -367,9 +377,18 @@ namespace PawNoon.Runtime
             BeginDuel();
         }
 
+        /// <summary>PvP loadout for the next StartPvpDuel (OnlineDirector): ranked normalises guns, the ghost's recorded gun.</summary>
+        public void SetPvpLoadout(bool ranked, string opponentGun)
+        {
+            pvpRanked = ranked;
+            pvpOpponentGun = Guns.Normalize(opponentGun);
+        }
+
         /// <summary>Back to solo: the bot, the stored difficulty, the solo seed sequence, REMATCH.</summary>
         private void EndPvp()
         {
+            pvpRanked = false;
+            pvpOpponentGun = Guns.Standard;
             if (!pvpActive) return;
             pvpActive = false;
             Director.SetOpponent(null, null, null);
@@ -439,6 +458,7 @@ namespace PawNoon.Runtime
                 particles.SetBounds(Pipeline.Visible);
             }
 
+            Shop.Tick(PawTime.UnscaledDt, CurrentMode == Mode.Title && title.IsOpen && !title.ChoiceOpen && !settings.IsOpen && !Online.CardOpen && !Accounts.Open);
             switch (CurrentMode)
             {
                 case Mode.Title:
@@ -446,6 +466,11 @@ namespace PawNoon.Runtime
                     if (Accounts.Tick())
                     {
                         title.Tick(false);   // an account card is up (over the title or over settings)
+                    }
+                    else if (Shop.IsOpen)
+                    {
+                        title.Tick(false);
+                        Shop.TickOpen();
                     }
                     else if (settings.IsOpen)
                     {
@@ -459,12 +484,13 @@ namespace PawNoon.Runtime
                         title.Tick(false);
                         Online.TickTitle();
                     }
-                    else
+                    else if (!Shop.TickButton())
                     {
                         var a = title.Tick(true);
                         if (a == UiAction.Play) StartDuel();
                         else if (a == UiAction.Pvp) Online.BeginQuickDuel();
                         else if (a == UiAction.Friend) Online.FriendTapped();
+                        else if (a == UiAction.Leaderboard) Online.OpenLeaderboard();
                         else if (a == UiAction.OpenSettings) OpenSettings();
                         else if (a == UiAction.OpenProfile) Accounts.OpenProfile();
                         else if (a == UiAction.ChooseEasy) SetDifficulty(DuelConfig.DifficultyEasy);

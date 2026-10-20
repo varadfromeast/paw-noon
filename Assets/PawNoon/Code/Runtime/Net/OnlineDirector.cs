@@ -16,7 +16,10 @@ namespace PawNoon.Runtime.Net
     /// </summary>
     public sealed class OnlineDirector
     {
-        public enum State { Idle, Finding, Opponent, Message, Playing, Result }
+        /// <summary>Menu (M5): the PVP card, a friend-duel card or the leaderboard is up over the title.</summary>
+        public enum State { Idle, Finding, Opponent, Message, Playing, Result, Menu }
+
+        private const string PvpModeKey = "pawnoon.pvpMode";
 
         private const float OpponentAutoStartSeconds = 4.5f;
         private const float MockFindSeconds = 1.6f;
@@ -53,10 +56,19 @@ namespace PawNoon.Runtime.Net
         private int localWinner = -2;
         private float mockSubmitT = -1f;
         private string displayName = "";
+        // M5: PVP card (casual / ranked), friend duels by room code, leaderboards
+        private PvpCard pvpCard;
+        private FriendCard friendCard;
+        private FriendDuel friend;
+        private LeaderboardScreen board;
+        private string matchMode = "casual";
+        private string lastMode = "casual";
+        private string hostRoom;          // mock: the room the host's next recording goes to
+        private bool boardRanked = true;
 
         public State Current { get { return state; } }
         /// <summary>An online card is up over the title (the title is not interactive).</summary>
-        public bool CardOpen { get { return state == State.Finding || state == State.Opponent || state == State.Message; } }
+        public bool CardOpen { get { return state == State.Finding || state == State.Opponent || state == State.Message || state == State.Menu; } }
         /// <summary>A PvP match is running or showing its result.</summary>
         public bool InPvp { get { return state == State.Playing || state == State.Result; } }
         public bool Mock { get { return mockOverrideSet ? mockOverride : cfg.Mock; } }
@@ -65,6 +77,7 @@ namespace PawNoon.Runtime.Net
         public BountyDirector Bounty { get { return bounty; } }
         /// <summary>The guest / linked session (M6 accounts share it).</summary>
         public SupabaseAuth Auth { get { return auth; } }
+        /// <summary>The shared function client (one auth session): the shop's purchase-validate / loadout-equip go through it.</summary>
         public SupabaseApi Api { get { return api; } }
 
         public void Init(PawGame g, UiKit kit, GameLayout layout, PixelPipeline pipe, Transform uiRoot,
@@ -91,6 +104,12 @@ namespace PawNoon.Runtime.Net
             resultCard = rgo.AddComponent<OnlineResultCard>();
             resultCard.Setup(kit, layout, pipe);
 
+            pvpCard = NewCard<PvpCard>("PvpCard", uiRoot, kit, layout, pipe);
+            friendCard = NewCard<FriendCard>("FriendCard", uiRoot, kit, layout, pipe);
+            friend = new FriendDuel(this, api, friendCard);
+            board = NewCard<LeaderboardScreen>("Leaderboard", uiRoot, kit, layout, pipe);
+            board.Init(api);
+
             ghost = new GhostOpponent(1, transport, g.Config);
             recorder = new RecordingBuilder(0, g.Config);
             title.SetFriendDuel(cfg.FriendDuel);
@@ -103,9 +122,36 @@ namespace PawNoon.Runtime.Net
             else bounty.TryClaim();
         }
 
+        private static T NewCard<T>(string name, Transform uiRoot, UiKit kit, GameLayout layout, PixelPipeline pipe) where T : ScreenBase
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(uiRoot, false);
+            var c = go.AddComponent<T>();
+            c.Setup(kit, layout, pipe);
+            return c;
+        }
+
         // ------------------------------------------------------------------ title side
 
-        /// <summary>PVP tapped on the title.</summary>
+        /// <summary>The player's casual / ranked pick on the PVP card (PlayerPrefs, default net_config "mode").</summary>
+        public string PvpMode
+        {
+            get
+            {
+                string m = cfg.Mode;
+                try { m = PlayerPrefs.GetString(PvpModeKey, cfg.Mode); } catch (Exception) { }
+                return m == "ranked" ? "ranked" : "casual";
+            }
+            set
+            {
+                try { PlayerPrefs.SetString(PvpModeKey, value == "ranked" ? "ranked" : "casual"); PlayerPrefs.Save(); } catch (Exception) { }
+            }
+        }
+
+        /// <summary>Account linked to Apple / Google (ranked): SupabaseAuth.RankedLinked (M6 IsLinked + review override).</summary>
+        public bool Linked { get { return auth.RankedLinked; } }
+
+        /// <summary>PVP tapped on the title: the PVP card (CASUAL | RANKED, FIND RIVAL).</summary>
         public void BeginQuickDuel()
         {
             if (state != State.Idle) return;
@@ -115,6 +161,24 @@ namespace PawNoon.Runtime.Net
                 return;
             }
             token++;
+            state = State.Menu;
+            title.SetOnlineBusy(true);
+            pvpCard.Show(PvpMode == "ranked", Linked);
+        }
+
+        /// <summary>FINDING A RIVAL in <paramref name="mode"/> ("casual" / "ranked"): match-start, then the rival card.</summary>
+        public void FindRival(string mode)
+        {
+            if (state != State.Idle && state != State.Menu) return;
+            CloseMenus();
+            if (!Mock && !cfg.IsConfigured)
+            {
+                ShowMessage("PVP IS OFF", "ONLINE IS NOT SET UP", "This build has no server yet.", "Solo duels work as always.");
+                return;
+            }
+            matchMode = mode == "ranked" ? "ranked" : "casual";
+            lastMode = matchMode;
+            token++;
             state = State.Finding;
             t = 0f;
             pendingStart = null;
@@ -122,19 +186,88 @@ namespace PawNoon.Runtime.Net
             pendingStartError = null;
             matchIsMock = Mock;
             title.SetOnlineBusy(true);
-            card.Show("FINDING A RIVAL", null, "Hard rules. 3 rounds.", "Most damage wins.", "CANCEL", true);
+            card.Show("FINDING A RIVAL", null, matchMode == "ranked" ? "RANKED. Hard rules. 3 rounds." : "Hard rules. 3 rounds.", "Most damage wins.", "CANCEL", true);
             if (!matchIsMock)
             {
                 int my = token;
-                api.MatchStart(r => { if (my == token && state == State.Finding) OnMatchStartAnswer(r); });
+                api.MatchStart(matchMode, cfg.Build, r => { if (my == token && state == State.Finding) OnMatchStartAnswer(r); });
             }
         }
 
-        /// <summary>FRIEND tapped (only shown when net_config.json "friendDuel" is true). Room codes are M5.</summary>
+        /// <summary>FRIEND tapped (shown when net_config.json "friendDuel" is true): room codes (M5).</summary>
         public void FriendTapped()
         {
             if (state != State.Idle) return;
-            ShowMessage("FRIEND DUEL", "ROOM CODES SOON", "Duel a friend with a 4-letter code.", "Coming in the next update.");
+            if (!Mock && !cfg.IsConfigured)
+            {
+                ShowMessage("FRIEND DUEL", "ONLINE IS NOT SET UP", "This build has no server yet.", "Solo duels work as always.");
+                return;
+            }
+            token++;
+            state = State.Menu;
+            title.SetOnlineBusy(true);
+            friend.OpenMenu(Mock);
+        }
+
+        /// <summary>The trophy on the title: leaderboards (weekly ranked / fastest draw).</summary>
+        public void OpenLeaderboard()
+        {
+            if (state != State.Idle) return;
+            token++;
+            state = State.Menu;
+            title.SetOnlineBusy(true);
+            board.Show(boardRanked, Mock);
+        }
+
+        /// <summary>A room-join answered ready: the host's ghost is the rival (same card and match path as a quick duel).</summary>
+        public void ShowRival(MatchStartInfo m, bool mock)
+        {
+            CloseMenus();
+            token++;
+            matchIsMock = mock;
+            matchMode = "casual";
+            lastMode = "casual";   // NEW RIVAL after a friend duel is a casual quick duel
+            title.SetOnlineBusy(true);
+            ShowOpponent(m);
+        }
+
+        private void CloseMenus()
+        {
+            if (pvpCard.IsOpen) pvpCard.Close();
+            if (friend.Open) friend.Close();
+            if (board.IsOpen) { boardRanked = board.Ranked; board.Close(); }
+        }
+
+        /// <summary>The M5 cards over the title.</summary>
+        private void TickMenu()
+        {
+            if (pvpCard.IsOpen)
+            {
+                var a = pvpCard.Tick();
+                if (a == PvpCard.Action.Back) { CancelToTitle(); return; }
+                if (a == PvpCard.Action.Find)
+                {
+                    PvpMode = pvpCard.Ranked ? "ranked" : "casual";
+                    hostRoom = null;
+                    FindRival(PvpMode);
+                }
+                return;
+            }
+            if (friend.Open)
+            {
+                string room = friend.Code;
+                bool closed = friend.Tick();
+                if (closed && state == State.Finding && Mock) hostRoom = room;   // DUEL from the room card (mock)
+                else if (closed && state == State.Finding) hostRoom = null;
+                if (closed && state == State.Menu) CancelToTitle();
+                return;
+            }
+            if (board.IsOpen)
+            {
+                if (board.Tick()) { boardRanked = board.Ranked; CancelToTitle(); }
+                return;
+            }
+            CancelToTitle();
         }
 
         private void ShowMessage(string head, string big, string l1, string l2)
@@ -163,12 +296,13 @@ namespace PawNoon.Runtime.Net
         {
             float dt = PawTime.UnscaledDt;
             t += dt;
+            if (state == State.Menu) { TickMenu(); return; }
             bool clicked = card.IsOpen && card.Tick();
             switch (state)
             {
                 case State.Finding:
                     if (clicked) { CancelToTitle(); return; }
-                    if (matchIsMock && pendingInfo == null && t >= MockFindSeconds) pendingInfo = NetMock.MatchStart(NetMock.RandomSeed());
+                    if (matchIsMock && pendingInfo == null && t >= MockFindSeconds) pendingInfo = NetMock.MatchStart(NetMock.RandomSeed(), matchMode);
                     if (pendingInfo != null && t >= cfg.FindMinSeconds) ShowOpponent(pendingInfo);
                     else if (pendingStart != null && (pendingInfo == null) && t >= 0.6f) ShowStartError(pendingStart, pendingStartError);
                     break;
@@ -187,9 +321,13 @@ namespace PawNoon.Runtime.Net
             state = State.Opponent;
             t = 0f;
             displayName = NameForHud(m.OpponentName);
-            string cat = "CAT: " + Upper(m.OpponentCharacter);
-            string rating = (m.OpponentIsHouse ? "HOUSE GHOST   " : "") + "RATING " + m.OpponentMmr.ToString(CultureInfo.InvariantCulture);
-            card.Show("YOUR RIVAL", displayName, cat, rating, "DUEL", false);
+            string mmr = m.OpponentMmr.ToString(CultureInfo.InvariantCulture);
+            string cat = "CAT: " + Upper(m.OpponentCharacter) + "   RATING " + mmr;
+            string line2;
+            if (m.Room != null) line2 = "FRIEND DUEL   ROOM " + m.Room;
+            else if (m.Mode == "ranked") line2 = "RANKED   YOUR RATING " + m.YouMmr.ToString(CultureInfo.InvariantCulture);
+            else line2 = (m.OpponentIsHouse ? "HOUSE GHOST   " : "") + "CASUAL";
+            card.Show(m.Room != null ? "YOUR FRIEND" : "YOUR RIVAL", displayName, cat, line2, "DUEL", false);
         }
 
         private void ShowStartError(ApiResult r, string parseError)
@@ -208,7 +346,9 @@ namespace PawNoon.Runtime.Net
             switch (code)
             {
                 case "no_opponent": big = "NO RIVALS IN TOWN"; l1 = "Every gun is out riding."; l2 = "Try again in a minute."; return;
+                case "link_required": big = "SIGN IN TO RANK"; l1 = "Ranked needs Apple or Google."; l2 = "Casual duels are open."; return;
                 case "ranked_not_allowed": big = "RANKED IS LOCKED"; l1 = "Link your account or update."; l2 = "Casual duels are open."; return;
+                case "rate_limited": big = "EASY, PARTNER"; l1 = "Too many duels in a minute."; l2 = "Try again shortly."; return;
                 case "auth_failed":
                 case "unauthorized":
                 case "no_profile": big = "COULD NOT SIGN IN"; l1 = "The sheriff lost your papers."; l2 = "Try again soon."; return;
@@ -220,6 +360,7 @@ namespace PawNoon.Runtime.Net
         private void CancelToTitle()
         {
             token++;
+            CloseMenus();
             state = State.Idle;
             card.Close();
             title.SetOnlineBusy(false);
@@ -243,12 +384,13 @@ namespace PawNoon.Runtime.Net
             resultCard.Close();
             title.SetOnlineBusy(false);
             state = State.Playing;
+            game.SetPvpLoadout(m.Mode == "ranked", m.OpponentGun);   // M7: guns for this match (ranked = standard curve)
             game.StartPvpDuel(m.Seed, ghost, rules, displayName);
             // after StartPvpDuel: the shared config is Hard now and the match (and its first countdown) is ahead
             recorder.Begin(m.Seed, game.Director.Player);
             recorder.Difficulty = DuelConfig.DifficultyHard;
             recorder.Character = Character;
-            recorder.Gun = "standard";
+            recorder.Gun = game.Shop != null ? game.Shop.RecordingGun() : Guns.Standard;   // server-verified guns only
             recorder.ClientBuild = cfg.Build;
             FillDevice(recorder);
             transport.Tap = recorder;
@@ -329,9 +471,11 @@ namespace PawNoon.Runtime.Net
             string who = w == 0 ? "YOU WIN" : (w == 1 ? "RIVAL WINS" : "DRAW");
             var sb = new StringBuilder(32);
             sb.Append(mock ? "MOCK SERVER: " : "SERVER: ").Append(who);
-            if (v.HasRating) sb.Append(v.RatingDelta >= 0 ? "  +" : "  ").Append(v.RatingDelta.ToString(CultureInfo.InvariantCulture));
             verdictLine = sb.ToString();
             resultCard.SetStatus(verdictLine, w == 0 ? Pal.Green2 : (w == 1 ? Pal.PaintRed : Pal.Wood3));
+            // M5: the rating line ("RATING 1214 (+12)") in ranked; a host's room note in a friend duel
+            if (v.HasRating) resultCard.SetExtra(RatingLine(v.RatingAfter, v.RatingDelta), v.RatingDelta >= 0 ? Pal.Green2 : Pal.PaintRed);
+            else if (v.Room != null) resultCard.SetExtra("GHOST SENT TO ROOM " + v.Room, Pal.Wood3);
             if (w != localWinner)
                 Debug.LogWarning("[PawNoon] server verdict (" + v.Winner + ", " + v.EndReason + ") differs from the local result (" + localWinner + ")");
         }
@@ -347,8 +491,13 @@ namespace PawNoon.Runtime.Net
                 if (mockSubmitT <= 0f)
                 {
                     // what the server would answer: its recompute, done locally with the same rules
-                    var sim = RecordedMatchSim.Play(game.Config, info.Seed, info.Rounds, info.MaxAttempts, recorder.ToGhostAttempts(), info.OpponentAttempts);
-                    ShowVerdict(MatchVerdict.FromSim(info.MatchId, sim), true);
+                    bool ranked = info.Mode == "ranked";
+                    var sim = RecordedMatchSim.Play(game.Config, info.Seed, info.Rounds, info.MaxAttempts, recorder.ToGhostAttempts(), info.OpponentAttempts,
+                        Guns.Effective(recorder.Gun, ranked), Guns.Effective(info.OpponentGun, ranked));
+                    var v = MatchVerdict.FromSim(info.MatchId, sim);
+                    NetMock.Rate(v, info);
+                    if (hostRoom != null) { v.Room = hostRoom; hostRoom = null; }
+                    ShowVerdict(v, true);
                 }
             }
         }
@@ -357,9 +506,10 @@ namespace PawNoon.Runtime.Net
         public void Rematch()
         {
             bool mock = matchIsMock;
+            string mode = lastMode;
             game.ShowTitle();
             if (mock && !Mock) { mockOverride = true; mockOverrideSet = true; }
-            BeginQuickDuel();
+            FindRival(mode);
         }
 
         /// <summary>The game went back to the title (PawGame.ShowTitle): close everything online, keep the queue.</summary>
@@ -370,6 +520,7 @@ namespace PawNoon.Runtime.Net
             token++;
             state = State.Idle;
             mockSubmitT = -1f;
+            CloseMenus();
             card.Close();
             resultCard.Close();
             title.SetOnlineBusy(false);
@@ -402,9 +553,17 @@ namespace PawNoon.Runtime.Net
             sb.Append(" net=").Append(state);
             sb.Append(" auth=").Append(auth.StatusWord);   // none | guest | stale | apple | google | mock-apple | mock-google
             sb.Append(" queued=").Append(api.Queue.Count);
+            sb.Append(" linked=").Append(Linked ? "yes" : "no").Append(" pvpMode=").Append(PvpMode);
+            if (state == State.Menu)
+            {
+                if (pvpCard.IsOpen) sb.Append(" card=pvp(").Append(pvpCard.Ranked ? "ranked" : "casual").Append(')');
+                if (friend.Open) sb.Append(' ').Append(friend.Status());
+                if (board.IsOpen) sb.Append(' ').Append(board.Status());
+            }
             if (info != null && (state == State.Playing || state == State.Result || state == State.Opponent))
             {
-                sb.Append(" match=").Append(info.MatchId).Append(" seed=").Append(info.Seed);
+                sb.Append(" match=").Append(info.MatchId).Append(" mode=").Append(info.Mode).Append(" seed=").Append(info.Seed);
+                if (info.Room != null) sb.Append(" room=").Append(info.Room);
                 sb.Append(" rival=\"").Append(displayName).Append('"');
                 sb.Append(" ghost=").Append(ghost.AttemptsStarted).Append('/').Append(ghost.AttemptCount);
                 sb.Append(" recorded=").Append(recorder.Count);
@@ -430,6 +589,35 @@ namespace PawNoon.Runtime.Net
 
         private static string Upper(string s) { return string.IsNullOrEmpty(s) ? "" : s.ToUpperInvariant(); }
 
+        /// <summary>"RATING 1214 (+12)" / "RATING 1190 (-11)".</summary>
+        public static string RatingLine(int after, int delta)
+        {
+            return "RATING " + after.ToString(CultureInfo.InvariantCulture) + " (" + (delta >= 0 ? "+" : "") + delta.ToString(CultureInfo.InvariantCulture) + ")";
+        }
+
+        // ------------------------------------------------------------------ review (M5)
+
+        /// <summary>ReviewDirector.Show: "pvp", "friend", "room", "join", "waiting", "leaderboard", "fastest" (all mock).</summary>
+        public string ReviewShow(string what)
+        {
+            game.ShowTitle();
+            token++;
+            state = State.Menu;
+            title.SetOnlineBusy(true);
+            switch (what)
+            {
+                case "pvp": pvpCard.Show(PvpMode == "ranked", Linked); break;
+                case "friend": friend.OpenMenu(true); break;
+                case "room":
+                case "join":
+                case "waiting": friend.ReviewShow(what); break;
+                case "leaderboard":
+                case "fastest": board.Show(what == "leaderboard", true); break;
+                default: CancelToTitle(); return "error: unknown online screen " + what;
+            }
+            return "ok";
+        }
+
         /// <summary>Upper case, only glyphs the bitmap fonts have, at most 14 characters.</summary>
         public static string NameForHud(string s)
         {
@@ -451,7 +639,7 @@ namespace PawNoon.Runtime.Net
     /// Offline stand-in for the server (net_config "mock", ReviewDirector SetNetMock / StartGhostDuel): a fixed
     /// house-ghost recording and match-start answer. The verdict is RecordedMatchSim (the server's recompute).
     /// </summary>
-    public static class NetMock
+    public static partial class NetMock
     {
         /// <summary>
         /// Marshal Mittens (the README's house ghost) plus spare attempts for void replays: a clean shot, an
@@ -474,6 +662,29 @@ namespace PawNoon.Runtime.Net
         }
 
         public static int RandomSeed() { return Environment.TickCount & 0x7fffffff; }
+
+        /// <summary>The mock's ranked answer: your rating 1202, and after the match +12 for a win, -11 for a loss.</summary>
+        public static MatchStartInfo MatchStart(int seed, string mode)
+        {
+            var m = MatchStart(seed);
+            if (mode == "ranked")
+            {
+                m.Mode = "ranked";
+                m.YouMmr = 1202;
+                m.OpponentMmr = 1214;
+            }
+            return m;
+        }
+
+        /// <summary>Adds the ranked rating change the mock server would answer.</summary>
+        public static void Rate(MatchVerdict v, MatchStartInfo m)
+        {
+            if (m == null || m.Mode != "ranked") return;
+            v.HasRating = true;
+            v.RatingBefore = m.YouMmr;
+            v.RatingDelta = v.WinnerSlot == 0 ? 12 : (v.WinnerSlot == 1 ? -11 : 0);
+            v.RatingAfter = v.RatingBefore + v.RatingDelta;
+        }
 
         public static MatchStartInfo MatchStart(int seed)
         {

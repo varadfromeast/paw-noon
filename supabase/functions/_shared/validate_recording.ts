@@ -10,7 +10,8 @@ import type { DamageCurveDef } from "./duel/damage.ts";
 import { type AttemptInput, type MatchResult, playRecordedMatch } from "./duel/recorded_match.ts";
 import { schedulesForSeed } from "./duel/schedule.ts";
 import { type PlayableAttempt, type Recording, RECORDING_VERSION } from "./recording.ts";
-import { MATCH } from "./server_config.ts";
+import { MATCH, PLAUSIBILITY } from "./server_config.ts";
+import type { RecordingRound } from "./recording.ts";
 
 export type RejectReason =
   | "version"
@@ -23,7 +24,10 @@ export type RejectReason =
   | "inconsistent_reaction"
   | "non_monotonic"
   | "cue_timing"
-  | "input_source";
+  | "input_source"
+  // M5 plausibility (Docs/M5_PLAUSIBILITY.md A1-A3)
+  | "wall_clock"
+  | "samples";
 
 export interface MatchContext {
   seed: number;
@@ -31,6 +35,12 @@ export interface MatchContext {
   maxAttempts: number;
   opponent: readonly PlayableAttempt[];
   curves?: [DamageCurveDef, DamageCurveDef];
+  /** Ranked (A2 touch-only input, A3 raw samples). */
+  ranked?: boolean;
+  /** A1: server-measured time from match-start (issued_at) to this submission, ns. */
+  elapsedNs?: number;
+  /** A3: ranked recordings must carry samples (PN_REQUIRE_SAMPLES). Present samples are always checked in ranked. */
+  requireSamples?: boolean;
 }
 
 export type Verdict =
@@ -65,6 +75,14 @@ export function validateAndScore(
     const at = `rounds[${i}]`;
     if (r.inputSource === "bot" || r.inputSource === "remote" || (r.inputSource === "injected" && !opts.allowInjected)) {
       return reject("input_source", `${at}: input source ${r.inputSource} not allowed`);
+    }
+    // A2: ranked accepts only real touch input with OS timestamps (mouse, keyboard and frame-quantized
+    // input are casual only). A no-shot carries no input, so it has no source to check.
+    if (ctx.ranked && r.kind !== "noshot") {
+      const touch = r.inputSource === "touch" || (r.inputSource === "injected" && opts.allowInjected);
+      if (!touch || r.frameQuantized) {
+        return reject("input_source", `${at}: ranked needs touch input with OS timestamps (${r.inputSource}${r.frameQuantized ? ", frame-quantized" : ""})`);
+      }
     }
     switch (r.kind) {
       case "shot":
@@ -124,8 +142,19 @@ export function validateAndScore(
   }
 
   // ---- timestamps: monotonic, and consistent with this seed's hold lengths
-  const timing = checkTiming(rec, schedulesForSeed(cfg, ctx.seed, rec.rounds.length));
+  const sched = schedulesForSeed(cfg, ctx.seed, rec.rounds.length);
+  const timing = checkTiming(rec, sched);
   if (timing) return timing;
+
+  // ---- A1: wall-clock budget
+  const wall = checkWallClock(rec, sched, ctx.elapsedNs);
+  if (wall) return wall;
+
+  // ---- A3: raw swipe samples (ranked)
+  if (ctx.ranked) {
+    const samples = checkAllSamples(rec, ctx.requireSamples === true);
+    if (samples) return samples;
+  }
 
   return { ok: true, result };
 }
@@ -174,5 +203,87 @@ function checkTiming(rec: Recording, sched: { countdownNs: number; cueOffsetNs: 
       lastCue = i;
     }
   }
+  return null;
+}
+
+/**
+ * A1 (M5_PLAUSIBILITY): the recording's own span, from the first "3" to its last timestamp, is real phone
+ * time the player spent in the match. It cannot be longer than the server-measured issued -> submitted time
+ * (plus slack), and it cannot be shorter than the countdowns and holds this seed forces on every attempt that
+ * reached its cue. A recording fabricated faster than real time fails one of the two.
+ */
+export function checkWallClock(rec: Recording, sched: { cueOffsetNs: number }[], elapsedNs: number | undefined): Verdict | null {
+  let first = Infinity;
+  let last = -Infinity;
+  let minSpan = 0;
+  for (let i = 0; i < rec.rounds.length; i++) {
+    const r = rec.rounds[i];
+    first = Math.min(first, r.countdownStartNs);
+    last = Math.max(last, r.countdownStartNs, r.cuePresentedNs, r.inputNs);
+    if (r.cuePresentedNs > 0) minSpan += sched[i].cueOffsetNs - MATCH.cueEarlyToleranceNs;
+  }
+  const span = last - first;
+  if (span < minSpan) return reject("wall_clock", `recording spans ${span} ns, its countdowns and holds need ${minSpan}`);
+  if (elapsedNs !== undefined && span > elapsedNs + PLAUSIBILITY.wallClockSlackNs) {
+    return reject("wall_clock", `recording spans ${span} ns, only ${elapsedNs} ns passed since match-start`);
+  }
+  return null;
+}
+
+function checkAllSamples(rec: Recording, required: boolean): Verdict | null {
+  for (let i = 0; i < rec.rounds.length; i++) {
+    const r = rec.rounds[i];
+    if (r.kind === "noshot") continue;
+    if (!r.samples || r.samples.length === 0) {
+      if (required) return reject("samples", `rounds[${i}]: ranked needs the raw swipe samples`);
+      continue;
+    }
+    const why = checkSamples(r, rec.device.screenHeightPx);
+    if (why) return reject("samples", `rounds[${i}]: ${why}`);
+  }
+  return null;
+}
+
+/** True when `dNs` is 1..4 periods of a real digitizer rate (240 / 120 / 60 Hz), within tolerance. */
+export function digitizerInterval(dNs: number): boolean {
+  const P = PLAUSIBILITY;
+  for (const period of P.digitizerPeriodsNs) {
+    for (let k = 1; k <= 4; k++) if (Math.abs(dNs - k * period) <= P.digitizerToleranceNs) return true;
+  }
+  return false;
+}
+
+/**
+ * A3: redo SwipeDraw's crossing from the OS touch samples (y up, screen px; samples[0] is where the finger
+ * went down). Returns why the samples do not fit the reported input, or null.
+ * Checks: strictly increasing times; the start inside the bottom band; the threshold crossing interpolated
+ * between the two samples around it equals inputNs within 1 us; upward, not sideways; spacing of real
+ * digitizer reports; not perfectly regular to the nanosecond.
+ */
+export function checkSamples(r: RecordingRound, screenHeightPx: number | undefined): string | null {
+  const P = PLAUSIBILITY;
+  const s = r.samples ?? [];
+  if (s.length < 2) return "fewer than 2 samples";
+  for (let i = 1; i < s.length; i++) if (!(s[i].tNs > s[i - 1].tNs)) return "sample times not increasing";
+  const intervals: number[] = [];
+  for (let i = 1; i < s.length; i++) intervals.push(s[i].tNs - s[i - 1].tNs);
+  // the finger-down sample may sit any time before the swipe; spacing is checked between movement reports
+  const moves = intervals.slice(1);
+  for (const d of moves) if (!digitizerInterval(d)) return `sample spacing ${d} ns is not a digitizer rate`;
+  if (moves.length >= 3 && moves.every((d) => d === moves[0])) return "sample spacing is exactly regular";
+  if (screenHeightPx === undefined) return "samples without device.screenHeightPx";
+  const th = Math.max(8, screenHeightPx * P.sampleThresholdFraction);
+  const start = s[0];
+  if (start.y > screenHeightPx * P.sampleZoneFraction) return "swipe did not start in the holster band";
+  let j = -1;
+  for (let i = 1; i < s.length; i++) if (s[i].y - start.y >= th) { j = i; break; }
+  if (j < 1) return "samples never cross the draw threshold";
+  const dy = s[j].y - start.y;
+  if (Math.abs(s[j].x - start.x) > dy) return "swipe is sideways";
+  const prevDy = s[j - 1].y - start.y;
+  const span = dy - prevDy;
+  const k = span > 1e-3 ? Math.min(1, Math.max(0, (th - prevDy) / span)) : 1;
+  const cross = s[j - 1].tNs + Math.trunc((s[j].tNs - s[j - 1].tNs) * k);
+  if (Math.abs(cross - r.inputNs) > P.sampleCrossToleranceNs) return `samples cross at ${cross}, input says ${r.inputNs}`;
   return null;
 }

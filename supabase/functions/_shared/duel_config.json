@@ -31,6 +31,16 @@
     4,
     2
   ],
+  "damageValuePeacemaker": [
+    48,
+    42,
+    34,
+    26,
+    16,
+    8,
+    4,
+    2
+  ],
   "gradeLightningMs": 200,
   "gradePerfectMs": 250,
   "gradeGreatMs": 320,

@@ -3,7 +3,10 @@
     "rootNamespace": "PawNoon.Runtime",
     "references": [
         "PawNoon.Core",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "UnityEngine.Purchasing",
+        "UnityEngine.Purchasing.Stores",
+        "Unity.Services.Core"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -17,6 +20,11 @@
             "name": "com.unity.inputsystem",
             "expression": "1.0.0",
             "define": "PAWNOON_INPUT_SYSTEM"
+        },
+        {
+            "name": "com.unity.purchasing",
+            "expression": "4.8.0",
+            "define": "PAWNOON_IAP"
         }
     ],
     "noEngineReferences": false

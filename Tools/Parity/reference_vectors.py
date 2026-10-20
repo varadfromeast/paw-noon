@@ -126,6 +126,14 @@ def load_config(path=CONFIG_PATH):
     else:
         c.damageMs = [150.0, 200.0, 250.0, 300.0, 400.0, 600.0, 1000.0, 1500.0]
         c.damageValue = [40.0, 36.0, 30.0, 24.0, 16.0, 8.0, 4.0, 2.0]
+    # Peacemaker (SPEC_V2 §6): same anchors; ignored unless it has one value per anchor (DuelConfig.FromNode)
+    dp = root.get("damageValuePeacemaker")
+    if isinstance(dp, list) and len(dp) == len(c.damageMs):
+        c.damageValuePeacemaker = [float(x) for x in dp]
+    elif len(c.damageMs) == 8:
+        c.damageValuePeacemaker = [48.0, 42.0, 34.0, 26.0, 16.0, 8.0, 4.0, 2.0]
+    else:
+        c.damageValuePeacemaker = list(c.damageValue)
     # Sanitize (core subset)
     c.countdownBeats = max(1, c.countdownBeats)
     c.beatSeconds = max(0.05, c.beatSeconds)
@@ -179,8 +187,23 @@ def create_schedule(cfg, rng):
     return Schedule(cfg.countdownBeats, cfg.beatNs, sec_to_ns(h))
 
 
-def damage(cfg, reaction_ms):
-    xs, ys = cfg.damageMs, cfg.damageValue
+STANDARD, PEACEMAKER = "standard", "peacemaker"
+
+
+def gun_values(cfg, gun):
+    """Guns.DamageValues."""
+    if gun == PEACEMAKER and len(cfg.damageValuePeacemaker) >= 2:
+        return cfg.damageValuePeacemaker
+    return cfg.damageValue
+
+
+def effective_gun(gun, ranked):
+    """Guns.Effective: ranked scores every gun with the standard curve."""
+    return STANDARD if ranked else (PEACEMAKER if gun == PEACEMAKER else STANDARD)
+
+
+def damage(cfg, reaction_ms, gun=STANDARD):
+    xs, ys = cfg.damageMs, gun_values(cfg, gun)
     n = min(len(xs), len(ys))
     if n == 0:
         return 0.0
@@ -281,7 +304,11 @@ class Authority:
         self.phase = "Standoff"
         self.next_round_id = 1
         self.pending_mult = 1.0
+        self.slot_guns = [STANDARD, STANDARD]
         self.clear_round()
+
+    def set_gun(self, slot, gun):
+        self.slot_guns[slot] = PEACEMAKER if gun == PEACEMAKER else STANDARD
 
     def clear_round(self):
         self.round_id = 0
@@ -294,6 +321,7 @@ class Authority:
         self.is_tie = False
         self.winner_slot = -1
         self.mult = 1.0
+        self.guns = [STANDARD, STANDARD]
         self.slots = [SlotRec(), SlotRec()]
 
     def start_match(self):
@@ -315,6 +343,7 @@ class Authority:
         self.schedule = create_schedule(self.cfg, self.rng)
         self.countdown_start = now
         self.mult = self.pending_mult
+        self.guns = list(self.slot_guns)
         self.phase = "Countdown"
         return True
 
@@ -433,20 +462,20 @@ class Authority:
                 continue
             return
 
-    def damage_for(self, reaction_ns):
-        return damage(self.cfg, ns_to_ms(reaction_ns)) * self.mult
+    def damage_for(self, slot, reaction_ns):
+        return damage(self.cfg, ns_to_ms(reaction_ns), self.guns[slot]) * self.mult
 
     def fire(self, slot, simultaneous):
         s = self.slots[slot]
         target = 1 - slot
-        d = self.damage_for(s.reaction)
+        d = self.damage_for(slot, s.reaction)
         self.match.hp[target] = max(0.0, self.match.hp[target] - d)
         self.commit_shot(slot, s, d)
 
     def fire_simultaneous(self):
         s0, s1 = self.slots
-        d0 = self.damage_for(s0.reaction)
-        d1 = self.damage_for(s1.reaction)
+        d0 = self.damage_for(0, s0.reaction)
+        d1 = self.damage_for(1, s1.reaction)
         self.is_tie = True
         self.match.hp[1] = max(0.0, self.match.hp[1] - d0)
         self.match.hp[0] = max(0.0, self.match.hp[0] - d1)
@@ -552,6 +581,8 @@ def play_match_case(cfg, case):
     seed, a, b = case["seed"], case["a"], case["b"]
     rounds, max_attempts = case["rounds"], case["maxAttempts"]
     auth = Authority(cfg, seed)
+    auth.set_gun(0, effective_gun(case["guns"][0], case["ranked"]))
+    auth.set_gun(1, effective_gun(case["guns"][1], case["ranked"]))
     auth.start_match()
     now = T0
     attempts = []
@@ -667,6 +698,20 @@ MATCH_CASES = [
     # only one cat at or below 20 HP: no LAST LIGHT, x1
     ("one_low_no_last_light", 13, [S(110), S(300), S(400)], [S(140), S(140), S(600)]),
 ]
+# Peacemaker (SPEC_V2 §6): (name, seed, gunA, gunB, ranked, a, b); casual uses each side's gun, ranked the standard
+# curve (the same duel: the Peacemaker wins it in casual, the ghost wins it in ranked)
+GUN_MATCH_CASES = [
+    ("peacemaker_casual", 21, PEACEMAKER, STANDARD, False,
+     [S(180), S(280), S(320)], [S(230), S(240), S(250)]),
+    ("peacemaker_ranked_normalised", 21, PEACEMAKER, STANDARD, True,
+     [S(180), S(280), S(320)], [S(230), S(240), S(250)]),
+    # the ghost carries the Peacemaker; a tie lands both shots with their own curves
+    ("peacemaker_ghost_tie", 22, STANDARD, PEACEMAKER, False,
+     [S(200), S(260), S(500)], [S(210), S(250), S(450)]),
+    # both Peacemakers into LAST LIGHT: you 100 -> 55 -> 7, ghost 100 -> 52 -> 4 (tie), then x2 (48 -> 96) KOs
+    ("peacemaker_last_light", 23, PEACEMAKER, PEACEMAKER, False,
+     [S(150), S(150), S(150)], [S(175), S(150), NOSHOT]),
+]
 MATCH_ROUNDS = 3
 MATCH_MAX_ATTEMPTS = 9  # rounds * 3, same as the server default
 
@@ -684,6 +729,7 @@ def build(cfg):
         "countdownBeats": cfg.countdownBeats, "beatNs": cfg.beatNs,
         "suddenDeathEnabled": cfg.suddenDeathEnabled, "suddenDeathHp": cfg.suddenDeathHp,
         "suddenDeathDamageMultiplier": cfg.suddenDeathDamageMultiplier,
+        "damageValuePeacemaker": cfg.damageValuePeacemaker,
     }]
     sch = []
     for seed in SEEDS:
@@ -697,7 +743,8 @@ def build(cfg):
             offs.append(s.cue_offset_ns)
         sch.append({"seed": seed, "next": nxt, "holdNs": holds, "cueOffsetNs": offs})
     out["schedules"] = sch
-    out["damage"] = [{"ms": ms, "damage": damage(cfg, ms), "grade": grade(cfg, ms)} for ms in DAMAGE_MS]
+    out["damage"] = [{"ms": ms, "damage": damage(cfg, ms), "damagePeacemaker": damage(cfg, ms, PEACEMAKER),
+                      "grade": grade(cfg, ms)} for ms in DAMAGE_MS]
     rc = []
     for name, hp, slots in ROUND_CASES:
         case = {"name": name, "hp": [float(hp[0]), float(hp[1])], "slots": slots}
@@ -705,10 +752,12 @@ def build(cfg):
         rc.append(case)
     out["rounds"] = rc
     mc = []
-    for mcase in MATCH_CASES:
-        name, seed, a, b = mcase[:4]
-        max_attempts = mcase[4] if len(mcase) > 4 else MATCH_MAX_ATTEMPTS
-        case = {"name": name, "seed": seed, "rounds": MATCH_ROUNDS, "maxAttempts": max_attempts, "a": a, "b": b}
+    all_cases = [(m[0], m[1], STANDARD, STANDARD, False, m[2], m[3], m[4] if len(m) > 4 else MATCH_MAX_ATTEMPTS)
+                 for m in MATCH_CASES]
+    all_cases += [(n, sd, ga, gb, rk, a, b, MATCH_MAX_ATTEMPTS) for (n, sd, ga, gb, rk, a, b) in GUN_MATCH_CASES]
+    for name, seed, ga, gb, ranked, a, b, max_attempts in all_cases:
+        case = {"name": name, "seed": seed, "rounds": MATCH_ROUNDS, "maxAttempts": max_attempts,
+                "guns": [ga, gb], "ranked": ranked, "a": a, "b": b}
         case["expect"] = play_match_case(cfg, case)
         mc.append(case)
     out["matches"] = mc

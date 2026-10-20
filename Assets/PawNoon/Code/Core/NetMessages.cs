@@ -21,6 +21,8 @@ namespace PawNoon.Core
         public int OpponentMmr;
         public bool OpponentIsHouse;
         public GhostAttempt[] OpponentAttempts = new GhostAttempt[0];
+        /// <summary>Friend duel (room-join): the room code this match came from, else null.</summary>
+        public string Room;
 
         /// <summary>Null on anything malformed (error says what).</summary>
         public static MatchStartInfo Parse(string json, out string error)
@@ -41,6 +43,7 @@ namespace PawNoon.Core
             m.Difficulty = PnJson.Str(root, "difficulty", DuelConfig.DifficultyHard);
             m.DeadlineAt = PnJson.Str(root, "deadlineAt", null);
             m.YouMmr = PnJson.Int(PnJson.Obj(root, "you"), "mmr", 0);
+            m.Room = RoomCode.Normalize(PnJson.Str(PnJson.Obj(root, "room"), "code", null));
             var opp = PnJson.Obj(root, "opponent");
             if (opp == null) { error = "missing opponent"; return null; }
             m.RecordingId = PnJson.Str(opp, "recordingId", null);
@@ -103,6 +106,8 @@ namespace PawNoon.Core
         public int RoundWinsYou, RoundWinsOpponent;
         public bool HasRating;
         public int RatingBefore, RatingAfter, RatingDelta;
+        /// <summary>Friend duel: this recording was reserved for the friend of the player's open room (code), else null.</summary>
+        public string Room;
 
         /// <summary>0 = you, 1 = opponent, -1 = draw (same slots as the client).</summary>
         public int WinnerSlot { get { return Winner == "you" ? 0 : (Winner == "opponent" ? 1 : -1); } }
@@ -132,6 +137,7 @@ namespace PawNoon.Core
                 v.RatingAfter = PnJson.Int(rating, "after", 0);
                 v.RatingDelta = PnJson.Int(rating, "delta", 0);
             }
+            v.Room = RoomCode.Normalize(PnJson.Str(PnJson.Obj(root, "room"), "code", null));
             return v;
         }
 
