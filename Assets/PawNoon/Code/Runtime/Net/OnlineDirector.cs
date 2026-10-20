@@ -60,6 +60,9 @@ namespace PawNoon.Runtime.Net
         public bool InPvp { get { return state == State.Playing || state == State.Result; } }
         public bool Mock { get { return mockOverrideSet ? mockOverride : cfg.Mock; } }
         public NetConfig Config { get { return cfg; } }
+        /// <summary>The guest / linked session (M6 accounts share it).</summary>
+        public SupabaseAuth Auth { get { return auth; } }
+        public SupabaseApi Api { get { return api; } }
 
         public void Init(PawGame g, UiKit kit, GameLayout layout, PixelPipeline pipe, Transform uiRoot,
             TitleScreen titleScreen, MatchResultScreen resultScreen, TapTransport tap)
@@ -387,7 +390,7 @@ namespace PawNoon.Runtime.Net
             var sb = new StringBuilder(160);
             sb.Append("online=").Append(Mock ? "mock" : (cfg.IsConfigured ? "live" : "off"));
             sb.Append(" net=").Append(state);
-            sb.Append(" auth=").Append(auth.HasSession ? (auth.AccessValid ? "guest" : "stale") : "none");
+            sb.Append(" auth=").Append(auth.StatusWord);   // none | guest | stale | apple | google | mock-apple | mock-google
             sb.Append(" queued=").Append(api.Queue.Count);
             if (info != null && (state == State.Playing || state == State.Result || state == State.Opponent))
             {
