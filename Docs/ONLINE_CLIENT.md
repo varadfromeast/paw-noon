@@ -63,7 +63,7 @@ winner, HP, end reason, attempt count, round numbers and zero rejected reports a
 | `Code/Core/NetMessages.cs` | `MatchStartInfo`, `MatchVerdict`, `ApiError` parsers |
 | `Code/Core/JsonOut.cs` | small JSON writer (exact integers) |
 | `Code/Runtime/Net/NetConfig.cs` | loads `Resources/Data/net_config.json` |
-| `Code/Runtime/Net/SupabaseAuth.cs` | anonymous guest session, PlayerPrefs, refresh, `LinkIdentity` seam (M6) |
+| `Code/Runtime/Net/SupabaseAuth.cs` | anonymous guest session, PlayerPrefs, refresh; M6 Apple / Google linking (`Docs/ACCOUNTS.md`) |
 | `Code/Runtime/Net/SupabaseApi.cs` | `NetHost` (coroutines), `Http.PostJson`, `SupabaseApi` (timeout, 1 retry, re-auth on 401), `SubmitQueue` |
 | `Code/Runtime/Net/OnlineDirector.cs` | the flow above, `NetMock` (fake match-start + built-in recording) |
 | `Code/Runtime/Net/OnlineScreens.cs` | `OnlineCard` (finding / rival / message), `OnlineResultCard` (VS + verdict) |
@@ -132,7 +132,7 @@ call PawNoon.Runtime.ReviewDirector.SetNetMock off
 call PawNoon.Runtime.ReviewDirector.NetSignOut            # next online call signs in as a new guest
 ```
 
-`Status` always ends with `online=mock|live|off net=<state> auth=none|guest|stale queued=<n>`.
+`Status` reports `online=mock|live|off net=<state> auth=none|guest|stale|apple|google|mock-apple|mock-google queued=<n>`, followed by the M6 account fields (`Docs/ACCOUNTS.md`).
 
 ### Smoke test against local Supabase (M4 "done when")
 
