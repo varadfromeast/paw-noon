@@ -1,3 +1,4 @@
+using PawNoon.Core;
 using UnityEngine;
 #if UNITY_IOS && !UNITY_EDITOR
 using System.Runtime.InteropServices;
@@ -8,10 +9,55 @@ namespace PawNoon.Runtime
     /// <summary>
     /// Haptics: iOS UIFeedbackGenerators via Plugins/iOS/PawHaptics.mm, Android VibrationEffect
     /// (API 26+), no-op elsewhere. Styles: 0 light, 1 medium, 2 heavy. Notify: 0 success, 1 warning, 2 error.
+    /// Timed patterns (SPEC_V2 §8.6 stamp language): <see cref="Pattern"/> starts one, the duel director's
+    /// frame tick advances it (<see cref="Tick"/>); no coroutines, no allocations.
     /// </summary>
     public static class PawHaptics
     {
+        /// <summary>Settings toggle (Haptics on/off). Off = every call is a no-op, patterns included.</summary>
         public static bool Enabled = true;
+        /// <summary>Reduced Motion: patterns collapse to their first pulse (one tap, no rhythm).</summary>
+        public static bool ReducedMotion;
+
+        private static readonly HapticSequencer sequencer = new HapticSequencer();
+
+        /// <summary>
+        /// Plays { pulse, gapMs, pulse, gapMs, pulse ... } (pulse codes in <see cref="HapticStyle"/>: 0..2 impact,
+        /// 10..12 notify). The first pulse fires now; the rest fire from <see cref="Tick"/>. Replaces a running pattern.
+        /// </summary>
+        public static void Pattern(int[] stylesWithGapsMs)
+        {
+            if (!Enabled || stylesWithGapsMs == null || stylesWithGapsMs.Length == 0)
+            {
+                sequencer.Cancel();
+                return;
+            }
+            sequencer.Start(stylesWithGapsMs, ReducedMotion);
+            Pump();
+        }
+
+        /// <summary>Advances a running pattern by real (unscaled) seconds. Call once per frame.</summary>
+        public static void Tick(float unscaledDt)
+        {
+            if (!sequencer.Active) return;
+            if (!Enabled) { sequencer.Cancel(); return; }
+            sequencer.Advance(unscaledDt * 1000.0);
+            Pump();
+        }
+
+        public static void CancelPattern() { sequencer.Cancel(); }
+
+        public static bool PatternActive { get { return sequencer.Active; } }
+
+        private static void Pump()
+        {
+            int code;
+            while ((code = sequencer.Poll()) >= 0)
+            {
+                if (HapticStyle.IsNotify(code)) Notify(HapticStyle.NotifyType(code));
+                else Impact(code);
+            }
+        }
 
 #if UNITY_IOS && !UNITY_EDITOR
         [DllImport("__Internal")] private static extern void PawHaptics_Prepare();
