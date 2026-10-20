@@ -1,4 +1,5 @@
 using PawNoon.Core;
+using PawNoon.Runtime.Net;
 using UnityEngine;
 
 namespace PawNoon.Runtime
@@ -23,6 +24,8 @@ namespace PawNoon.Runtime
         public SwipeDraw Input { get; private set; }
         public PawAudio Audio { get; private set; }
         public StreetScene Street { get; private set; }
+        /// <summary>Online PvP flow (M4). Solo never depends on it.</summary>
+        public OnlineDirector Online { get; private set; }
 
         private PixelParticles particles;
         private DuelHud hud;
@@ -41,6 +44,9 @@ namespace PawNoon.Runtime
         private string hardJson;
         private string easyOverlayJson;
         private DuelConfig pendingConfig;   // rules picked mid-match, applied at the next StartDuel
+        // online PvP (SPEC_V2 §4): always Hard, a ghost in slot 1; restored on the title
+        private bool pvpActive;
+        private int soloSeed;
 
         /// <summary>Difficulty of the rules the next / current match uses ("easy" / "hard").</summary>
         public string Difficulty { get { return pendingConfig != null ? pendingConfig.Difficulty : Config.Difficulty; } }
@@ -170,7 +176,8 @@ namespace PawNoon.Runtime
             // --- core (rules authority + clients) and input
             Clock = new StopwatchClock();
             int seed = System.Environment.TickCount & 0x7fffffff;
-            var transport = new LoopbackTransport();
+            // the tap lets the PvP recorder see the player's real ShotReports; a plain pass-through otherwise
+            var transport = new TapTransport(new LoopbackTransport());
             var authority = new LocalAuthority(Config, Clock, transport, seed);
             var player = new DuelClient(0, transport, Config);
             var bot = new BotClient(1, transport, Config, seed ^ 0x5bd1e995);
@@ -179,6 +186,8 @@ namespace PawNoon.Runtime
             Director = new DuelDirector(Config, Layout, Clock, authority, player, bot, Input, hero, bandit, particles, cues, hud,
                 resultPanel, Audio, Pipeline, seed);
             Director.MatchFinished = OnMatchFinished;
+            Online = new OnlineDirector();
+            Online.Init(this, kit, Layout, Pipeline, ui, title, matchScreen, transport);
 
             Audio.StartAmbience();
             ApplySettings();
@@ -269,6 +278,8 @@ namespace PawNoon.Runtime
             reviewSettings = false;
             Screen.sleepTimeout = SleepTimeout.SystemSetting; // the duel keeps the screen awake; menus must not
             Director.Stop();
+            EndPvp();
+            if (Online != null) Online.OnTitle();
             ApplyPendingConfig();
             hud.SetVisible(false);
             cues.HideAll();
@@ -284,7 +295,18 @@ namespace PawNoon.Runtime
             Audio.PlayMusic(PawAudio.Track.Title);
         }
 
+        /// <summary>Solo duel vs the bot (PLAY / REMATCH). Leaves any PvP state behind first.</summary>
         public void StartDuel()
+        {
+            if (pvpActive || (Online != null && Online.InPvp))
+            {
+                EndPvp();
+                Online.OnTitle();
+            }
+            BeginDuel();
+        }
+
+        private void BeginDuel()
         {
             title.Close();
             settings.Close();
@@ -295,6 +317,35 @@ namespace PawNoon.Runtime
             Street.SetDawn(0f);
             bestAtMatchStart = PawSettings.BestNs;
             Director.StartMatch();
+        }
+
+        /// <summary>
+        /// Online: plays the next match against <paramref name="ghost"/> on the server's <paramref name="seed"/>
+        /// under the recorded-match rules, on Hard (D3: PvP is always Hard; the player's pick is restored on
+        /// the title).
+        /// </summary>
+        public void StartPvpDuel(int seed, IOpponent ghost, RecordedMatchRules rules, string displayName)
+        {
+            if (!pvpActive) soloSeed = Director.Seed;
+            pvpActive = true;
+            pendingConfig = null;
+            Config.CopyFrom(BuildConfig(DuelConfig.DifficultyHard));
+            ApplyDifficultyTags();
+            Director.SetOpponent(ghost, rules, displayName);
+            Director.SetSeed(seed);
+            BeginDuel();
+        }
+
+        /// <summary>Back to solo: the bot, the stored difficulty, the solo seed sequence, REMATCH.</summary>
+        private void EndPvp()
+        {
+            if (!pvpActive) return;
+            pvpActive = false;
+            Director.SetOpponent(null, null, null);
+            Director.SetSeed(soloSeed);
+            Config.CopyFrom(BuildConfig(PawSettings.Difficulty));
+            ApplyDifficultyTags();
+            matchScreen.SetRematchLabel(null);
         }
 
         public void OpenSettings()
@@ -309,6 +360,7 @@ namespace PawNoon.Runtime
             var m = Director.Authority.Match;
             bool newBest = PawSettings.BestNs > 0 && (bestAtMatchStart < 0 || PawSettings.BestNs < bestAtMatchStart);
             matchScreen.Show(won, deadHeat, m.BestNs(0), m.AverageNs(0), PawSettings.BestNs, newBest);
+            if (Online.InPvp) Online.OnMatchFinished(won, deadHeat);
         }
 
         /// <summary>Review: show the match result screen with deterministic sample values.</summary>
@@ -364,10 +416,17 @@ namespace PawNoon.Runtime
                         title.Tick(false);
                         if (settings.Tick() == UiAction.CloseSettings) settings.Close();
                     }
+                    else if (Online.CardOpen)
+                    {
+                        title.Tick(false);
+                        Online.TickTitle();
+                    }
                     else
                     {
                         var a = title.Tick(true);
                         if (a == UiAction.Play) StartDuel();
+                        else if (a == UiAction.Pvp) Online.BeginQuickDuel();
+                        else if (a == UiAction.Friend) Online.FriendTapped();
                         else if (a == UiAction.OpenSettings) OpenSettings();
                         else if (a == UiAction.ChooseEasy) SetDifficulty(DuelConfig.DifficultyEasy);
                         else if (a == UiAction.ChooseHard) SetDifficulty(DuelConfig.DifficultyHard);
@@ -378,8 +437,9 @@ namespace PawNoon.Runtime
                     break;
                 case Mode.MatchResult:
                     Director.Tick(frameStart);
+                    if (Online.InPvp) Online.TickResult();
                     var r = matchScreen.Tick();
-                    if (r == UiAction.Rematch) StartDuel();
+                    if (r == UiAction.Rematch) { if (Online.InPvp) Online.Rematch(); else StartDuel(); }
                     else if (r == UiAction.Menu) ShowTitle();
                     break;
             }

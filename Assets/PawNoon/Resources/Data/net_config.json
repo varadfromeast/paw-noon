@@ -1,0 +1,11 @@
+{
+  "_readme": "Online PvP (M4). SET supabaseUrl AND anonKey to your project (Dashboard > Project Settings > API) or to `supabase status` for a local stack (http://<your Mac's LAN IP>:54321 for a phone). While they hold the YOUR-... placeholders the PVP button explains that online play is not set up; solo always works. See Docs/ONLINE_CLIENT.md.",
+  "supabaseUrl": "https://YOUR-PROJECT-REF.supabase.co",
+  "anonKey": "YOUR-ANON-KEY",
+  "clientBuild": "",
+  "mode": "casual",
+  "timeoutSeconds": 10,
+  "findMinSeconds": 1.2,
+  "friendDuel": false,
+  "mock": false
+}

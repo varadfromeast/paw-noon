@@ -462,6 +462,14 @@ namespace PawNoon.Runtime
 
         public void Hurt(int slot, float seconds) { sides[slot].hurtLeft = seconds; }
 
+        /// <summary>Name on a side's plate (PvP: the rival's name). The plate re-fits on the next frame.</summary>
+        public void SetName(int slot, string name)
+        {
+            if (slot < 0 || slot > 1 || sides[slot].name == null) return;
+            sides[slot].name.SetText(name ?? "");
+            if (kit != null && pipe != null) Relayout();
+        }
+
         private void Relayout()
         {
             laidOutVersion = pipe.LayoutVersion;
