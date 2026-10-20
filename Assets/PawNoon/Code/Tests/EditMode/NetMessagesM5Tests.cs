@@ -56,7 +56,7 @@ namespace PawNoon.Tests
             Assert.AreEqual("HOWL", a.Code);
             Assert.AreEqual("Pardner Pete", a.HostName);
             Assert.AreEqual(1, a.Match.OpponentAttempts.Length);
-            Assert.IsNull(MatchStartInfo.Parse(Ready.Replace(@",""room"":{""code"":""HOWL""}", ""), out err).Room, "a quick duel has no room");
+            Assert.IsNull(MatchStartInfo.Parse(Ready.Replace(@"""room"":{""code"":""HOWL""}", @"""room"":null"), out err).Room, "a quick duel has no room");
         }
 
         [Test]
