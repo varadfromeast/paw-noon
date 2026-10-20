@@ -465,6 +465,7 @@ namespace PawNoon.Runtime
                         if (a == UiAction.Play) StartDuel();
                         else if (a == UiAction.Pvp) Online.BeginQuickDuel();
                         else if (a == UiAction.Friend) Online.FriendTapped();
+                        else if (a == UiAction.Leaderboard) Online.OpenLeaderboard();
                         else if (a == UiAction.OpenSettings) OpenSettings();
                         else if (a == UiAction.OpenProfile) Accounts.OpenProfile();
                         else if (a == UiAction.ChooseEasy) SetDifficulty(DuelConfig.DifficultyEasy);

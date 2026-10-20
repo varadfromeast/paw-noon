@@ -46,7 +46,9 @@ export interface Recording {
   character: CharacterId;
   loadout: { gun: GunId };
   rounds: RecordingRound[];
-  device: { model: string; os: string; refreshHz: number };
+  /** screenHeightPx (optional, M5): Screen.height in px, so the server can redo SwipeDraw's threshold
+   *  geometry on raw samples (A3). */
+  device: { model: string; os: string; refreshHz: number; screenHeightPx?: number };
   clientBuild: string;
   submittedAt: string;
 }
@@ -118,6 +120,20 @@ function parseRound(v: unknown, i: number): RecordingRound {
   return r;
 }
 
+function parseDevice(device: O): Recording["device"] {
+  const d: Recording["device"] = {
+    model: str(device, "model", "recording.device"),
+    os: str(device, "os", "recording.device"),
+    refreshHz: num(device, "refreshHz", "recording.device"),
+  };
+  if (device.screenHeightPx !== undefined && device.screenHeightPx !== null) {
+    const h = num(device, "screenHeightPx", "recording.device");
+    if (!(h >= 100 && h <= 20000)) throw new ShapeError("recording.device.screenHeightPx must be 100..20000");
+    d.screenHeightPx = h;
+  }
+  return d;
+}
+
 /** Strict shape check. Throws ShapeError with a JSON-path-like message. Unknown keys are dropped. */
 export function parseRecording(v: unknown): Recording {
   const o = obj(v, "recording");
@@ -138,11 +154,7 @@ export function parseRecording(v: unknown): Recording {
     character: oneOf(o, "character", "recording", CHARACTERS),
     loadout: { gun: loadout.gun },
     rounds: o.rounds.map(parseRound),
-    device: {
-      model: str(device, "model", "recording.device"),
-      os: str(device, "os", "recording.device"),
-      refreshHz: num(device, "refreshHz", "recording.device"),
-    },
+    device: parseDevice(device),
     clientBuild: str(o, "clientBuild", "recording", 64),
     submittedAt,
   };

@@ -28,7 +28,5 @@ export async function requireUser(req: Request, db: Db = admin()): Promise<Authe
   return { id: u.id, isAnonymous: u.is_anonymous === true, providers };
 }
 
-/** Ranked needs a linked Apple/Google identity (§4.3). */
-export function hasLinkedIdentity(u: AuthedUser): boolean {
-  return !u.isAnonymous && u.providers.some((p) => p === "apple" || p === "google");
-}
+// Ranked needs a linked Apple/Google identity (§4.3): pure helper in ranked.ts (unit-tested without supabase-js).
+export { hasLinkedIdentity } from "./ranked.ts";

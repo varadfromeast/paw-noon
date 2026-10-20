@@ -95,6 +95,23 @@ namespace PawNoon.Runtime.Net
             }
         }
 
+        /// <summary>
+        /// The ranked gate on the client (M5): <see cref="IsLinked"/> (M6, from the auth user's identities), or the
+        /// access token's <c>is_anonymous</c> claim, unless the review override is set. The server checks again on
+        /// every ranked match-start (403 link_required). The override only affects the PVP card, not the account UI.
+        /// </summary>
+        public bool RankedLinked
+        {
+            get
+            {
+                if (LinkedOverride != 0) return LinkedOverride > 0;
+                return IsLinked || (HasSession && JwtClaims.IsLinked(AccessToken));
+            }
+        }
+
+        /// <summary>Review / QA (ReviewDirector.SetLinked): 1 = treat as linked, -1 = guest, 0 = the real token.</summary>
+        public static int LinkedOverride;
+
         public SupabaseAuth(NetConfig cfg)
         {
             this.cfg = cfg;

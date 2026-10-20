@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/leaderboard-read.response.schema.json",
+  "title": "200 from leaderboard-read (LeaderboardResponse in _shared/match_types.ts)",
+  "type": "object",
+  "required": [
+    "board",
+    "kind",
+    "unit",
+    "season",
+    "closesAt",
+    "minMatches",
+    "total",
+    "top",
+    "you"
+  ],
+  "properties": {
+    "board": {
+      "type": "string",
+      "description": "ranked_YYYY_WW (weekly), ranked_season_N (pinned PN_SEASON) or best_reaction_hard"
+    },
+    "kind": {
+      "enum": [
+        "ranked",
+        "best_reaction_hard"
+      ]
+    },
+    "unit": {
+      "enum": [
+        "mmr",
+        "ns"
+      ]
+    },
+    "season": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "YYYYWW for weekly seasons"
+    },
+    "closesAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "Current weekly board: next Monday 00:00 UTC."
+    },
+    "minMatches": {
+      "type": "integer",
+      "description": "Rated matches this season before a ranked row is listed."
+    },
+    "total": {
+      "type": "integer",
+      "description": "Players on the board."
+    },
+    "top": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "rank",
+          "displayName",
+          "character",
+          "value",
+          "matches",
+          "you"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "description": "Ties share a rank."
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "character": {
+            "type": "string"
+          },
+          "value": {
+            "type": "integer",
+            "description": "mmr: rounded MMR; ns: best shot reaction in ns"
+          },
+          "matches": {
+            "type": "integer"
+          },
+          "you": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "you": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "rank",
+        "value",
+        "matches",
+        "eligible"
+      ],
+      "properties": {
+        "rank": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "null until eligible"
+        },
+        "value": {
+          "type": "integer"
+        },
+        "matches": {
+          "type": "integer"
+        },
+        "eligible": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

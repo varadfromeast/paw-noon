@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pawnoon.app/schemas/room-create.response.schema.json",
+  "title": "200 from room-create (RoomCreateResponse in _shared/match_types.ts)",
+  "type": "object",
+  "required": [
+    "code",
+    "status",
+    "expiresAt",
+    "ttlSec"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^[A-HJ-NP-Z]{4}$",
+      "description": "Generated without I and O."
+    },
+    "status": {
+      "const": "open"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The host must record and the friend must join before this (10 min)."
+    },
+    "ttlSec": {
+      "type": "integer"
+    }
+  }
+}

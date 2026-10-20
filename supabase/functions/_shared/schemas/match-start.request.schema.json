@@ -3,9 +3,9 @@
   "$id": "https://pawnoon.app/schemas/match-start.request.schema.json",
   "title": "POST /functions/v1/match-start",
   "type": "object",
-  "required": ["mode", "clientBuild"],
+  "required": ["clientBuild"],
   "properties": {
-    "mode": { "enum": ["casual", "ranked"] },
+    "mode": { "enum": ["casual", "ranked"], "default": "casual", "description": "M5: optional (casual). ranked needs a linked Apple/Google account (403 link_required) and a build on PN_RANKED_BUILDS." },
     "clientBuild": { "type": "string", "minLength": 1, "maxLength": 64 }
   }
 }

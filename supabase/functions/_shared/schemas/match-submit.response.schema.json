@@ -43,7 +43,13 @@
         }
       ]
     },
-    "recordingId": { "type": ["string", "null"], "description": "Your recording, now in the pool (null when the match did not complete 3 rounds or a KO)." }
+    "recordingId": { "type": ["string", "null"], "description": "Your recording, now in the pool (null when the match did not complete 3 rounds or a KO). M5: served to strangers only after its quarantine." },
+    "room": {
+      "type": "object",
+      "required": ["code", "status"],
+      "properties": { "code": { "type": "string", "pattern": "^[A-Z]{4}$" }, "status": { "const": "recorded" } },
+      "description": "M5: this recording was reserved for the friend of your open room (room-create)."
+    }
   },
   "$defs": {
     "pair": {

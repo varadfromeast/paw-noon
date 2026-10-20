@@ -86,3 +86,46 @@ Later product decisions: final name, online PvP scope, additional outlaw charact
 - **DELETE ACCOUNT lives inside Settings > ACCOUNT** (one tap from Settings, the usual App Store pattern), not as a separate settings row. That keeps the settings panel to one new button. The two-step confirm is DELETE then YES, DELETE. Local clearing removes the session, cached profile, guest number, once-flag, submit queue and all-time best, and keeps the device settings. If the player never went online there is nothing on a server, so only local state is cleared. Offline is refused and leaves everything untouched.
 - **Stats on the card** are the server's validated PvP counters (`profile-read`), except BEST, which is the lower of the server's best and the device's solo best, so a solo-only player still sees one.
 - **Bridge.** `ReviewDirector.Show bounty|profile|account|keypad|delete|switch`, `ReviewDirector.MockLink apple|google|taken|cancel|fail|reset`. `Status` now reports `auth=none|guest|stale|apple|google|mock-*` and `account=… accounts=mock|live|off bounty=fresh|offered name="…" last=…`.
+
+# M5 notes: friend duels, ranked + leaderboards, plausibility, atomic submit (SPEC_V2 §4.3, §4.4, §7)
+
+- **Rooms reserve the host's next recording, server side.** room-create only opens a room; the reservation happens inside
+  `pn_complete_match`: the host's next completed match whose `issued_at` is after the room was created fills the newest open
+  room. So the host just plays an ordinary casual quick duel (DUEL on the room card), there is no special "room match" kind,
+  and a match the host had already started before opening the room never counts. room-join hands the recording out through
+  the same issue path as match-start (`_shared/match_issue.ts`), so throttling, the abandon penalty, deadlines and the
+  snapshot are identical; the friend plays the host's seed. A room serves its recording even while it is quarantined or held
+  (the friend asked for exactly this player). One open room per host; a recorded room stays joinable until it expires.
+- **Codes.** 4 letters; generated without I and O and never a blocked word (it is shown big and pasted into chats); joining
+  accepts all 26 letters. Unique among live rooms only (partial unique index), so codes recycle after 10 minutes.
+- **Waiting = 202 + polling every 3 s.** No Realtime channel for this: polls are cheap, survive app switches, and Realtime
+  stays reserved for live duels (D1b). The first joiner holds the friend slot (`room_taken` for anybody else).
+- **Weekly seasons.** `ratings.season` is the ISO week as YYYYWW (board `ranked_YYYY_WW`, Monday 00:00 UTC); `PN_SEASON`
+  still pins a fixed season. A new week starts from last week's MMR pulled 25 % to 1200 with RD >= 200, so matchmaking keeps
+  working on Monday while the board is earned again. Ranked rows need 5 rated matches in the week (one lucky win against a
+  new RD would otherwise top the board). FASTEST DRAW is all time, from server-validated shots only.
+- **link_required.** A guest asking for ranked gets `403 link_required` (the client's SIGN IN TO RANK); a linked account
+  blocked for another reason still gets `ranked_not_allowed`. The client greys RANKED from `SupabaseAuth.IsLinked`, which
+  reads the token's `is_anonymous` claim, so M6 only has to link: the toggle unlocks by itself after the token refreshes.
+- **D1: one transaction.** `pn_complete_match` writes everything a validated submit changes. Ratings use optimistic
+  versions (the `matches` counter each value was computed from); a conflict rolls the whole block back and match-submit
+  recomputes. Consequence: a failed submit never leaves partial state, so `500` / `503 busy` now always put the match back
+  to `issued` (the M3 `server_error` void is gone).
+- **Plausibility: reject only what is cheap and certain.** A1 wall clock, A2 ranked touch-only, A3 raw samples reject
+  (logged, count towards the flag). A4 margin and B5-B9 rolling statistics never reject and never show: they hold the new
+  recording, keep the match's best off FASTEST DRAW, and (B5-B7, B9) set `profiles.shadow`. Shadow and flagged accounts form
+  their own pool and stay off the public boards, but see the rank they would have. B8 (no foreperiod effect) is only logged.
+  Every new recording is quarantined for 2 further clean matches of its owner. Thresholds are in `server_config.ts`.
+  An honest-player simulation (200 players, 190-300 ms means, 20-40 ms SD) trips nothing (`m5.test.ts`).
+- **Samples are optional until the client sends them.** A3 needs `SwipeDraw` to keep the OS samples around the threshold
+  crossing, which is a lead-owned file; the server checks them whenever present and `PN_REQUIRE_SAMPLES=true` makes them
+  mandatory in ranked.
+- **UI.** No new panel art: the cards reuse panel_wood / panel_paper, the seg sprites (code tiles, keypad keys, tabs, the
+  CASUAL | RANKED toggle) and the wood buttons. New pixels: `font_code` (Jersey 15 at its native 27 px, 15 px caps like the
+  timer digits, OFL), `ico_trophy` and `ico_share` in the house icon style. The keypad is 7 x 4 keys of 22 x 20 px (A-Z +
+  a two-wide DEL), big enough for a thumb on the 270 px grid. The JOIN slot shows CANCEL until 4 letters are in, so the card
+  never has a hole. The leaderboard scrolls by whole 12 px rows, which needs no clipping masks. Layouts were checked with
+  `Tools/ArtGen/ui/m5_mockups.py` (real sprites and fonts, the C# maths): `Docs/M5/m5_screens.png`.
+- **Hooks into shared files are one-liners:** `UiAction.Leaderboard` + the trophy in `TitleScreen`, one line in
+  `PawGame.Update`. Everything else lives in new files under `Code/Runtime/Net/` and `Code/Core/`.
+- **Merge with M6 + feel wave 2.** The ranked gate is `SupabaseAuth.RankedLinked`: M6's `IsLinked` (identities from the auth user, immediate after a link) or the token's `is_anonymous` claim, unless `ReviewDirector.SetLinked` overrides it (the override only affects the PVP card, not the account UI). M5's clipboard / text share seam is `Net.TextShare` (feel2 owns `NativeShare`, the image share sheet); both use feel2's `ico_share`. On the title the trophy sits left of M6's profile button: [trophy][profile][gear], 30 px each, 4 px apart. The SQL tests name their users in the M6 name shape (upper case, 3+ chars).

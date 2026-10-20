@@ -20,6 +20,13 @@
       "required": ["mmr", "rd"],
       "properties": { "mmr": { "type": "integer" }, "rd": { "type": "integer" } }
     },
+    "status": { "const": "ready", "description": "room-join only (200): the host's recording is the opponent." },
+    "room": {
+      "type": "object",
+      "required": ["code"],
+      "properties": { "code": { "type": "string", "pattern": "^[A-Z]{4}$" } },
+      "description": "room-join only: the friend-duel room this match was issued from."
+    },
     "opponent": {
       "type": "object",
       "required": ["recordingId", "displayName", "character", "loadout", "mmr", "isHouse", "rounds"],

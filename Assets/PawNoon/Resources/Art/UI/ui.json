@@ -904,5 +904,16 @@
    29,
    24
   ]
+ },
+ "ico_trophy": {
+  "file": "ico_trophy",
+  "size": [
+   12,
+   12
+  ],
+  "pivot": [
+   6,
+   6
+  ]
  }
 }

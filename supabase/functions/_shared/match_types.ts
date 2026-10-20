@@ -39,6 +39,49 @@ export interface MatchStartResponse {
     isHouse: boolean;
     rounds: PlayableAttempt[];
   };
+  /** Friend duel (room-join): the room this match came from. */
+  room?: { code: string };
+}
+
+/** 200 from room-create. */
+export interface RoomCreateResponse {
+  code: string;
+  status: "open";
+  expiresAt: string;
+  ttlSec: number;
+}
+
+/** 202 from room-join while the host has not recorded yet (poll again after pollAfterSec). */
+export interface RoomWaitingResponse {
+  status: "waiting";
+  code: string;
+  hostName: string;
+  expiresAt: string;
+  pollAfterSec: number;
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  displayName: string;
+  character: string;
+  /** ranked: MMR (integer); best_reaction_hard: ns (integer). */
+  value: number;
+  matches: number;
+  you: boolean;
+}
+
+/** 200 from leaderboard-read. */
+export interface LeaderboardResponse {
+  board: string;
+  kind: "ranked" | "best_reaction_hard";
+  unit: "mmr" | "ns";
+  season: number | null;
+  /** ranked: when this week's board closes (next Monday 00:00 UTC). */
+  closesAt: string | null;
+  minMatches: number;
+  total: number;
+  top: LeaderboardRow[];
+  you: { rank: number | null; value: number; matches: number; eligible: boolean } | null;
 }
 
 export type Side = "you" | "opponent";
@@ -74,4 +117,6 @@ export interface MatchSubmitResponse {
   rating: { season: number; before: number; after: number; delta: number; rd: number } | null;
   /** Your recording, now in the pool as somebody's next opponent (null if not pooled). */
   recordingId: string | null;
+  /** Friend duel: this recording was reserved for the friend of your open room (room-create). */
+  room?: { code: string; status: "recorded" };
 }

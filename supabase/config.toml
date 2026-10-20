@@ -107,3 +107,12 @@ verify_jwt = true
 
 [functions.profile-update]
 verify_jwt = true
+
+[functions.room-create]
+verify_jwt = true
+
+[functions.room-join]
+verify_jwt = true
+
+[functions.leaderboard-read]
+verify_jwt = true

@@ -22,7 +22,8 @@
       "properties": {
         "model": { "type": "string", "minLength": 1, "maxLength": 128 },
         "os": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "refreshHz": { "type": "number" }
+        "refreshHz": { "type": "number" },
+        "screenHeightPx": { "type": "number", "minimum": 100, "maximum": 20000, "description": "M5, optional: Screen.height in px, so the server can redo SwipeDraw's threshold geometry on raw samples (ranked check A3)." }
       }
     },
     "clientBuild": { "type": "string", "minLength": 1, "maxLength": 64 },
