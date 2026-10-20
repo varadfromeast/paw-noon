@@ -19,6 +19,7 @@ const root = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const files = [
   "supabase/functions/_shared/duel/duel.test.ts",
   "supabase/functions/_shared/server.test.ts",
+  "supabase/functions/_shared/payments/payments.test.ts",
 ];
 for (const f of files) await import(pathToFileURL(resolve(root, f)).href);
 

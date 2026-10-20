@@ -14,6 +14,7 @@ supabase/
   config.toml                  local stack + function settings (verify_jwt, anonymous sign-in, Apple/Google)
   migrations/0001_init.sql     tables, indexes, RLS, triggers, pn_* service helpers
   migrations/0002_review_hardening.sql  profile input checks, flagged owners leave the pool, submitting index
+  migrations/0007_m7_payments.sql   purchases.item, profiles.equipped_gun, pn_grant_entitlement (M7)
   seed.sql                     three house ghosts
   scripts/sync_duel_config.sh  copies Assets/.../duel_config.json into functions/_shared/ (--check for CI)
   functions/
@@ -26,7 +27,9 @@ supabase/
       validate_recording.ts    §4.3 checks + authoritative recompute
       glicko.ts, ratings.ts    Glicko-lite MMR
       auth.ts, db.ts, http.ts, server_config.ts, match_types.ts, rows.ts, server.test.ts
-    match-start/ match-submit/ account-delete/ daily-claim/ purchase-validate/
+    payments/                  M7: der.ts + jws.ts (Apple JWS chain, WebCrypto only), apple.ts, google.ts,
+                               receipt.ts (Unity IAP receipts), validate.ts, payments.test.ts + fixtures/
+    match-start/ match-submit/ account-delete/ daily-claim/ purchase-validate/ loadout-equip/
 ```
 
 ---
@@ -77,7 +80,7 @@ supabase link --project-ref <ref>
 supabase db push                                          # migrations
 psql "<connection string from Dashboard > Connect>" -f supabase/seed.sql   # house ghosts (idempotent)
 supabase secrets set PN_SEASON=1 PN_RANKED_BUILDS="1.0.0+42" PN_DAY_TZ=Asia/Kolkata
-supabase functions deploy match-start match-submit account-delete daily-claim purchase-validate
+supabase functions deploy match-start match-submit account-delete daily-claim purchase-validate loadout-equip
 ```
 
 The house ghosts are required in production: without them the first player gets `503 no_opponent`.
@@ -93,6 +96,10 @@ The house ghosts are required in production: without them the first player gets 
 | `PN_RANKED_ALLOW_GUESTS` | **local only** | `true` lets guests play ranked (no Apple/Google on `supabase start`) |
 | `PN_ALLOW_INJECTED` | **local only** | `true` accepts `inputSource: "injected"` (ReviewDirector smoke test) |
 | `SUPABASE_AUTH_EXTERNAL_APPLE_*`, `..._GOOGLE_*` | shell env for `supabase start` | local OAuth (optional) |
+| `APPLE_BUNDLE_ID`, `APPLE_ISSUER_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | secret | App Store Server API (purchase-validate), see `Docs/PAYMENTS.md` |
+| `APPLE_SHARED_SECRET` | secret, optional | verifyReceipt password (fallback path) |
+| `GOOGLE_PACKAGE_NAME`, `GOOGLE_SERVICE_ACCOUNT_JSON` | secret | Play Developer API (purchase-validate) |
+| `PN_IAP_ALLOW_SANDBOX`, `PN_GOOGLE_ACKNOWLEDGE` | secret, optional | default `true` both |
 
 Server tunables that are not secrets (3 rounds, 9 max attempts, +60 s submit slack, pool 30 days / 20 uses,
 3 rejections to flag, daily 3 wins / 20 coins) are in `functions/_shared/server_config.ts`.
@@ -130,8 +137,9 @@ Every write goes through a function with the service role. `pn_pick_opponent`, `
    9 attempts, or the **opponent recording running out of attempts** (`opponent_exhausted`, possible only
    when you void an attempt the ghost did not). The player's recording must stop exactly there.
 5. Winner: KO winner, else more HP left (= more total damage dealt), equal = draw.
-6. Damage: ranked uses the standard curve for both; casual uses each side's gun (`loadouts.ts`, Peacemaker
-   `[48,42,34,26,16,8,4,2]`).
+6. Damage: ranked uses the standard curve for both; casual uses each side's gun (`loadouts.ts`, Peacemaker =
+   `damageValuePeacemaker` in `duel_config.json`, `[48,42,34,26,16,8,4,2]`). The client does the same
+   (`Guns.Effective`, `LocalAuthority.SetGun`); `vectors.json` match cases carry `guns` + `ranked`.
 
 Client requirements this implies: in PvP, backgrounding the app must not call `VoidRound` (record a no-shot
 instead), and the ghost's early foul is replayed at `inputOffsetNs` after "3" when present.
@@ -292,23 +300,40 @@ Body `{}`. It pays `20` coins once per `PN_DAY_TZ` day after `3` **server-valida
 ```
 `claimed: false` with `alreadyClaimed: false` means not enough wins yet. Calling it is idempotent.
 
-### `POST /purchase-validate` (stub until M7)
+### `POST /purchase-validate`
 
-Request:
+Validates a store purchase and grants the item (SPEC_V2 §6). The game sends Unity IAP's `Product.receipt` as is:
 ```json
 { "store": "app_store", "productId": "com.pawnoon.pixel.peacemaker", "restore": false,
-  "signedTransaction": "<StoreKit 2 JWS>" }
+  "receipt": "{\"Store\":\"AppleAppStore\",\"TransactionID\":\"2000000812345678\",\"Payload\":\"MIIT...\"}" }
 ```
-(`google_play` sends `"purchaseToken"` instead of `signedTransaction`.)
+Alternatives: `signedTransaction` (StoreKit 2 JWS), `transactionId`, `appReceipt` for `app_store`; `purchaseToken` for
+`google_play`. Apple is checked by (1) the client's JWS verified against Apple Root CA - G3, else (2) the App Store Server
+API v2 `GET /inApps/v1/transactions/{id}` (production, then sandbox) with its signed answer verified the same way, else
+(3) `verifyReceipt` (deprecated by Apple, used only when the API key is not configured). Google: Play Developer API
+`purchases.products.get` with a service-account token, then `:acknowledge`. Details: `Docs/PAYMENTS.md`.
 
-The final 200 response (M7):
+200:
 ```json
 { "entitlements": [ { "item": "peacemaker", "productId": "com.pawnoon.pixel.peacemaker", "store": "app_store",
-                      "transactionId": "2000000123456789", "environment": "production", "status": "valid" } ],
-  "profile": { "ownedItems": ["peacemaker"], "coins": 0 } }
+                      "transactionId": "2000000812345678", "environment": "sandbox", "status": "valid" } ],
+  "outcome": "granted",
+  "profile": { "ownedItems": ["peacemaker"], "coins": 0, "equippedGun": "peacemaker" } }
 ```
-Today it validates the request (`400 bad_request | unknown_product`) and then always answers
-`501 { "error": "not_implemented", "message": "...", "entitlements": [] }`.
+`outcome`: `granted` | `already_owned` (same purchase again: idempotent) | `transferred` (the purchase was on another
+account: it moves here, the old account loses the item) | `pending` | `refunded` (store status, nothing granted).
+`transactionId` is the canonical key: Apple's original transaction id, Google's order id. A fresh purchase equips the gun;
+a restore does not change the loadout.
+
+Errors: `400 bad_request | unknown_product | bad_receipt`; permanent `422 invalid_receipt | wrong_app | product_mismatch |
+not_in_receipt | not_found | fake_store | sandbox_not_allowed` (the client finishes the store transaction without the
+item); transient `503 store_unavailable | store_not_configured` (the client keeps the transaction pending and retries).
+
+### `POST /loadout-equip`
+
+`{ "gun": "peacemaker" }` -> `200 { "equippedGun": "peacemaker", "ownedItems": ["peacemaker"] }`; `403 not_owned`;
+`400 bad_request`. Clients may also update `profiles.equipped_gun` directly (RLS own row); a check constraint keeps it
+to `standard` or an owned item.
 
 ---
 
