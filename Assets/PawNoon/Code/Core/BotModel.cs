@@ -31,9 +31,16 @@ namespace PawNoon.Core
     /// Its only pre-cue action is a rare planned foul (jumping the gun), always due before the earliest
     /// possible cue. Feints and the late tell are presentation-only and live in <see cref="BotActing"/>.
     /// </summary>
-    public sealed class BotClient
+    public sealed class BotClient : IOpponent
     {
         public readonly DuelClient Client;
+
+        // IOpponent: thin forwards, behaviour unchanged
+        DuelClient IOpponent.Client { get { return Client; } }
+        void IOpponent.StartMatch(int seed) { Reseed(seed); }
+        void IOpponent.SetPlayerRoundWins(int wins) { PlayerRoundWins = wins; }
+        void IOpponent.PreAuthorityTick(long frameStartNs) { }
+        bool IOpponent.HostActing { get { return true; } }
         private readonly DuelConfig cfg;
         private Random rng;
 
