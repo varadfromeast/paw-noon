@@ -199,11 +199,6 @@ namespace PawNoon.Runtime
             return "ok: duel started (seed " + g.Director.Seed + ")";
         }
 
-        /// <summary>
-        /// Match intro (SPEC_V2 §8.7) for review: "on" = play it at every StartDuel (review runs included, ignores the
-        /// once-per-session rule), "off" = never, "auto" = default (first match of a session, not in review runs,
-        /// cfg.introEnabled), "reset" = auto and forget that it was shown this session.
-        /// </summary>
         /// <summary>"on" | "off": the SWIPE cue setting (it switches itself off after one taught match).</summary>
         public static string SwipeHint(string onOff)
         {
@@ -213,6 +208,11 @@ namespace PawNoon.Runtime
             return "ok: swipe hint " + (on ? "on" : "off");
         }
 
+        /// <summary>
+        /// Match intro (SPEC_V2 §8.7) for review: "on" = play it at every StartDuel (review runs included, ignores the
+        /// once-per-session rule), "off" = never, "auto" = default (first match of a session, not in review runs,
+        /// cfg.introEnabled), "reset" = auto and forget that it was shown this session.
+        /// </summary>
         public static string SetIntro(string mode)
         {
             string s = (mode ?? "").Trim().ToLowerInvariant();
