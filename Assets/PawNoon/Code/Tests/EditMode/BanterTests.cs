@@ -69,12 +69,13 @@ namespace PawNoon.Tests
         }
 
         [Test]
-        public void LinesComeFromConfigWithTwoToThreePerContext()
+        public void BuiltInLinesHaveTwoToThreePerContext()
         {
-            var c = DuelConfig.FromJson("{\"banterChance\": 0.3, \"blackpawLines\": {\"botLost\": [\"Huh.\", \"Fine.\"], \"botWon\": []}}");
+            var c = DuelConfig.FromJson("{\"banterChance\": 0.3}");
             Assert.AreEqual(0.3, c.banterChance, 1e-12);
-            CollectionAssert.AreEqual(new[] { "Huh.", "Fine." }, c.blackpawLines.botLost);
-            Assert.AreEqual(new BanterLines().botWon.Length, c.blackpawLines.botWon.Length); // empty list keeps defaults
+            var parsed = BanterLines.FromJson(PnJson.ParseObject("{\"botLost\": [\"Huh.\", \"Fine.\"], \"botWon\": []}"));
+            CollectionAssert.AreEqual(new[] { "Huh.", "Fine." }, parsed.botLost);
+            Assert.AreEqual(new BanterLines().botWon.Length, parsed.botWon.Length); // empty list keeps defaults
             var d = new BanterLines();
             var all = new[] { d.matchStart, d.lastOne, d.lightning, d.playerEarly, d.botWon, d.botLost, d.matchWin };
             foreach (var pool in all)
@@ -92,7 +93,7 @@ namespace PawNoon.Tests
         }
     }
 
-    /// <summary>SPEC_V2 §8.2: per-character banter in Resources/Data/characters.json, legacy blackpawLines fallback.</summary>
+    /// <summary>SPEC_V2 §8.2: per-character banter in Resources/Data/characters.json, built-in fallback per context.</summary>
     public class CharacterBanterTests
     {
         private const string CharactersPath = "Assets/PawNoon/Resources/Data/characters.json";
@@ -149,6 +150,7 @@ namespace PawNoon.Tests
         [Test]
         public void MissingFileFallsBackToConfigAndBuiltIns()
         {
+            // the old duel_config.json "blackpawLines" key is ignored now (cleanup 21 Oct): built-ins only
             var cfg = DuelConfig.FromJson("{\"botName\": \"OLDNAME\", \"blackpawLines\": {\"botLost\": [\"Legacy.\"]}}");
             foreach (var json in new[] { null, "", "{ not json" })
             {
@@ -156,7 +158,7 @@ namespace PawNoon.Tests
                 Assert.IsFalse(r.FromFile);
                 var p = r.Get(CharacterRoster.Pawtruth);
                 Assert.AreEqual("OLDNAME", p.name);
-                CollectionAssert.AreEqual(new[] { "Legacy." }, p.lines.botLost);                 // legacy duel_config key
+                CollectionAssert.AreEqual(new BanterLines().botLost, p.lines.botLost);            // legacy key ignored
                 CollectionAssert.AreEqual(new BanterLines().matchStart, p.lines.matchStart);      // built-in
                 var w = r.Get(CharacterRoster.Whiskers);
                 Assert.AreEqual("WHISKERS", w.name);
@@ -171,7 +173,7 @@ namespace PawNoon.Tests
         [Test]
         public void PartialEntriesFallBackPerContext()
         {
-            var cfg = DuelConfig.FromJson("{\"blackpawLines\": {\"botLost\": [\"Legacy.\"], \"botWon\": [\"Old win.\"]}}");
+            var cfg = DuelConfig.FromJson("{}");
             var r = CharacterRoster.Load(
                 "{\"pawtruth\": {\"lines\": {\"botWon\": [\"New win.\", \"Again.\"], \"lastOne\": []}}," +
                 " \"whiskers\": {\"name\": \"SNOW\", \"lines\": {\"matchWin\": [\"Bye.\"]}}}", cfg);
@@ -179,7 +181,7 @@ namespace PawNoon.Tests
             var p = r.Get(CharacterRoster.Pawtruth);
             Assert.AreEqual(cfg.botName, p.name);                                         // no name in the entry
             CollectionAssert.AreEqual(new[] { "New win.", "Again." }, p.lines.botWon);   // characters.json wins
-            CollectionAssert.AreEqual(new[] { "Legacy." }, p.lines.botLost);              // legacy fallback
+            CollectionAssert.AreEqual(new BanterLines().botLost, p.lines.botLost);       // missing -> built-in
             CollectionAssert.AreEqual(new BanterLines().lastOne, p.lines.lastOne);       // empty list -> built-in
             var w = r.Get(CharacterRoster.Whiskers);
             Assert.AreEqual("SNOW", w.name);

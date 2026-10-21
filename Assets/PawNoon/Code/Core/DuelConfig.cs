@@ -147,9 +147,6 @@ namespace PawNoon.Core
         public double banterLowHp = 30;
         /// <summary>How long his match-win line stays up over the result.</summary>
         public double banterMatchEndSeconds = 2.0;
-        /// <summary>LEGACY (one release): duel_config.json "blackpawLines", Pawtruth's lines from before characters.json.
-        /// Used only as the fallback for contexts characters.json does not define (see CharacterRoster).</summary>
-        public BanterLines blackpawLines = new BanterLines();
 
         // --- match intro (SPEC_V2 §8.7, presentation only)
         /// <summary>First match of a session: both cats slide in and the name plates slam in before the standoff.</summary>
@@ -355,7 +352,6 @@ namespace PawNoon.Core
             c.banterHoldSeconds = PnJson.Num(root, "banterHoldSeconds", c.banterHoldSeconds);
             c.banterLowHp = PnJson.Num(root, "banterLowHp", c.banterLowHp);
             c.banterMatchEndSeconds = PnJson.Num(root, "banterMatchEndSeconds", c.banterMatchEndSeconds);
-            c.blackpawLines = BanterLines.FromJson(PnJson.Obj(root, "blackpawLines"));   // legacy fallback, see CharacterRoster
             c.introEnabled = PnJson.Bool(root, "introEnabled", c.introEnabled);
             c.suddenDeathEnabled = PnJson.Bool(root, "suddenDeathEnabled", c.suddenDeathEnabled);
             c.suddenDeathHp = PnJson.Num(root, "suddenDeathHp", c.suddenDeathHp);
@@ -421,7 +417,6 @@ namespace PawNoon.Core
             if (banterLeadSeconds < 0) banterLeadSeconds = 0;
             if (banterHoldSeconds < 0.2) banterHoldSeconds = 0.2;
             if (banterMatchEndSeconds < 0.2) banterMatchEndSeconds = 0.2;
-            if (blackpawLines == null) blackpawLines = new BanterLines();
             if (double.IsNaN(suddenDeathHp) || suddenDeathHp < 0) suddenDeathHp = 0;
             if (double.IsNaN(suddenDeathDamageMultiplier) || suddenDeathDamageMultiplier < 0) suddenDeathDamageMultiplier = 1.0;
             if (suddenDeathDamageMultiplier > 10) suddenDeathDamageMultiplier = 10;

@@ -177,7 +177,8 @@ namespace PawNoon.Runtime
         }
 
         private string OpponentName { get { return opponentName ?? (persona != null && !string.IsNullOrEmpty(persona.name) ? persona.name : cfg.botName); } }
-        private BanterLines OpponentLines { get { return persona != null && persona.lines != null ? persona.lines : cfg.blackpawLines; } }
+        private static readonly BanterLines DefaultLines = new BanterLines();
+        private BanterLines OpponentLines { get { return persona != null && persona.lines != null ? persona.lines : DefaultLines; } }
 
         /// <summary>
         /// PvP seam (SPEC_V2 §4.6): from the next StartMatch, slot 1 is <paramref name="o"/> and the match

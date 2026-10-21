@@ -20,8 +20,8 @@ namespace PawNoon.Core
     /// One character's one-liners per context (keys: matchStart, lastOne, lightning, playerEarly, botWon,
     /// botLost, matchWin; "bot" = the speaker, "player" = the cat across the street). The field defaults are
     /// Pawtruth's lines; <see cref="WhiskersDefaults"/> are Whiskers'. Data lives in
-    /// Resources/Data/characters.json (see <see cref="CharacterRoster"/>); duel_config.json "blackpawLines"
-    /// is the legacy fallback for Pawtruth, kept for one release.
+    /// Resources/Data/characters.json (see <see cref="CharacterRoster"/>); a context the file does not define
+    /// falls back to these built-ins.
     /// </summary>
     [Serializable]
     public sealed class BanterLines
