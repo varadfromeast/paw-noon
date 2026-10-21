@@ -32,7 +32,7 @@ Assets/PawNoon/
 | File | Role |
 |---|---|
 | `PawGame.cs` | `[RuntimeInitializeOnLoadMethod]` bootstrap, builds everything, fixed per-frame order, modes (Title/Duel/MatchResult), lifecycle voiding (device only), F1..F6 in the editor. |
-| `DuelDirector.cs` | Each frame: authority tick → bot → player cue/presses → authority tick → events → presentation (anims, FX, HUD, audio, haptics, result flow). |
+| `DuelDirector.cs` | Each frame: authority tick → bot → player cue/presses → authority tick → events → presentation (anims, FX, HUD, audio, haptics, result flow). Partials: `.Shots` (draw / foul / muzzle / impacts / tie), `.Acting` (banter bubble, feints, tell), `.Review` (review stills, `StatusLine`), `.LastLight`, `.Gun`. |
 | `SwipeDraw.cs` | Holster swipe input: Input System touch / mouse events mapped to the stopwatch, threshold-crossing interpolation, `TimedPress` queue, review injection (lead-owned, SPEC_V2 §9). |
 | `TimedPress.cs` | The `TimedPress` struct SwipeDraw queues (the old `PressInput` reader is gone). |
 | `PixelPipeline.cs` | Virtual-res RT + display quad, visible/safe rects, shake/zoom/flash, PNG capture. |
