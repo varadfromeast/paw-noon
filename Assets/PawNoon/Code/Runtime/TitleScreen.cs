@@ -85,9 +85,7 @@ namespace PawNoon.Runtime
 
             choiceRoot = new GameObject("DifficultyChoice").transform;
             choiceRoot.SetParent(transform, false);
-            choiceDim = PawGfx.NewSprite("Dim", choiceRoot, CO - 2);
-            choiceDim.sprite = ArtLib.WhitePixel;
-            choiceDim.color = new Color32(Pal.Ink.r, Pal.Ink.g, Pal.Ink.b, 150);
+            choiceDim = UiKit.Dim(choiceRoot, CO - 2);
             choicePanel = kit.Panel("panel_wood", choiceRoot, CO, new RectInt(0, 0, CardW, CardH));
             choiceTitle = BitmapText.Create("ChoiceTitle", choiceRoot, kit.Medium, CO + 3, TextAlign.Center);
             choiceTitle.SetColors(Pal.Brass0, Pal.Ink, Pal.Ink2);
@@ -149,8 +147,7 @@ namespace PawNoon.Runtime
         {
             var vis = pipe.Visible;
             var safe = pipe.Safe;
-            choiceDim.transform.position = Px.World(vis.x, vis.yMax);
-            choiceDim.transform.localScale = new Vector3(vis.width, vis.height, 1f);
+            UiKit.FillVisible(choiceDim, pipe);
             int w = Mathf.Min(CardW, vis.width - 16);
             int x = CenterX - w / 2;
             // thumb zone, where PLAY sits; never up over the logo
@@ -168,21 +165,12 @@ namespace PawNoon.Runtime
             hardDesc.At(cx, y + 84 + CardBtnH + 3);
         }
 
-        private void PlaceSeg(SpriteRenderer sr, bool on, RectInt r)
-        {
-            var d = kit.Ui.TryGet(on ? "seg_on" : "seg_off");
-            if (d == null) { sr.sprite = null; return; }
-            sr.sprite = d.First;
-            sr.drawMode = SpriteDrawMode.Sliced;
-            UiKit.SetRect(sr, d, r);
-        }
-
         /// <summary>Re-reads PawSettings.Difficulty into the toggle.</summary>
         public void RefreshDifficulty()
         {
             bool easy = PawSettings.Difficulty == DuelConfig.DifficultyEasy;
-            PlaceSeg(segEasy, easy, segEasyRect);
-            PlaceSeg(segHard, !easy, segHardRect);
+            kit.PlaceSeg(segEasy, easy, segEasyRect);
+            kit.PlaceSeg(segHard, !easy, segHardRect);
             // the yellow segment marks the pick; labels stay light on both
             segEasyText.SetColors(easy ? Pal.Cream0 : Pal.Cream1, Pal.Ink, Pal.Ink2);
             segHardText.SetColors(!easy ? Pal.Cream0 : Pal.Cream1, Pal.Ink, Pal.Ink2);

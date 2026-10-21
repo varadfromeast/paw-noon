@@ -43,9 +43,7 @@ namespace PawNoon.Runtime.Shop
 
         protected override void Build()
         {
-            dim = PawGfx.NewSprite("Dim", transform, O - 2);
-            dim.sprite = ArtLib.WhitePixel;
-            dim.color = new Color32(Pal.Ink.r, Pal.Ink.g, Pal.Ink.b, 160);
+            dim = UiKit.Dim(transform, O - 2, 160);
             panel = kit.Panel("panel_wood", transform, O, new RectInt(0, 0, PanelW, 300));
             card = kit.Panel("panel_paper", transform, O + 1, new RectInt(0, 0, PanelW - 20, CardH));
             title = BitmapText.Create("Title", transform, kit.Medium, O + 3, TextAlign.Center);
@@ -92,8 +90,7 @@ namespace PawNoon.Runtime.Shop
         {
             var vis = pipe.Visible;
             var safe = pipe.Safe;
-            dim.transform.position = Px.World(vis.x, vis.yMax);
-            dim.transform.localScale = new Vector3(vis.width, vis.height, 1f);
+            UiKit.FillVisible(dim, pipe);
             int w = Mathf.Min(PanelW, vis.width - 12);
             int h = ContentHeight();
             int x = CenterX - w / 2;

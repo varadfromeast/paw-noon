@@ -11,26 +11,12 @@ namespace PawNoon.Runtime.Net
 
     internal static class CardGfx
     {
-        public static SpriteRenderer Dim(Transform parent, int order)
-        {
-            var dim = PawGfx.NewSprite("Dim", parent, order);
-            dim.sprite = ArtLib.WhitePixel;
-            dim.color = new Color32(Pal.Ink.r, Pal.Ink.g, Pal.Ink.b, 150);
-            return dim;
-        }
+        public static SpriteRenderer Dim(Transform parent, int order) { return UiKit.Dim(parent, order); }
 
         /// <summary>Fills a canvas rect with a WhitePixel renderer (pivot bottom-left).</summary>
-        public static void Fill(SpriteRenderer sr, RectInt r)
-        {
-            sr.transform.position = Px.World(r.x, r.yMax);
-            sr.transform.localScale = new Vector3(r.width, r.height, 1f);
-        }
+        public static void Fill(SpriteRenderer sr, RectInt r) { UiKit.Fill(sr, r); }
 
-        public static void FillVisible(SpriteRenderer sr, PixelPipeline pipe)
-        {
-            var v = pipe.Visible;
-            Fill(sr, new RectInt(v.x, v.y, v.width, v.height));
-        }
+        public static void FillVisible(SpriteRenderer sr, PixelPipeline pipe) { UiKit.FillVisible(sr, pipe); }
 
         /// <summary>Card top: in the bottom thumb zone, never up over the logo / HUD area.</summary>
         public static int ThumbTop(PixelPipeline pipe, int h)

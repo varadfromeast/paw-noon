@@ -46,9 +46,7 @@ namespace PawNoon.Runtime
 
         protected override void Build()
         {
-            dim = PawGfx.NewSprite("Dim", transform, O - 2);
-            dim.sprite = ArtLib.WhitePixel;
-            dim.color = new Color32(Pal.Ink.r, Pal.Ink.g, Pal.Ink.b, 150);
+            dim = UiKit.Dim(transform, O - 2);
             panel = kit.Panel("panel_paper", transform, O, new RectInt(0, 0, 232, 236));
             title = InkText("Title", kit.Medium, O + 3, TextAlign.Center);
             title.SetText("SETTINGS");
@@ -82,8 +80,7 @@ namespace PawNoon.Runtime
         protected override void Layout()
         {
             var vis = pipe.Visible;
-            dim.transform.position = Px.World(vis.x, vis.yMax);
-            dim.transform.localScale = new Vector3(vis.width, vis.height, 1f);
+            UiKit.FillVisible(dim, pipe);
             int w = Mathf.Min(232, vis.width - 16);
             int h = RowsTop + NRows * RowH + 6 + 13 + HowTo.Length * 10 + 10 + AccountH + 8;
             int x = CenterX - w / 2;
@@ -119,23 +116,6 @@ namespace PawNoon.Runtime
             for (int i = 0; i < howLines.Length; i++) howLines[i].At(x + 14, hy + 13 + i * 10);
             account.SetRect(new RectInt(x + w / 2 - 70, hy + 13 + howLines.Length * 10 + 6, 140, AccountH));
             Refresh();
-        }
-
-        private void PlaceSeg(SpriteRenderer sr, bool on, RectInt r)
-        {
-            var d = kit.Ui.TryGet(on ? "seg_on" : "seg_off");
-            if (d == null) { sr.sprite = null; return; }
-            sr.sprite = d.First;
-            if (d.Count > 0 && d.First != null && d.First.border != Vector4.zero)
-            {
-                sr.drawMode = SpriteDrawMode.Sliced;
-                UiKit.SetRect(sr, d, r);
-            }
-            else
-            {
-                sr.drawMode = SpriteDrawMode.Simple;
-                PawGfx.Place(sr, r.x + d.Pivot.x, r.y + d.Pivot.y);
-            }
         }
 
         private bool Value(int i)
@@ -176,8 +156,8 @@ namespace PawNoon.Runtime
                     SetToggleSprite(i);
                 }
             }
-            PlaceSeg(segOrig, !PawSettings.ClassicMusic, segOrigRect);
-            PlaceSeg(segClassic, PawSettings.ClassicMusic, segClassicRect);
+            kit.PlaceSeg(segOrig, !PawSettings.ClassicMusic, segOrigRect);
+            kit.PlaceSeg(segClassic, PawSettings.ClassicMusic, segClassicRect);
         }
 
         private void SetToggleSprite(int i)
