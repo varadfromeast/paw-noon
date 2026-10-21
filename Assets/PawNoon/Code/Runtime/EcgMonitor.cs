@@ -5,8 +5,9 @@ namespace PawNoon.Runtime
     /// <summary>
     /// Pixel-art heart monitor for the HIGH NOON window during the hold: a red trace sweeps left to
     /// right, drawing a P-QRS-T complex on every beat, leaving a fading trail and a short blank gap
-    /// ahead of the write head (classic bedside monitor). Drawn into a small point-filtered texture,
-    /// updated in place every frame (no allocations). Clean pixels only: no noise, stepped intensity.
+    /// ahead of the write head (classic bedside monitor). Drawn into a small point-filtered texture in place
+    /// (no allocations) and uploaded only when a pixel can have changed: the head moved a column, or a column's
+    /// stepped trail intensity is due to drop a step. Clean pixels only: no noise, stepped intensity.
     /// </summary>
     public sealed class EcgMonitor
     {
@@ -19,6 +20,9 @@ namespace PawNoon.Runtime
         private readonly int w, h, baseY;
         private readonly Texture2D tex;
         private readonly Color32[] px;
+        private readonly Color32[] background;   // clear + grid dots, copied into px at the start of every render
+        private float nextChangeT = -1f;           // monitor time at which the current picture goes stale
+        private int renderedCol = int.MinValue;    // lastCol of the uploaded picture
         private readonly int[] colY;       // trace height per column (pixels from top)
         private readonly float[] colT;     // time the column was written (< 0 = never)
         private float head;                // fractional write-head column
@@ -36,6 +40,11 @@ namespace PawNoon.Runtime
             h = Mathf.Max(16, height);
             baseY = h / 2 + h / 6;           // baseline a little below centre: the R spike needs headroom
             px = new Color32[w * h];
+            background = new Color32[w * h];
+            // faint monitor grid: dots every 8 px (pixel rows are bottom-up in the texture)
+            for (int y = 4; y < h; y += 8)
+                for (int x = 4; x < w; x += 8)
+                    background[(h - 1 - y) * w + x] = Grid;
             colY = new int[w];
             colT = new float[w];
             tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
@@ -73,6 +82,7 @@ namespace PawNoon.Runtime
             pendingPause = 0f;
             Frenzy = 0f;
             flatUntil = -1f;
+            renderedCol = int.MinValue;
             ScheduleBeat();
         }
 
@@ -231,24 +241,31 @@ namespace PawNoon.Runtime
                 colY[c] = Mathf.Clamp(baseY - Mathf.RoundToInt(Signal(colTime)), 1, h - 2);
                 colT[c] = colTime;
             }
-            Render();
+            // nothing on screen changes until the head reaches a new column or a trail step is due
+            if (lastCol != renderedCol || t >= nextChangeT) Render();
         }
 
         private void Render()
         {
-            for (int i = 0; i < px.Length; i++) px[i] = Clear;
-            // faint monitor grid: dots every 8 px (pixel rows are bottom-up in the texture)
-            for (int y = 4; y < h; y += 8)
-                for (int x = 4; x < w; x += 8)
-                    px[(h - 1 - y) * w + x] = Grid;
-
+            System.Array.Copy(background, px, px.Length);
             float sweep = BaseBeat * BeatsPerSweep;
             float fade = sweep * 0.92f;
             int headCol = lastCol < 0 ? -1 : ((lastCol % w) + w) % w;
+            // earliest monitor time at which some column's picture changes: its stepped intensity k drops a step
+            // (k = round((1 - age / fade) * 6) / 6 changes when (1 - age / fade) * 6 crosses j - 0.5) or it leaves
+            // the fade window (that also changes how the next column connects to it)
+            float next = float.MaxValue;
             for (int c = 0; c < w; c++)
             {
                 float age = t - colT[c];
                 if (age < 0f || age > fade) continue;
+                float u = (1f - age / fade) * 6f;
+                int j = Mathf.RoundToInt(u);
+                float stepAge = fade * (1f - (j - 0.5f) / 6f);   // age at which u falls below j - 0.5
+                if (stepAge <= age) stepAge = fade * (1f - (j - 1.5f) / 6f);   // exactly on a boundary: the next one
+                if (stepAge > fade) stepAge = fade;
+                float due = colT[c] + stepAge;
+                if (due < next) next = due;
                 // blank gap just ahead of the head (the oldest columns): the classic erase bar
                 int ahead = headCol < 0 ? 99 : ((c - headCol) % w + w) % w;
                 if (ahead > 0 && ahead <= 4) continue;
@@ -274,6 +291,8 @@ namespace PawNoon.Runtime
             }
             tex.SetPixels32(px);
             tex.Apply(false, false);
+            renderedCol = lastCol;
+            nextChangeT = next;
         }
 
         private static Color32 Trace(float k)

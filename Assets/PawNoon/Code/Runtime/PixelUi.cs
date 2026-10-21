@@ -151,6 +151,7 @@ namespace PawNoon.Runtime
 
         public void SetVisible(bool v)
         {
+            if (v == visible && Root.activeSelf == v) return;   // some owners call this every frame
             visible = v;
             Root.SetActive(v);
             if (!v) pressed = false;

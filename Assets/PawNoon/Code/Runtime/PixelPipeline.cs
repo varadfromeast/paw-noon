@@ -63,7 +63,9 @@ namespace PawNoon.Runtime
 
         // overlay
         private readonly Transform[] overlayRoots = new Transform[4];
+        private readonly int[] overlayHierarchyCount = new int[4];   // hierarchyCount at the last re-layer walk
         private int overlayCount;
+        private int overlayWalkFrame;
 
         // 60 Hz "ticks": frame-counted effects last the same real time on 120 Hz displays
         private const float Tick = 1f / 60f;
@@ -215,6 +217,7 @@ namespace PawNoon.Runtime
             if (root == null) return;
             for (int i = 0; i < overlayCount; i++) if (overlayRoots[i] == root) return;
             if (overlayCount >= overlayRoots.Length) return;
+            overlayHierarchyCount[overlayCount] = root.hierarchyCount;
             overlayRoots[overlayCount++] = root;
             SetLayerRecursive(root, OverlayLayer);
             OverlayCam.enabled = true;
@@ -404,9 +407,20 @@ namespace PawNoon.Runtime
             shakeOffset.x = shakeAmp * Mathf.Sin(shakeT * 71f) + kick.x;
             shakeOffset.y = shakeAmp * Mathf.Cos(shakeT * 53f) + kick.y;
 
-            // overlay hierarchies: keep late-created children on the overlay layer (alloc-free walk)
+            // overlay hierarchies: keep late-created children on the overlay layer (alloc-free walk). The walk runs
+            // when a root's hierarchy grew or shrank (new UI is built lazily: cards, bubbles, labs) and, as a safety
+            // net, every 120th frame; before, it touched every UI transform every frame.
+            bool periodic = ++overlayWalkFrame >= 120;
+            if (periodic) overlayWalkFrame = 0;
             for (int i = 0; i < overlayCount; i++)
-                if (overlayRoots[i] != null) SetLayerRecursive(overlayRoots[i], OverlayLayer);
+            {
+                var root = overlayRoots[i];
+                if (root == null) continue;
+                int hc = root.hierarchyCount;
+                if (hc == overlayHierarchyCount[i] && !periodic) continue;
+                overlayHierarchyCount[i] = hc;
+                SetLayerRecursive(root, OverlayLayer);
+            }
 
             if (ReducedMotion) { tearLeft = chromaLeft = winceLeft = popLeft = 0f; pushLeft = 0f; pushAmt = 0f; }
 
