@@ -99,6 +99,50 @@ namespace PawNoon.Runtime
             t.SetText(s);
             return t;
         }
+
+        /// <summary>The modal dim behind a card: an Ink WhitePixel quad (size it with FillVisible). alpha 0..255.</summary>
+        public static SpriteRenderer Dim(Transform parent, int order, byte alpha = 150)
+        {
+            var dim = PawGfx.NewSprite("Dim", parent, order);
+            dim.sprite = ArtLib.WhitePixel;
+            dim.color = new Color32(Pal.Ink.r, Pal.Ink.g, Pal.Ink.b, alpha);
+            return dim;
+        }
+
+        /// <summary>Fills a canvas rect with a WhitePixel renderer (pivot bottom-left).</summary>
+        public static void Fill(SpriteRenderer sr, RectInt r)
+        {
+            sr.transform.position = Px.World(r.x, r.yMax);
+            sr.transform.localScale = new Vector3(r.width, r.height, 1f);
+        }
+
+        /// <summary>Fills the pipeline's visible rect (a modal dim).</summary>
+        public static void FillVisible(SpriteRenderer sr, PixelPipeline pipe)
+        {
+            var v = pipe.Visible;
+            Fill(sr, new RectInt(v.x, v.y, v.width, v.height));
+        }
+
+        /// <summary>
+        /// A segmented-toggle tile (seg_on / seg_off) sized to a rect: 9-sliced when the art has borders (it does),
+        /// else drawn plain at the rect's corner. Missing art leaves the renderer empty.
+        /// </summary>
+        public void PlaceSeg(SpriteRenderer sr, bool on, RectInt r)
+        {
+            var d = Ui.TryGet(on ? "seg_on" : "seg_off");
+            if (d == null) { sr.sprite = null; return; }
+            sr.sprite = d.First;
+            if (d.Count > 0 && d.First != null && d.First.border != Vector4.zero)
+            {
+                sr.drawMode = SpriteDrawMode.Sliced;
+                SetRect(sr, d, r);
+            }
+            else
+            {
+                sr.drawMode = SpriteDrawMode.Simple;
+                PawGfx.Place(sr, r.x + d.Pivot.x, r.y + d.Pivot.y);
+            }
+        }
     }
 
     /// <summary>Large 9-slice button (>= 24 px tall) with label/icon, press state, SFX + haptic.</summary>
@@ -151,6 +195,7 @@ namespace PawNoon.Runtime
 
         public void SetVisible(bool v)
         {
+            if (v == visible && Root.activeSelf == v) return;   // some owners call this every frame
             visible = v;
             Root.SetActive(v);
             if (!v) pressed = false;

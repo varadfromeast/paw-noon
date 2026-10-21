@@ -63,12 +63,6 @@ namespace PawNoon.Runtime
             }
         }
 
-        public bool HasArt(string anim)
-        {
-            var s = Def.Anim(anim);
-            return s != null && !s.Missing;
-        }
-
         /// <summary>
         /// Loads an optional animation that CharacterDef does not require (e.g. "tell"): manifest entry
         /// anims.&lt;anim&gt; if present, else file "&lt;prefix&gt;_&lt;anim&gt;" (frames = texture width / cell width).

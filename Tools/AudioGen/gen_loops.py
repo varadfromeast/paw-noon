@@ -1,4 +1,4 @@
-"""gen_loops.py - ambience loops: amb_wind, amb_town, heartbeat, tumbleweed_roll.
+"""gen_loops.py - ambience loops: amb_wind, amb_town, heartbeat (tumbleweed_roll is retired, see LOOPS).
 
 All loops are built from periodic noise (FFT-shaped), periodic modulation curves and
 events folded around the loop boundary (wrap_tail), so every file loops seamlessly.
@@ -230,8 +230,8 @@ def heartbeat_v2(seed=34, beats=12, bpm=92.0):
 
 from gen_duel import heartbeat_v3   # noqa: E402  (v3: louder, physical; see gen_duel.py)
 
-LOOPS = {'amb_wind': amb_wind, 'amb_town': amb_town, 'heartbeat': heartbeat_v3, 'amb_duel': amb_duel,
-         'tumbleweed_roll': tumbleweed_roll}
+LOOPS = {'amb_wind': amb_wind, 'amb_town': amb_town, 'heartbeat': heartbeat_v3, 'amb_duel': amb_duel}
+# tumbleweed_roll() is kept but no longer written: nothing played the loop (cleanup 21 Oct removed the file)
 
 
 def main(names=None):

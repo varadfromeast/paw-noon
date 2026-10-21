@@ -24,7 +24,7 @@ namespace PawNoon.Core
     /// Fallbacks, per field: a missing file / entry / key never breaks the game.
     /// <list type="bullet">
     /// <item>Pawtruth: name = characters.json, else duel_config.json botName, else "PAWTRUTH"; each banter context =
-    /// characters.json, else the legacy duel_config.json "blackpawLines" (kept for one release), else the built-ins.</item>
+    /// characters.json, else the built-ins (<see cref="BanterLines"/> defaults).</item>
     /// <item>Whiskers: name = characters.json, else "WHISKERS"; each context = characters.json, else
     /// <see cref="BanterLines.WhiskersDefaults"/>.</item>
     /// </list>
@@ -45,16 +45,16 @@ namespace PawNoon.Core
         /// <summary>Every id in the roster (built-in ones first, then any extra entries from the file).</summary>
         public readonly List<string> Ids = new List<string>();
 
-        /// <summary>Built-in roster plus the legacy config fallback (cfg may be null).</summary>
+        /// <summary>Built-in roster; cfg (may be null) only supplies Pawtruth's fallback name (botName).</summary>
         public static CharacterRoster Load(string charactersJson, DuelConfig cfg)
         {
             var r = new CharacterRoster();
             var root = PnJson.ParseObject(charactersJson);
             r.FromFile = root != null;
 
-            var pawLegacy = cfg != null && cfg.blackpawLines != null ? cfg.blackpawLines : new BanterLines();
+            var pawDefaults = new BanterLines();
             string pawName = cfg != null && !string.IsNullOrEmpty(cfg.botName) ? cfg.botName : "PAWTRUTH";
-            r.Add(Read(root, Pawtruth, pawName, "sfx_meow_pawtruth", pawLegacy));
+            r.Add(Read(root, Pawtruth, pawName, "sfx_meow_pawtruth", pawDefaults));
             r.Add(Read(root, Whiskers, "WHISKERS", "sfx_meow_whiskers", BanterLines.WhiskersDefaults()));
 
             // any further cats in the file (future roster); they fall back to Pawtruth's lines
@@ -64,7 +64,7 @@ namespace PawNoon.Core
                 {
                     string id = Normalize(kv.Key);
                     if (id.Length == 0 || r.map.ContainsKey(id) || !(kv.Value is Dictionary<string, object>)) continue;
-                    r.Add(Read(root, kv.Key, kv.Key.ToUpperInvariant(), "sfx_meow_pawtruth", pawLegacy));
+                    r.Add(Read(root, kv.Key, kv.Key.ToUpperInvariant(), "sfx_meow_pawtruth", pawDefaults));
                 }
             }
             return r;

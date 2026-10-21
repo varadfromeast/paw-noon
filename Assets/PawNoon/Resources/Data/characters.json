@@ -1,5 +1,5 @@
 {
-  "_note": "Per-character persona (SPEC_V2 sections 2 and 8.2). lines: what the cat says when he is the OPPONENT (botWon/botLost = he won/lost the last round, playerEarly = the other cat drew early). meow: Resources/Audio/SFX key played when his bubble pops. Missing keys fall back to the built-ins (Pawtruth also to duel_config.json blackpawLines).",
+  "_note": "Per-character persona (SPEC_V2 sections 2 and 8.2). lines: what the cat says when he is the OPPONENT (botWon/botLost = he won/lost the last round, playerEarly = the other cat drew early). meow: Resources/Audio/SFX key played when his bubble pops. Missing keys fall back to the built-ins.",
   "whiskers": {
     "name": "WHISKERS",
     "meow": "sfx_meow_whiskers",

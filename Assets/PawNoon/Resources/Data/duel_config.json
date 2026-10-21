@@ -109,43 +109,6 @@
   "suddenDeathHeartbeatGain": 1.1,
   "replayStripSeconds": 0.35,
   "introEnabled": true,
-  "_blackpawLinesNote": "LEGACY, kept for one release: banter now lives in Resources/Data/characters.json (pawtruth.lines). These lines are only the fallback for contexts characters.json does not define.",
-  "blackpawLines": {
-    "matchStart": [
-      "Yer hand's shakin', kid.",
-      "This town's too small, kid.",
-      "Draw when yer ready."
-    ],
-    "lastOne": [
-      "Last one, pardner.",
-      "One more and we're done.",
-      "This one counts, kid."
-    ],
-    "lightning": [
-      "...Who taught you that?",
-      "Huh. Quick paws.",
-      "Well, I'll be."
-    ],
-    "playerEarly": [
-      "Jumpy, ain't ya?",
-      "Easy on that trigger.",
-      "Wait for it, kid."
-    ],
-    "botWon": [
-      "Too slow, pardner.",
-      "Keep up, kid.",
-      "That all ya got?"
-    ],
-    "botLost": [
-      "Lucky shot.",
-      "Beginner's luck.",
-      "Won't happen twice."
-    ],
-    "matchWin": [
-      "Sleep tight, kid.",
-      "Come back with more whiskers."
-    ]
-  },
   "layout": {
     "canvas": [
       360,

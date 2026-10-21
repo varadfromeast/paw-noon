@@ -504,10 +504,10 @@ def all_sfx():
          'sfx_gun_bandit_2': lambda: gun_bandit_canyon(3, 0.92, 62),
          'sfx_gun_bandit_3': lambda: gun_bandit_canyon(1, 0.98, 63),
          'sfx_cock': sfx_cock, 'sfx_holster': sfx_holster, 'sfx_misfire': sfx_misfire, 'sfx_hit': sfx_hit,
-         'sfx_hit_cat': sfx_hit_cat, 'sfx_ricochet': sfx_ricochet, 'sfx_shell': sfx_shell,
+         'sfx_hit_cat': sfx_hit_cat, 'sfx_shell': sfx_shell,
          'sfx_bodyfall': sfx_bodyfall, 'sfx_spurs': sfx_spurs, 'sfx_stamp': sfx_stamp, 'sfx_whoosh': sfx_whoosh,
          'sfx_lightning': sfx_lightning, 'sfx_hp_tick': sfx_hp_tick, 'sfx_ui_tap': sfx_ui_tap,
-         'sfx_ui_back': sfx_ui_back, 'sfx_ui_toggle': sfx_ui_toggle, 'sfx_vulture': sfx_vulture,
+         'sfx_ui_back': sfx_ui_back, 'sfx_ui_toggle': sfx_ui_toggle,
          'sfx_tick_sub': _tick_sub}
     return d
 

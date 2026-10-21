@@ -41,7 +41,6 @@ namespace PawNoon.Runtime
         public IOpponent Opponent { get { return opponent; } }
         /// <summary>Recorded-match rules of the current match, or null in solo.</summary>
         public RecordedMatchRules MatchRules { get { return rules; } }
-        private string OpponentLabel { get { return OpponentName; } }
 
         /// <summary>Raised once when the match result should be shown (player won?, drawn match = double KO in a tie?).</summary>
         public System.Action<bool, bool> MatchFinished;
@@ -95,8 +94,6 @@ namespace PawNoon.Runtime
         private bool tieLanded;
         private int lastFiredSlot = -1;
         private readonly Vector2[] muzzleAt = new Vector2[2];
-        private float desatT = -1f;
-        private bool desatOn;
 
         // the opponent talks (presentation only)
         /// <summary>Tail tip: just left of the opponent's muzzle, in bandit cell px (cell 117x120, pivot at the feet).</summary>
@@ -153,16 +150,8 @@ namespace PawNoon.Runtime
             if (bubble != null) bubble.SetReducedMotion(on);
         }
 
-        /// <summary>The opponent's speech bubble (created on first use under the cues' UI root unless one is supplied).</summary>
+        /// <summary>The opponent's speech bubble (created on first use under the cues' UI root).</summary>
         public SpeechBubble Bubble { get { return EnsureBubble(); } }
-
-        /// <summary>Optional: supply a bubble built with the game's shared UiKit (else the director builds its own).</summary>
-        public void SetSpeechBubble(SpeechBubble b)
-        {
-            if (bubble != null && bubble != b) bubble.Hide();
-            bubble = b;
-            if (bubble != null) bubble.SetReducedMotion(reducedMotion);
-        }
 
         public void SetSeed(int s) { seed = s; }
 
@@ -180,7 +169,8 @@ namespace PawNoon.Runtime
         }
 
         private string OpponentName { get { return opponentName ?? (persona != null && !string.IsNullOrEmpty(persona.name) ? persona.name : cfg.botName); } }
-        private BanterLines OpponentLines { get { return persona != null && persona.lines != null ? persona.lines : cfg.blackpawLines; } }
+        private static readonly BanterLines DefaultLines = new BanterLines();
+        private BanterLines OpponentLines { get { return persona != null && persona.lines != null ? persona.lines : DefaultLines; } }
 
         /// <summary>
         /// PvP seam (SPEC_V2 §4.6): from the next StartMatch, slot 1 is <paramref name="o"/> and the match
@@ -274,7 +264,6 @@ namespace PawNoon.Runtime
             audio.Duck(1f);
             audio.Heartbeat(0f);
             HideBubble();
-            ClearTieFx();
             EndLastLight();
             Screen.sleepTimeout = SleepTimeout.SystemSetting;
         }
@@ -331,7 +320,6 @@ namespace PawNoon.Runtime
             tieRound = false;
             tieLanded = false;
             lastFiredSlot = -1;
-            ClearTieFx();
             HideBubble();
             banterLine = null;
             banterAt = -1f;
@@ -346,59 +334,6 @@ namespace PawNoon.Runtime
                     banterAt = lead;
                 }
             }
-        }
-
-        /// <summary>Context for the standoff after a resolved / voided round (reads the last round record).</summary>
-        private BanterContext NextBanterContext()
-        {
-            var r = authority.Round;
-            var m = authority.Match;
-            bool hasLast = r.roundId > 0 && !r.isVoid;
-            bool lightning = hasLast && r.slots[0].outcome == SlotOutcome.Shot && r.slots[0].grade == Grade.Lightning;
-            return BanterPicker.Context(false, m.Hp[0], m.Hp[1], cfg.banterLowHp, lightning, prevHeroEarly, hasLast ? r.winnerSlot : -1);
-        }
-
-        private SpeechBubble EnsureBubble()
-        {
-            if (bubble != null) return bubble;
-            if (uiCatalog == null) uiCatalog = new SpriteCatalog("Art/UI/", "ui");
-            var parent = cues != null ? (cues.transform.parent != null ? cues.transform.parent : cues.transform) : null;
-            bubble = SpeechBubble.Create("SpeechBubble", parent, uiCatalog, BitmapFont.Load("font_small", 8), audio, pipe);
-            bubble.SetReducedMotion(reducedMotion);
-            return bubble;
-        }
-
-        private SpriteCatalog UiCatalog
-        {
-            get
-            {
-                if (uiCatalog == null) uiCatalog = new SpriteCatalog("Art/UI/", "ui");
-                return uiCatalog;
-            }
-        }
-
-        /// <summary>First canvas y below the duel HUD (portraits + round sign), as ScreenBase.HudBottom.</summary>
-        private int HudBottom()
-        {
-            var ui = UiCatalog;
-            var f = ui.TryGet("portrait_frame");
-            var rs = ui.TryGet("round_sign");
-            return pipe.Safe.y + layout.HudMargin + (f != null ? f.Cell.y : 48) + 2 + (rs != null ? rs.Cell.y : 16) + 4;
-        }
-
-        private void Say(string line, float seconds)
-        {
-            if (string.IsNullOrEmpty(line) || dead[1] || !opponent.HostActing) return;
-            var b = EnsureBubble();
-            b.MinY = HudBottom();
-            var p = bandit.CanvasFromCell(BanterMouthCell);
-            b.Show(line, new Vector2Int(Mathf.RoundToInt(p.x), Mathf.RoundToInt(p.y)), false, seconds);
-            if (persona != null) audio.PlayMeow(persona.meow);   // his "meow signature" (SPEC_V2 §8.2)
-        }
-
-        private void HideBubble()
-        {
-            if (bubble != null) bubble.Hide();
         }
 
         /// <summary>App backgrounded / focus lost mid-round: void and go back to standoff.</summary>
@@ -592,15 +527,6 @@ namespace PawNoon.Runtime
             sweatT = Random.value < (float)cfg.holdSweatChance ? Random.Range(0.5f, 1.4f) : -1f;
         }
 
-        /// <summary>One bead of sweat rolling off the side of the hero's head (seen from behind).</summary>
-        private void SweatDrop()
-        {
-            if (dead[0] || cuePresented) return;
-            // cell px of the right side of his head, under the hat brim (hero cell 295x275, pivot at the feet)
-            var p = hero.CanvasFromCell(new Vector2Int(173, 60));
-            fx.Burst(fx.Fx("sweat_drop"), p, 92, new Vector2(2f, 6f), 70f, 0.9f);
-        }
-
         private void PresentDraw(long frameStartNs)
         {
             hud.SetCueMode(SwipeCue.Mode.Go);
@@ -627,252 +553,6 @@ namespace PawNoon.Runtime
             audio.Heartbeat(0f);
             // the cue stays through DRAW (it now says NOW! SWIPE UP) and hides itself on the draw
             cues.SetTimer(0, false);
-        }
-
-        // ------------------------------------------------------------------ the bot's acting (presentation only)
-
-        private void TickActing(long frameStartNs)
-        {
-            var r = authority.Round;
-            if (State == Pres.Live && r.schedule != null && r.cueDecidedNs < 0 && !r.isVoid && actingRoundId != r.roundId &&
-                opponent.Client.InRound && opponent.Client.RoundId == r.roundId)
-            {
-                actingRoundId = r.roundId;
-                if (!opponent.HostActing || opponent.FoulPlanned || dead[1]) acting.Clear();
-                else acting.Plan(r.countdownStartNs + r.schedule.CountdownNs, r.countdownStartNs + r.schedule.CueOffsetNs, itch);
-            }
-            BotActKind k;
-            while ((k = acting.Poll(frameStartNs)) != BotActKind.None)
-            {
-                if (State != Pres.Live || cuePresented || dead[1]) continue;
-                if (k == BotActKind.Feint) PresentFeint();
-                else PresentTell();
-            }
-        }
-
-        private void PresentFeint()
-        {
-            if (dead[1] || cuePresented || banditTelling) return;
-            bandit.Feint((float)cfg.feintAnimSpeed);
-            audio.Play("sfx_spurs", 0.8f);
-            fx.Dust(new Vector2(layout.BanditFeet.x - 6, layout.BanditFeet.y), 71, 1, 6f);
-        }
-
-        /// <summary>The late tell: ears flatten a fixed lead before the cue. Silent: a read, not a cue.</summary>
-        private void PresentTell()
-        {
-            if (dead[1] || cuePresented) return;
-            banditTelling = true;
-            if (tellSheet != null) bandit.Play("tell");
-            else
-            {
-                // no art yet: keep the ready pose and settle 1 px (shoulders drop) so the read still exists
-                bandit.Loop("ready");
-                bandit.PoseOffset = new Vector2(0f, 1f);
-            }
-        }
-
-        private void EndTell()
-        {
-            banditTelling = false;
-            bandit.PoseOffset = Vector2.zero;
-        }
-
-        private void PresentHeroDraw()
-        {
-            heroPredictedFire = true;
-            audio.Play(heroDrawSfx, 0.9f);
-            hud.SetDrawn(true);
-            // holster shows empty (frame 2) until the next standoff
-            hero.Play("draw_fire");
-            restAnim[0] = "aim";
-            var d = hero.Sheet("draw_fire");
-            if (d == null || d.FireFrame < 0) HeroFired();
-            else HapticMoments.Swipe();   // the recoil follows at the fire frame
-        }
-
-        private void PresentHeroFoul()
-        {
-            if (heroFoulShown) return;
-            heroFoulShown = true;
-            heroFouledThisRound = true;
-            hero.Play("foul");
-            restAnim[0] = "ready";
-            cues.ShowNumeral(0);
-            cues.ShowStamp("stamp_too_early");
-            audio.Play("sfx_misfire");                 // the dry jam click
-            audio.Play("sfx_cock", 0.35f, 0.8f);       // hammer catching, low and dull
-            HapticMoments.Foul();
-        }
-
-        // ------------------------------------------------------------------ fire / impact
-
-        private void HeroFired()
-        {
-            if (fired[0] || dead[0]) return;
-            fired[0] = true;
-            Vector2 m;
-            if (!hero.TryMuzzleCanvas(out m)) m = new Vector2(layout.HeroBottomLeft.x + 150, layout.HeroBottomLeft.y - 250);
-            muzzleAt[0] = m;
-            lastFiredSlot = 0;
-            float rm = reducedMotion ? 0.5f : 1f;
-            float rk = (float)cfg.heroRecoilPx * rm;
-            hero.Impulse(new Vector2(-rk, rk * 0.67f), (float)cfg.recoilSeconds);   // gun kicks back and down-left
-            fx.Burst(HeroMuzzle, m, 96, Vector2.zero);
-            fx.Sparks(m, 97, 3);
-            fx.Smoke(m, 95, 2);
-            fx.Shell(new Vector2(m.x - 18, m.y + 16), 96, m.y + 70);
-            pipe.FlashScreen(0.22f * heroFlashBoost, heroFlashBoost > 1f ? new Color(0.85f, 0.95f, 1f) : new Color(1f, 0.93f, 0.7f));
-            pipe.AddShake((float)cfg.shakeShot);
-            pipe.Kick(new Vector2(-1.5f, 1f));
-            audio.PlayVariant(heroShotSfx, 3);
-            audio.Play("sfx_shell", 0.4f);
-            HapticMoments.HeroShot();
-            if (pendingImpact[0]) Land(0);
-        }
-
-        private void BanditFired()
-        {
-            if (fired[1] || dead[1]) return;
-            fired[1] = true;
-            Vector2 m;
-            if (!bandit.TryMuzzleCanvas(out m)) m = bandit.HitPointCanvas + new Vector2(-10, 4);
-            muzzleAt[1] = m;
-            lastFiredSlot = 1;
-            bandit.Impulse(new Vector2(0f, reducedMotion ? 0f : -1f), (float)cfg.recoilSeconds);
-            fx.Burst(fx.Fx("muzzle_front"), m, 76, Vector2.zero);
-            fx.Sparks(m, 76, 2);
-            fx.Smoke(m, 74, 2);
-            pipe.FlashScreen(0.3f, new Color(1f, 0.95f, 0.75f));
-            pipe.AddShake((float)cfg.shakeShot * 0.6f);
-            if (!reducedMotion)
-            {
-                vignettePulse = (float)cfg.banditShotVignette;
-                vignettePulseT = 0f;
-            }
-            audio.PlayVariant("sfx_gun_bandit", 3);
-            if (pendingImpact[1]) Land(1);
-        }
-
-        private void QueueShot(DuelEvent e)
-        {
-            int s = e.slot;
-            pendingImpact[s] = true;
-            pendingEvent[s] = e;
-            pendingAge[s] = 0f;
-            if (e.simultaneous) tieRound = true;
-            var shooter = s == 0 ? hero : bandit;
-            if (fired[s]) { Land(s); return; }
-            var draw = shooter.Sheet("draw_fire");
-            if (s == 0)
-            {
-                if (!heroPredictedFire) PresentHeroDraw();
-            }
-            else
-            {
-                EndTell();
-                restAnim[1] = "aim";
-                int start = draw != null && draw.FireFrame > 0 ? draw.FireFrame - 1 : 0;
-                bandit.Play("draw_fire", start);
-                if (draw == null || draw.FireFrame < 0) BanditFired();
-            }
-        }
-
-        /// <summary>A shot's impact is due (its shooter fired). In a tie both impacts wait for the second trigger pull.</summary>
-        private void Land(int s)
-        {
-            if (!pendingImpact[s]) return;
-            if (tieRound)
-            {
-                if (fired[0] && fired[1]) LandTie();
-                return;
-            }
-            ApplyImpact(s);
-        }
-
-        /// <summary>Both tied shots hit at the moment of the second shot, then the near-miss beat.</summary>
-        private void LandTie()
-        {
-            if (tieLanded) return;
-            tieLanded = true;
-            int first = lastFiredSlot == 0 ? 1 : 0;   // the shooter whose flash is already fading
-            if (pendingImpact[0]) ApplyImpact(0);
-            if (pendingImpact[1]) ApplyImpact(1);
-            TieDrama(first);
-        }
-
-        private void TieDrama(int firstShooter)
-        {
-            // both muzzle flashes hang in the air together: re-light the earlier one under the slow-mo
-            if (fired[firstShooter])
-            {
-                if (firstShooter == 0) fx.Burst(HeroMuzzle, muzzleAt[0], 96, Vector2.zero);
-                else fx.Burst(fx.Fx("muzzle_front"), muzzleAt[1], 76, Vector2.zero);
-            }
-            float secs = (float)cfg.tieSlowMoSeconds;
-            PawTime.SlowMo((float)cfg.tieSlowMoScale, secs);
-            if (PipeFx.SetDesaturation(pipe, (float)cfg.tieDesaturate)) { desatOn = true; desatT = secs; }
-            if (UiCatalog.Has("stamp_too_close")) cues.ShowStamp("stamp_too_close");
-            else cues.ShowMessage("TOO CLOSE!", secs + 0.9f);
-            audio.Play("sfx_lightning");
-            HapticMoments.Tie();
-        }
-
-        private void ClearTieFx()
-        {
-            if (desatOn) PipeFx.SetDesaturation(pipe, 0f);
-            desatOn = false;
-            desatT = -1f;
-        }
-
-        private void ApplyImpact(int shooterSlot)
-        {
-            if (!pendingImpact[shooterSlot]) return;
-            pendingImpact[shooterSlot] = false;
-            var e = pendingEvent[shooterSlot];
-            int victim = 1 - shooterSlot;
-            var v = victim == 0 ? hero : bandit;
-            var hit = v.HitPointCanvas;
-            if (victim == 1) EndTell();
-            float rm = reducedMotion ? 0.5f : 1f;
-            v.Flash(0.12f);
-            if (victim == 1)
-            {
-                float kb = (float)cfg.knockBanditPx * rm;          // pushed away from the camera, up-right
-                v.Impulse(new Vector2(kb * 0.8f, -kb * 0.6f), (float)cfg.knockSeconds);
-            }
-            else
-            {
-                float kh = (float)cfg.knockHeroPx * rm;            // pushed back toward the camera
-                v.Impulse(new Vector2(-kh * 0.34f, kh), (float)cfg.knockSeconds);
-            }
-            fx.Burst(fx.Fx("hit_puff"), hit, victim == 0 ? 97 : 76, Vector2.zero);
-            fx.Burst(fx.Fx("flash_ring"), hit, victim == 0 ? 96 : 75, Vector2.zero);
-            fx.Sparks(hit, victim == 0 ? 97 : 76, 4);
-            fx.Pixels(hit, victim == 0 ? 97 : 76, 6, victim == 0 ? Pal.Sand0 : Pal.Steel1, 70f, 160f);
-            PawTime.HitStop((float)cfg.hitStopMs / 1000f);
-            pipe.AddShake((float)cfg.shakeHit);
-            audio.Play("sfx_hit");
-            audio.Play("sfx_hit_cat", 0.9f, victim == 0 ? 1.08f : 0.92f);
-            audio.Play("sfx_hp_tick", 0.5f);
-            if (victim == 1) HapticMoments.HitDealt(e.killed);
-            else HapticMoments.HitTaken(e.killed);
-            if (victim == 0) pipe.HeroHurt(); else pipe.PopAt(hit);
-            hud.Hit(victim, (float)(e.targetHpAfter / cfg.maxHp));
-            if (e.killed)
-            {
-                // killing blow: reel in slow-mo, then fall; dust + body-fall land with the body (TickFalls)
-                dead[victim] = true;
-                fallStage[victim] = 1;
-                fallT[victim] = 0f;
-                v.Play("hit");
-                PawTime.SlowMo((float)cfg.killSlowMoScale, (float)cfg.killSlowMoSeconds);
-                pipe.PushTo(hit, 0.02f, (float)cfg.killSlowMoSeconds + 0.25f);
-            }
-            else
-            {
-                v.Play("hit");
-            }
         }
 
         // ------------------------------------------------------------------ authority events
@@ -962,12 +642,6 @@ namespace PawNoon.Runtime
             }
             TickFalls();
             TickVignette();
-
-            if (desatT > 0f)
-            {
-                desatT -= PawTime.UnscaledDt;
-                if (desatT <= 0f) ClearTieFx();
-            }
 
             if (voidTimer > 0f)
             {
@@ -1220,166 +894,6 @@ namespace PawNoon.Runtime
             panel.Close();
             cues.HideAll();
             if (authority.NextRound()) BeginStandoff(0.9f, NextBanterContext());
-        }
-
-        // ------------------------------------------------------------------ review (deterministic stills)
-
-        public void EnterReview()
-        {
-            State = Pres.Review;
-            intro.Cancel();
-            pipe.SetTension(0f);
-            PawTime.ClearEffects();
-            pipe.Zoom = 1f;
-            pipe.Vignette = baseVignette;
-            vignettePulseT = 99f;
-            acting.Clear();
-            EndTell();
-            HideBubble();
-            ClearTieFx();
-            EndLastLight();
-            banterLine = null;
-            sweatT = -1f;
-            fallStage[0] = fallStage[1] = 0;
-            audio.Duck(1f);
-            audio.Heartbeat(0f);
-            cues.HideAll();
-            panel.Close();
-            dead[0] = dead[1] = false;
-            hero.ResetPose();
-            bandit.ResetPose();
-            hud.ShowHint(false);
-        }
-
-        public void ReviewCountdown(int numeral)
-        {
-            EnterReview();
-            hud.SetVisible(true);
-            hud.SetRound(1);
-            hud.SetHpImmediate(0, 1f);
-            hud.SetHpImmediate(1, 1f);
-            hero.Play("ready");
-            bandit.Play("ready");
-            cues.ShowNumeral(numeral);
-            hud.ShowHolster(true);
-            hud.ShowHint(true);
-        }
-
-        public void ReviewDraw(long timerNs)
-        {
-            EnterReview();
-            hud.SetVisible(true);
-            hud.SetRound(1);
-            hud.SetHpImmediate(0, 1f);
-            hud.SetHpImmediate(1, 1f);
-            hero.Play("ready");
-            bandit.Play("ready");
-            cues.ShowDraw();
-            cues.SetTimer(timerNs, false);
-        }
-
-        public void ReviewFoul()
-        {
-            EnterReview();
-            hud.SetVisible(true);
-            hud.SetRound(2);
-            hud.SetHpImmediate(0, 0.76f);
-            hud.SetHpImmediate(1, 0.66f);
-            hero.Play("foul");
-            bandit.Play("ready");
-            cues.ShowStamp("stamp_too_early");
-        }
-
-        public void ReviewRoundResult()
-        {
-            EnterReview();
-            hud.SetVisible(true);
-            hud.SetRound(1);
-            long you = 214382000L, botNs = 288105000L;
-            double dealt = DamageCurve.Evaluate(cfg, DuelConfig.NsToMs(you));
-            hud.SetHpImmediate(0, 1f);
-            hud.SetHpImmediate(1, (float)((cfg.maxHp - dealt) / cfg.maxHp));
-            hero.Play("aim");
-            bandit.Play("hit", 3);
-            cues.SetTimer(you, true);
-            var v = new RoundView();
-            v.youName = "YOU";
-            v.botName = OpponentName;
-            v.youNs = you;
-            v.botNs = botNs;
-            v.grade = Grading.FromMs(cfg, DuelConfig.NsToMs(you));
-            v.dealt = dealt;
-            stampHaptic = StampHaptics.For(false, false, v.grade);
-            v.replay = ReplayMarks.Shots(you, botNs, (float)cfg.replayStripSeconds);
-            panel.Show(v);
-            panel.ShowStampNow();
-        }
-
-        public void ReviewMatchEnd(bool win)
-        {
-            EnterReview();
-            hud.SetVisible(true);
-            hud.SetRound(4);
-            hud.SetHpImmediate(0, win ? 0.52f : 0f);
-            hud.SetHpImmediate(1, win ? 0f : 0.37f);
-            if (win) { hero.Play("win"); bandit.Play("down", 99); }
-            else { hero.Play("down", 99); bandit.Play("win"); }
-        }
-
-        public string StatusLine()
-        {
-            var m = authority.Match;
-            var r = authority.Round;
-            string you = r.slots[0].reactionNs >= 0 ? NumFmt.Seconds6(r.slots[0].reactionNs) : "--";
-            string b = r.slots[1].reactionNs >= 0 ? NumFmt.Seconds6(r.slots[1].reactionNs) : "--";
-            return "pres=" + State + " phase=" + authority.Phase + " round=" + m.RoundNumber +
-                   " hp=" + Mathf.RoundToInt((float)m.Hp[0]) + "/" + Mathf.RoundToInt((float)m.Hp[1]) +
-                   " wins=" + m.RoundWins[0] + "-" + m.RoundWins[1] +
-                   " last=" + you + "s vs " + b + "s" +
-                   " outcomes=" + r.slots[0].outcome + "/" + r.slots[1].outcome +
-                   " tie=" + r.isTie +
-                   " over=" + m.Over + " winner=" + m.Winner +
-                   " autoTapMs=" + (autoTapNs < 0 ? "off" : (autoTapNs / 1e6).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)) +
-                   " seed=" + seed + " rejected=" + authority.RejectedReports +
-                   " lastLight=" + lastLight + " dmgMult=" + authority.Round.damageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
-                   "/next " + authority.PendingDamageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
-                   (rules != null ? " pvp=attempts:" + rules.Attempts + ",resolved:" + rules.Resolved + ",end:" + RecordedMatchRules.ToWire(rules.EndReason) : "");
-        }
-    }
-
-    /// <summary>
-    /// Optional pipeline hooks found by name, so the tie beat lights up as soon as PixelPipeline grows a
-    /// desaturation control ("Desaturate"/"Desaturation" 0..1, or "Saturation" 1 = normal) and is skipped until then.
-    /// </summary>
-    internal static class PipeFx
-    {
-        private static bool probed;
-        private static System.Reflection.FieldInfo field;
-        private static System.Reflection.PropertyInfo prop;
-        private static bool inverse;
-        private static readonly string[] Names = { "Desaturate", "Desaturation", "Saturation" };
-
-        /// <summary>Returns false (and does nothing) when the pipeline has no such control.</summary>
-        public static bool SetDesaturation(PixelPipeline pipe, float amount)
-        {
-            if (pipe == null) return false;
-            if (!probed)
-            {
-                probed = true;
-                var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
-                var t = typeof(PixelPipeline);
-                for (int i = 0; i < Names.Length && field == null && prop == null; i++)
-                {
-                    var f = t.GetField(Names[i], flags);
-                    if (f != null && f.FieldType == typeof(float)) { field = f; inverse = Names[i] == "Saturation"; break; }
-                    var p = t.GetProperty(Names[i], flags);
-                    if (p != null && p.PropertyType == typeof(float) && p.CanWrite) { prop = p; inverse = Names[i] == "Saturation"; break; }
-                }
-            }
-            float v = inverse ? 1f - amount : amount;
-            if (field != null) { field.SetValue(pipe, v); return true; }
-            if (prop != null) { prop.SetValue(pipe, v, null); return true; }
-            return false;
         }
     }
 }

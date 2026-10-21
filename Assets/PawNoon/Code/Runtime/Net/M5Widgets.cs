@@ -37,9 +37,7 @@ namespace PawNoon.Runtime.Net
         protected void BuildFrame(string panelSprite, bool darkText)
         {
             panelName = panelSprite;
-            dim = PawGfx.NewSprite("Dim", transform, O - 2);
-            dim.sprite = ArtLib.WhitePixel;
-            dim.color = new Color32(Pal.Ink.r, Pal.Ink.g, Pal.Ink.b, 150);
+            dim = UiKit.Dim(transform, O - 2);
             panel = kit.Panel(panelSprite, transform, O, new RectInt(0, 0, 196, 100));
             if (darkText) title = InkText("Title", kit.Medium, O + 3, TextAlign.Center);
             else
@@ -55,8 +53,7 @@ namespace PawNoon.Runtime.Net
         {
             var vis = pipe.Visible;
             var safe = pipe.Safe;
-            dim.transform.position = Px.World(vis.x, vis.yMax);
-            dim.transform.localScale = new Vector3(vis.width, vis.height, 1f);
+            UiKit.FillVisible(dim, pipe);
             w = Mathf.Min(w, vis.width - 16);
             int x = CenterX - w / 2;
             int y = Mathf.Max(layout.Logo.y + 64, safe.yMax - 12 - h);
@@ -107,14 +104,7 @@ namespace PawNoon.Runtime.Net
         }
 
         /// <summary>A sliced seg sprite (seg_on / seg_off) sized to a rect.</summary>
-        protected void PlaceSeg(SpriteRenderer sr, bool on, RectInt r)
-        {
-            var d = kit.Ui.TryGet(on ? "seg_on" : "seg_off");
-            if (d == null) { sr.sprite = null; return; }
-            sr.sprite = d.First;
-            sr.drawMode = SpriteDrawMode.Sliced;
-            UiKit.SetRect(sr, d, r);
-        }
+        protected void PlaceSeg(SpriteRenderer sr, bool on, RectInt r) { kit.PlaceSeg(sr, on, r); }
     }
 
     /// <summary>

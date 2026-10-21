@@ -101,47 +101,15 @@ namespace PawNoon.Runtime
         private readonly char[] timerBuf = new char[24];
         private float messageLeft;
         private bool reducedMotion;
-        private SpriteRenderer heart;
         private EcgMonitor ecg;
         /// <summary>Heart monitor R peak during the hold: (beat index, frenzy 0..1, early/skipped beat).</summary>
         public System.Action<int, float, bool> OnHeartBeat;
         private bool holdMood;
-        private SheetDef heartDef;
         /// <summary>Beats per minute of the hold heart (matches Loops/heartbeat.ogg).</summary>
         public float HeartBpm = 92f;
         private int lastNumeral = -1;
         private bool timerFrozen;
-        private static Sprite heartSprite;
-
-        private static readonly string[] HeartRows =
-        {
-            ".XX...XX.",
-            "XXXX.XXXX",
-            "XXXXXXXXX",
-            "XXXXXXXXX",
-            ".XXXXXXX.",
-            "..XXXXX..",
-            "...XXX...",
-            "....X....",
-        };
-
-        private static Sprite HeartSprite()
-        {
-            if (heartSprite != null) return heartSprite;
-            int w = 9, h = HeartRows.Length;
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-            var px = new Color32[w * h];
-            for (int y = 0; y < h; y++)
-                for (int x = 0; x < w; x++)
-                    px[(h - 1 - y) * w + x] = HeartRows[y][x] == 'X' ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
-            tex.SetPixels32(px);
-            tex.Apply(false, false);
-            tex.filterMode = FilterMode.Point;
-            tex.wrapMode = TextureWrapMode.Clamp;
-            tex.name = "PawHeart";
-            heartSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0f, 1f), 1f, 0, SpriteMeshType.FullRect);
-            return heartSprite;
-        }
+        private static readonly string[] NumeralKeys = { null, "cue_1", "cue_2", "cue_3" };
 
         public void Init(UiKit k, GameLayout l)
         {
@@ -161,24 +129,7 @@ namespace PawNoon.Runtime
             message.SetColors(Pal.SigYellow, Pal.Ink, Pal.Ink2);
             message.At(layout.Timer.x, layout.Timer.y + 26);
             message.Visible = false;
-            // faint heartbeat glyph in the HIGH NOON numeral window during the hold
-            heart = PawGfx.NewSprite("HoldHeart", transform, Order + 1);
-            // painted 4-frame heart (Art/UI/heart_beat.png) when the artist delivered it; else the small glyph
-            heartDef = kit.Ui.TryGet("heart_beat");
-            if (heartDef != null && heartDef.Count >= 2)
-            {
-                heart.sprite = heartDef.Frames[0];
-                heart.color = Color.white;
-                PawGfx.Place(heart, layout.Cue.x - heartDef.Cell.x / 2 + heartDef.Pivot.x, layout.Cue.y - heartDef.Cell.y / 2 + heartDef.Pivot.y);
-            }
-            else
-            {
-                heart.sprite = HeartSprite();
-                PawGfx.Place(heart, layout.Cue.x - 4, layout.Cue.y - 4);
-            }
-            heart.enabled = false;
-
-            // heart monitor in the numeral window (replaces the heart glyph during the hold)
+            // heart monitor in the HIGH NOON numeral window during the hold
             var bd = kit.Ui.TryGet("hud_badge");
             int ew = 96, eh = 56;
             if (bd != null && bd.HasInner) { ew = bd.Inner.width - 8; eh = bd.Inner.height - 8; }
@@ -189,7 +140,7 @@ namespace PawNoon.Runtime
         }
 
         /// <summary>
-        /// Hold mood: a faint dark-red heart pulsing at about 1.5 Hz in the badge's numeral window.
+        /// Hold mood: the heart monitor (EcgMonitor) runs in the badge's numeral window.
         /// Turned on automatically when the numeral 1 is dismissed (ShowNumeral(0)), off at DRAW,
         /// stamps, HideAll or a new numeral. Callers may also drive it explicitly.
         /// </summary>
@@ -197,7 +148,6 @@ namespace PawNoon.Runtime
         {
             if (on == holdMood) return;
             holdMood = on;
-            if (heart != null) heart.enabled = false;   // superseded by the heart monitor
             if (ecg != null) ecg.SetVisible(on);
         }
 
@@ -217,7 +167,7 @@ namespace PawNoon.Runtime
             }
             lastNumeral = n;
             SetHoldMood(false);
-            numeral.Show(kit.Ui.Get("cue_" + n), layout.Cue, Amp(-10f), FlashT(0.05f));
+            numeral.Show(kit.Ui.Get(n < NumeralKeys.Length ? NumeralKeys[n] : "cue_" + n), layout.Cue, Amp(-10f), FlashT(0.05f));
         }
 
         /// <summary>

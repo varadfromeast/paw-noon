@@ -811,24 +811,6 @@
    15
   ]
  },
- "swipe_arrow": {
-  "file": "swipe_arrow",
-  "size": [
-   48,
-   20
-  ],
-  "pivot": [
-   6,
-   10
-  ],
-  "cell": [
-   12,
-   20
-  ],
-  "frames": 4,
-  "fps": 8,
-  "loop": true
- },
  "tap_hint": {
   "file": "tap_hint",
   "size": [
@@ -889,20 +871,6 @@
   "pivot": [
    114,
    47
-  ]
- },
- "heart_beat": {
-  "file": "heart_beat",
-  "cell": [
-   58,
-   48
-  ],
-  "frames": 4,
-  "fps": 0,
-  "loop": false,
-  "pivot": [
-   29,
-   24
   ]
  },
  "ico_trophy": {
@@ -968,35 +936,5 @@
    0
   ],
   "note": "the shop price sign; fill at (1,1), drawn like font_medium sun1 + outline + shadow"
- },
- "holster_demo": {
-  "file": "holster_demo",
-  "size": [
-   320,
-   82
-  ],
-  "pivot": [
-   40,
-   82
-  ],
-  "cell": [
-   80,
-   82
-  ],
-  "frames": 4,
-  "fps": 0,
-  "loop": false,
-  "note": "swipe tutorial: paw grips, yanks, gun out; drawn OVER holster_zone frame 0 (same belt line)"
- },
- "hint_sign": {
-  "file": "hint_sign",
-  "size": [
-   88,
-   37
-  ],
-  "pivot": [
-   44,
-   0
-  ]
  }
 }

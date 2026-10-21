@@ -117,10 +117,11 @@ Docs/                               architecture, timing model, decisions
 - **Timing is sacred.** Reaction time comes from input-event timestamps against the estimated photon time of the DRAW cue (`Docs/TIMING.md`). Presentation code must never change match timing.
 - **PvP-ready.** The authority owns the schedule (`DrawCue`), clients send `ShotReport`, and the bot uses the same path. Keep new logic in `Code/Core` when it affects outcomes.
 - UI is drawn on a separate overlay layer (layer 30) so it doesn't zoom or shake with the world.
+- **Before you push C#**, run `python3 Tools/Lint/check_cs.py` (no Unity needed: braces, CS0136 / CS0128, dangling `using`s, sprite keys vs `ui.json` / `fx.json`, sfx keys vs PawAudio's preload list, per-frame allocations). It must report 0 errors. Profiling notes are in `Docs/PERF.md`.
 
 ### Files you can ignore
 - `Assets/_Lead/`: an editor-side file bridge the original author used to drive Unity remotely (commands in `Lead/cmd/*.txt`, results in `Lead/out/`). Useful for agents: `python3 Tools/Lead/lead.py check NAME [Assembly|all]` compiles the project in memory with Roslyn inside the running Editor and prints `file(line,col): CSxxxx` errors in 1–3 s without a domain reload; `lead.py build NAME` does a real recompile; `lead.py test NAME` runs the EditMode tests. The folder is harmless and you can delete it.
-- `HANDOVER.md`: notes from an older prototype.
+- `Assets/Plugins/NuGet/`: the DLLs of the optional MCP editor bridge (`com.ivanmurzak.unity.mcp` in `Packages/manifest.json`: McpPlugin, ReflectorNet, SignalR, System.Text.Json ...) plus `Microsoft.CodeAnalysis*.dll`, which the `check` command above uses. Nothing in `Assets/PawNoon` references them. Their `.meta` files are Editor-only so they never ship in a player build.
 
 ---
 

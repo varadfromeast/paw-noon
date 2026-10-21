@@ -178,16 +178,6 @@ namespace PawNoon.Tests
         }
 
         [Test]
-        public void OverlayMergesNestedBanterShallowly()
-        {
-            var c = DuelConfig.Load("{\"blackpawLines\": {\"botLost\": [\"A.\"], \"botWon\": [\"B.\"]}}",
-                                    "{\"blackpawLines\": {\"botLost\": [\"C.\"]}}", "easy");
-            CollectionAssert.AreEqual(new[] { "C." }, c.blackpawLines.botLost);
-            CollectionAssert.AreEqual(new[] { "B." }, c.blackpawLines.botWon);
-            Assert.AreEqual(DuelConfig.DifficultyEasy, c.Difficulty);
-        }
-
-        [Test]
         public void CopyFromSwapsRulesInPlace()
         {
             var live = Hard();
@@ -218,7 +208,6 @@ namespace PawNoon.Tests
                 else if (f.FieldType == typeof(string)) f.SetValue(src, "x" + k);
                 else if (f.FieldType == typeof(bool)) f.SetValue(src, !(bool)f.GetValue(src));
                 else if (f.FieldType == typeof(double[])) f.SetValue(src, new double[] { k, k + 1 });
-                else if (f.FieldType == typeof(BanterLines)) f.SetValue(src, new BanterLines());
                 else Assert.Fail("DuelConfig." + f.Name + " has a type this test does not know (" + f.FieldType.Name + "): extend it");
             }
             var dst = new DuelConfig();
@@ -226,7 +215,6 @@ namespace PawNoon.Tests
             Assert.IsEmpty(ChangedFields(dst, src));
             Assert.AreEqual(src.Difficulty, dst.Difficulty);
             Assert.AreNotSame(src.damageValue, dst.damageValue, "arrays are copied, not shared");
-            Assert.AreSame(src.blackpawLines, dst.blackpawLines, "banter lines (immutable after load) are shared");
         }
 
         /// <summary>

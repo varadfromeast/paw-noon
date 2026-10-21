@@ -36,7 +36,6 @@ namespace PawNoon.Runtime
         private RectInt bounds;
         private SpriteCatalog fx;
         private SheetDef moteSheet;
-        private bool motesOn = true;
 
         public void Init(int capacity, SpriteCatalog fxCatalog)
         {
@@ -227,26 +226,8 @@ namespace PawNoon.Runtime
                 sr.sprite = moteSheet != null ? moteSheet.Frames[big ? 1 : 0] : ArtLib.WhitePixel;
                 sr.color = moteSheet != null ? (Color)Pal.White : (Color)p.color;
                 sr.sortingOrder = order;
-                sr.enabled = motesOn;
+                sr.enabled = true;
                 Place(i);
-            }
-        }
-
-        public void SetMotesVisible(bool on)
-        {
-            motesOn = on;
-            for (int i = 0; i < ps.Length; i++) if (ps[i].mote) srs[i].enabled = on;
-        }
-
-        public void ClearOneShots()
-        {
-            for (int i = 0; i < ps.Length; i++)
-            {
-                if (ps[i].active && !ps[i].mote)
-                {
-                    ps[i].active = false;
-                    srs[i].enabled = false;
-                }
             }
         }
 
@@ -275,7 +256,7 @@ namespace PawNoon.Runtime
                     if (p.pos.y > bounds.yMax - 30) p.pos.y = bounds.yMin + 60;
                     // twinkle: hide for brief moments (alpha is 0/255 only)
                     bool lit = Mathf.Sin(p.wobble * 2.3f + i) > -0.85f;
-                    srs[i].enabled = motesOn && lit;
+                    srs[i].enabled = lit;
                     ps[i] = p;
                     Place(i);
                     continue;

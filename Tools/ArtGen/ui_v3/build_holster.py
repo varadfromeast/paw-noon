@@ -5,9 +5,9 @@ row 2 = paw yanking the gun up, 4 frames; bottom = the hanging YANK IT UP! sign.
 
 Outputs (Resources/Art/UI, registered in ui.json):
   holster_zone.png   3 frames 64x56, pivot bottom-centre: idle, glow, drawn.  Belt 60 px wide.
-  holster_demo.png   4 frames 64x96, same belt alignment, everything BELOW the belt erased so the
-                     frame is drawn OVER the idle holster (the paw, gun and belt replace only the top).
-  hint_sign.png      the sign, 88 px wide.
+The painted paw-yank demo (holster_demo) and the YANK IT UP! sign (hint_sign) were retired on 20 Oct 2026
+(the SwipeCue thumb + plain wood sign replaced them; cleanup pass 21 Oct removed the PNGs). They are no longer
+written; an old ui.json entry for either is dropped.
 Run: python3 build_holster.py
 """
 import json, os, sys
@@ -73,38 +73,24 @@ def compose(frames, cell_w, cell_h, belt_top_cell):
 def main():
     a = np.asarray(Image.open(os.path.join(HERE, 'src_holster.png')).convert('RGB'))
     m = key_portrait(a)
-    hol, paws, sign = elements(a, m)
-    # row-1 belt width (idle frame) and row-2 belt width (first paw frame) set the two scales
+    hol, _paws, _sign = elements(a, m)
+    # row-1 belt width (idle frame) sets the scale
     w1 = belt_rows(m[hol[0][1]:hol[0][3], hol[0][0]:hol[0][2]])[3]
-    w2 = belt_rows(m[paws[0][1]:paws[0][3], paws[0][0]:paws[0][2]])[3]
     hf = [cut(a, m, b, w1) for b in hol]
-    pf = [cut(a, m, b, w2, erase_below_belt=True) for b in paws]
     # holster cell: belt top sits so the longest holster fits below it
     below = max(im.height - bt for im, bt, bl in hf); above = max(bt for im, bt, bl in hf)
     cell_h = above + below
     holster = compose(hf, CELL_W, cell_h, above)
     holster.save(os.path.join(UI, 'holster_zone.png'))
-    # demo cell: same belt-top distance from the bottom as the holster so both place by bottom-centre
-    above2 = max(bt for im, bt, bl in pf)
-    demo_h = above2 + below
-    demo_w = 80                   # the paw hangs left of the belt
-    demo = compose(pf, demo_w, demo_h, above2)
-    demo.save(os.path.join(UI, 'holster_demo.png'))
-    # sign
-    x0, y0, x1, y1 = sign
-    sg = resample(a[y0:y1, x0:x1], m[y0:y1, x0:x1].astype(np.float32), 88 / (x1 - x0))
-    sg.save(os.path.join(UI, 'hint_sign.png'))
 
     uij = os.path.join(UI, 'ui.json'); ui = json.load(open(uij))
     ui['holster_zone'] = {'file': 'holster_zone', 'size': [holster.width, holster.height], 'pivot': [CELL_W // 2, cell_h],
                           'cell': [CELL_W, cell_h], 'frames': 3, 'fps': 0, 'loop': False,
                           'note': 'frame 0 idle, 1 grip glowing (thumb resting), 2 drawn (empty, dust); select by state'}
-    ui['holster_demo'] = {'file': 'holster_demo', 'size': [demo.width, demo.height], 'pivot': [demo_w // 2, demo_h],
-                          'cell': [demo_w, demo_h], 'frames': 4, 'fps': 0, 'loop': False,
-                          'note': 'swipe tutorial: paw grips, yanks, gun out; drawn OVER holster_zone frame 0 (same belt line)'}
-    ui['hint_sign'] = {'file': 'hint_sign', 'size': [sg.width, sg.height], 'pivot': [sg.width // 2, 0]}
+    ui.pop('holster_demo', None)
+    ui.pop('hint_sign', None)
     json.dump(ui, open(uij, 'w'), indent=1); open(uij, 'a').write('\n')
-    print('holster', holster.size, 'demo', demo.size, 'sign', sg.size, 'belt top', above, above2)
+    print('holster', holster.size, 'belt top', above)
 
 if __name__ == '__main__':
     main()

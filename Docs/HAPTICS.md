@@ -53,7 +53,7 @@ curve on intensity and sharpness; Android: 10 ms amplitude steps).
 | Stamps | `StampLanded` → `HapticMoments.Stamp` | LIGHTNING / PERFECT: one native pattern (heavy ×3 at 65 ms; medium + heavy at 85 ms) on the haptic clock. GREAT medium, GOOD/SLOW light (transients). TOO EARLY / NO SHOT: `UINotificationFeedbackGenerator` error / warning | LIGHTNING / PERFECT as one Composition or waveform. Notify look-alikes (success 2 taps rising, warning 2 falling, error 3) | The §8.6 table is unchanged. The multi-pulse stamps now keep exact rhythm (the haptic clock, not frame ticks). Reduced Motion: first pulse. |
 | Match won / lost | `TickMatchEnd`, 0.10 s later (when the banner lands) | won: T 0.50, 0.75, 1.0 at 0/90/180 + C 300 ms swell; lost: T 0.60/0.15 + C 450 ms 0.55→0 | waveform | Rising vs sinking. A double KO counts as lost. |
 | UI button press | `PixelButton.Tick` | T 0.40/0.80 | tap | Light and crisp. |
-| Settings / difficulty toggles | `Screens.cs` (`PawHaptics.Impact(0)`, unchanged) | T 0.45/0.70 | tap | A touch fuller than a button press. |
+| Settings / difficulty toggles | `SettingsScreen.cs`, `TitleScreen.cs` (`PawHaptics.Impact(0)`, unchanged) | T 0.45/0.70 | tap | A touch fuller than a button press. |
 | Bandit shot | `BanditFired` | none (by design) | none | The hit taken follows immediately. Two hits would blur. |
 
 **Before this pass**, every moment was a `UIImpactFeedbackGenerator` light / medium / heavy (or a notification), and

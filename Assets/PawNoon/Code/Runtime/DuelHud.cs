@@ -31,6 +31,8 @@ namespace PawNoon.Runtime
             public BitmapText lost;
             public float lostT = 99f;
             public int lostLastY = int.MinValue;
+            // last presented portrait state (hurt + jolt), so the sprite / transform are only written on change
+            public int portraitKey = -1;
         }
 
         private const int Order = 200;
@@ -54,28 +56,24 @@ namespace PawNoon.Runtime
         private BadgeTitle badgeTitle;   // "LAST LIGHT" over the baked HIGH NOON (feel wave 2)
         private SpriteRenderer hint;
         private bool hintOn, quietOn, onceUsed, reducedMotion;
-        // swipe tutorial (sign + ghost paw)
-        private SpriteRenderer signPanel, ghostPaw;
+        // swipe tutorial: the hanging wood sign + the SwipeCue (ghost thumb + chevrons, 20 Oct redesign)
+        private SpriteRenderer signPanel;
         private BitmapText signText;
-        // painted swipe tutorial (src_holster.png): the sign sprite and the 4-frame paw-yank overlay drawn over the holster
-        private SheetDef signDef, demoDef;
-        private SpriteRenderer signSprite, demo;
-        private int demoX, demoY;
         private bool drawnShown;
-        private SwipeCue cue;              // the swipe-up teaching cue (ghost thumb + chevrons), 20 Oct redesign
-        private SpriteRenderer[] trail;
-        private float[] trailAge;
-        private float signT, pawT, quietLeft, lastTrailY;
+        private SwipeCue cue;
+        private float signT, quietLeft;
         private bool ghostGlow;
-        private int signX, signY, pawX, pawY, pawRise = 56;
-        private const int SignW = 100, SignH = 16, TrailN = 12;
+        private int signX, signY;
+        private int signPlacedX = int.MinValue, signPlacedY = int.MinValue;
+        private SheetDef signPanelDef;
+        private int holsterFrameShown = -1;
+        private const int SignW = 100, SignH = 16;
+        /// <summary>Clearance above the grip that the cue's thumb rises through, below the sign (px).</summary>
+        private const int SignLift = 56;
         private static readonly int[] Swing = { -1, 1, -1, 1, 0 };
-        private SpriteRenderer arrow;
         private SheetDef holsterDef;
         private bool holsterVisible;
         private bool restingShown;
-        private SpriteAnimator hintAnim;
-        private BitmapText hint1, hint2;
         private GameLayout layout;
         private int laidOutVersion = -1;
         private PixelPipeline pipe;
@@ -144,21 +142,10 @@ namespace PawNoon.Runtime
                 badgeTitle = new BadgeTitle(kit, transform, 151);
             }
 
-            // holster widget (SPEC §11): holster + grip at the bottom centre, arrow + text above it
+            // holster widget (SPEC §11): holster + grip at the bottom centre, the sign + SwipeCue above it
             holsterDef = kit.Ui.TryGet("holster_zone");
             hint = PawGfx.NewSprite("Holster", transform, Order);
             if (holsterDef != null) hint.sprite = holsterDef.Frames[0];
-            var ar = kit.Ui.TryGet("swipe_arrow");
-            arrow = PawGfx.NewSprite("SwipeArrow", transform, Order);
-            hintAnim = arrow.gameObject.AddComponent<SpriteAnimator>();
-            hintAnim.Renderer = arrow;
-            if (ar != null) hintAnim.Play(ar);
-            // the old flat text lines are retired in favour of the sign + ghost paw (kept so fields stay valid)
-            hint1 = kit.Text("Hint1", transform, kit.Small, Order, TextAlign.Center, "");
-            hint2 = kit.Text("Hint2", transform, kit.Small, Order, TextAlign.Center, "");
-            hint1.Visible = false;
-            hint2.Visible = false;
-            arrow.enabled = false;
             BuildSwipeDemo();
             ShowHint(false);
             Relayout();
@@ -208,7 +195,7 @@ namespace PawNoon.Runtime
 
         public void SetVisible(bool v) { gameObject.SetActive(v); }
 
-        /// <summary>Shows the swipe tutorial (hanging sign + ghost paw demo). The holster itself stays visible during a live round.</summary>
+        /// <summary>Shows the swipe tutorial (hanging sign + SwipeCue). The holster itself stays visible during a live round.</summary>
         public void ShowHint(bool v)
         {
             if (v == hintOn && !quietOn) return;
@@ -217,7 +204,7 @@ namespace PawNoon.Runtime
             StartDemo(v);
         }
 
-        /// <summary>Quiet reminder (sign only, no paw) for a player who never swiped. Shows once, auto-hides.</summary>
+        /// <summary>Quiet reminder (sign only, no cue) for a player who never swiped. Shows once, auto-hides.</summary>
         public void ShowHintOnce()
         {
             if (onceUsed || hintOn) return;
@@ -225,7 +212,6 @@ namespace PawNoon.Runtime
             quietOn = true;
             quietLeft = 3f;
             StartDemo(true);
-            ghostPaw.enabled = false;
             if (cue != null) cue.Show(false);
         }
 
@@ -239,21 +225,16 @@ namespace PawNoon.Runtime
             signText.SetText(m == SwipeCue.Mode.Grip ? "REST THUMB HERE" : (m == SwipeCue.Mode.Wait ? "WAIT FOR DRAW!" : "NOW! SWIPE UP"));
             signText.MarkDirty();
             if (m == SwipeCue.Mode.Go) signT = 0f;   // the sign swings again on DRAW
+            signPlacedX = int.MinValue;   // the text width changed: re-centre it
             PlaceSign();
         }
 
         private void StartDemo(bool on)
         {
             signT = 0f;
-            pawT = 0f;
             ghostGlow = false;
-            bool painted = signDef != null;
-            signPanel.enabled = on && holsterVisible && !painted;
-            signText.Visible = on && holsterVisible && !painted;
-            signSprite.enabled = on && holsterVisible && painted;
-            ghostPaw.enabled = false;
-            demo.enabled = false;
-            for (int i = 0; i < TrailN; i++) { trailAge[i] = -1f; trail[i].enabled = false; }
+            signPanel.enabled = on && holsterVisible;
+            signText.Visible = on && holsterVisible;
             if (cue != null) { cue.SetReducedMotion(reducedMotion); cue.SetMode(SwipeCue.Mode.Grip); cue.Show(on && holsterVisible && !quietOn); if (on) SetCueMode(SwipeCue.Mode.Grip); }
             ApplyHolsterFrame();
             PlaceSign();
@@ -261,71 +242,13 @@ namespace PawNoon.Runtime
 
         private void BuildSwipeDemo()
         {
+            signPanelDef = kit.Ui.Get("panel_wood");
             signPanel = kit.Panel("panel_wood", transform, Order + 3, new RectInt(0, 0, SignW, SignH));
             signText = kit.Text("SignText", transform, kit.Small, Order + 5, TextAlign.Center, "REST THUMB HERE");
             signText.SetColors(Pal.Cream0, Pal.Ink, Pal.Ink);
             signText.Shadow = false;
-            signDef = null;   // painted YANK IT UP! sign + paw frames retired 20 Oct: the plain sign + thumb cue reads faster
-            signSprite = PawGfx.NewSprite("HintSign", transform, Order + 5);
-            if (signDef != null) signSprite.sprite = signDef.Frames[0];
-            signSprite.enabled = false;
-            demoDef = null;
-            demo = PawGfx.NewSprite("HolsterDemo", transform, Order + 1);
-            demo.enabled = false;
-            ghostPaw = PawGfx.NewSprite("GhostPaw", transform, Order + 6);
-            ghostPaw.sprite = MakePawSprite();
-            ghostPaw.enabled = false;
             cue = new SwipeCue(transform, Order + 6);
-            trail = new SpriteRenderer[TrailN];
-            trailAge = new float[TrailN];
-            for (int i = 0; i < TrailN; i++)
-            {
-                var d = PawGfx.NewSprite("PawTrail" + i, transform, Order + 4);
-                d.sprite = ArtLib.WhitePixel;
-                d.transform.localScale = new Vector3(2f, 2f, 1f);
-                d.enabled = false;
-                trail[i] = d;
-                trailAge[i] = -1f;
-            }
             StartDemo(false);
-        }
-
-        /// <summary>12x14 texture: 10x12 paw (pad + 4 toes), cream fill, 1 px ink outline. Tint alpha via the renderer.</summary>
-        private static Sprite MakePawSprite()
-        {
-            const int W = 12, H = 14;
-            // build in 10x12 body space via simple shapes (clearer than a literal map)
-            var body = new bool[10, 12];
-            for (int y = 0; y < 3; y++) for (int x = 0; x < 2; x++) { body[2 + x, y] = true; body[6 + x, y] = true; }
-            for (int y = 3; y < 6; y++) for (int x = 0; x < 2; x++) { body[x, y] = true; body[8 + x, y] = true; }
-            for (int y = 6; y < 12; y++)
-            {
-                int x0 = (y == 6 || y == 11) ? 2 : 1;
-                int x1 = (y == 6 || y == 11) ? 7 : 8;
-                for (int x = x0; x <= x1; x++) body[x, y] = true;
-            }
-            var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Point;
-            tex.wrapMode = TextureWrapMode.Clamp;
-            tex.name = "PawGhost";
-            var clear = new Color32(0, 0, 0, 0);
-            for (int ty = 0; ty < H; ty++)
-                for (int x = 0; x < W; x++)
-                {
-                    // canvas-down row ty -> body coords (x-1, ty-1)
-                    int bx = x - 1, by = ty - 1;
-                    Color32 c = clear;
-                    if (Fill(body, bx, by)) c = Pal.Cream0;
-                    else if (Fill(body, bx - 1, by) || Fill(body, bx + 1, by) || Fill(body, bx, by - 1) || Fill(body, bx, by + 1)) c = Pal.Ink;
-                    tex.SetPixel(x, H - 1 - ty, c);
-                }
-            tex.Apply(false, true);
-            return ArtLib.MakeSprite(tex, new RectInt(0, 0, W, H), Vector2Int.zero, Vector4.zero);
-        }
-
-        private static bool Fill(bool[,] b, int x, int y)
-        {
-            return x >= 0 && y >= 0 && x < 10 && y < 12 && b[x, y];
         }
 
         private void ApplyHolsterFrame()
@@ -333,6 +256,8 @@ namespace PawNoon.Runtime
             if (holsterDef == null) return;
             bool glow = restingShown || ghostGlow;
             int f = drawnShown && holsterDef.Count > 2 ? 2 : (glow && holsterDef.Count > 1 ? 1 : 0);
+            if (f == holsterFrameShown) return;
+            holsterFrameShown = f;
             hint.sprite = holsterDef.Frames[f];
         }
 
@@ -349,14 +274,16 @@ namespace PawNoon.Runtime
             int sw = 0;
             if (!reducedMotion && signT < 0.35f) sw = Swing[Mathf.Min(Swing.Length - 1, (int)(signT / 0.07f))];
             int x = signX + sw;
-            if (signDef != null) { PawGfx.Place(signSprite, x + SignW / 2 - signDef.Cell.x / 2 + signDef.Pivot.x, signY + signDef.Pivot.y); return; }
-            UiKit.SetRect(signPanel, kit.Ui.Get("panel_wood"), new RectInt(x, signY, SignW, SignH));
+            if (x == signPlacedX && signY == signPlacedY) return;   // ticked every frame: only move on a swing step
+            signPlacedX = x;
+            signPlacedY = signY;
+            UiKit.SetRect(signPanel, signPanelDef, new RectInt(x, signY, SignW, SignH));
             signText.At(x + SignW / 2, signY + Mathf.Max(0, (SignH - signText.Height) / 2));
         }
 
         private void TickDemo(float dt)
         {
-            if (!signPanel.enabled && !signSprite.enabled) return;
+            if (!signPanel.enabled) return;
             signT += dt;
             PlaceSign();
             if (quietOn)
@@ -365,58 +292,13 @@ namespace PawNoon.Runtime
                 if (quietLeft <= 0f) { quietOn = false; StartDemo(false); }
                 return;
             }
-            if (demoDef != null && demoDef.Count >= 4)
-            {
-                // painted yank: grip 0.5 s (holster glows) -> 2 rising frames -> gun out with sparkle -> rest (2.2 s cycle).
-                // Drawn over the holster as a stepped ghost (never opaque): a suggestion, not a hand on the gun.
-                pawT += dt;
-                if (pawT >= 2.2f) pawT -= 2.2f;
-                float pt = pawT;
-                int frame = pt < 0.5f ? 0 : (pt < 0.65f ? 1 : (pt < 0.85f ? 2 : (pt < 1.15f ? 3 : -1)));
-                ghostGlow = pt < 0.5f;
-                ApplyHolsterFrame();
-                bool demoOn = frame >= 0 && !drawnShown;
-                demo.enabled = demoOn;
-                if (demoOn)
-                {
-                    float fa = pt < 0.12f ? pt / 0.12f : (pt < 0.95f ? 1f : 1f - (pt - 0.95f) / 0.2f);
-                    demo.sprite = demoDef.Frames[frame];
-                    demo.color = new Color(1f, 1f, 1f, 0.6f * Stepped(fa));   // a ghost of a hand, never a solid one
-                    PawGfx.Place(demo, demoX, demoY);
-                }
-                return;
-            }
             if (cue != null)
             {
                 cue.Tick(dt);
                 ghostGlow = cue.Gripping;
                 ApplyHolsterFrame();
-                if (drawnShown) cue.Show(false);
+                if (drawnShown && cue.On) cue.Show(false);
             }
-        }
-
-        /// <summary>
-        /// Quantizes a 0..1 fade to 3 visible steps (1, 2/3, 1/3, then off): the swipe hint fades in hard
-        /// steps like the ECG trail instead of a smooth alpha ramp (house rule: no smooth alpha glows).
-        /// </summary>
-        private static float Stepped(float v)
-        {
-            return Mathf.Ceil(Mathf.Clamp01(v) * 3f - 0.001f) / 3f;
-        }
-
-        private void SpawnDot(int x, int y)
-        {
-            int slot = 0;
-            float oldest = -1f;
-            for (int i = 0; i < TrailN; i++)
-            {
-                if (trailAge[i] < 0f) { slot = i; oldest = -2f; break; }
-                if (trailAge[i] > oldest) { oldest = trailAge[i]; slot = i; }
-            }
-            trailAge[slot] = 0f;
-            trail[slot].enabled = true;
-            // white pixel pivots bottom-left: anchor at the dot's bottom edge
-            PawGfx.Place(trail[slot], x, y + 2);
         }
 
         /// <summary>Holster graphic on/off (on for the whole duel, off on menus).</summary>
@@ -437,6 +319,7 @@ namespace PawNoon.Runtime
             var d = kit.Ui.TryGet(key);
             if (d == null || d == holsterDef) return;
             holsterDef = d;
+            holsterFrameShown = -1;
             ApplyHolsterFrame();
         }
 
@@ -611,6 +494,7 @@ namespace PawNoon.Runtime
                 s.lastW = -1;
                 s.lastGhostW = -1;
                 s.lostLastY = int.MinValue;
+                s.portraitKey = -1;
             }
             var rs = kit.Ui.Get("round_sign");
             int cx = pipe.Visible.x + pipe.Visible.width / 2;
@@ -627,26 +511,19 @@ namespace PawNoon.Runtime
                 PawGfx.Place(badge, bx + b.Pivot.x, by + b.Pivot.y);
                 if (badgeTitle != null) badgeTitle.Place(bx, by);
             }
-            // holster: bottom centre of the safe area (thumb reach), arrow and text stacked above it
+            // holster: bottom centre of the safe area (thumb reach), sign and cue stacked above it
             int hcx = pipe.Visible.x + pipe.Visible.width / 2;
             int hbottom = safe.yMax - 6;
             int htop = hbottom - (holsterDef != null ? holsterDef.Cell.y : 40);
-            int lh = kit.Small.LineHeight;
             if (holsterDef != null) PawGfx.Place(hint, hcx - holsterDef.Cell.x / 2 + holsterDef.Pivot.x, hbottom - holsterDef.Cell.y + holsterDef.Pivot.y);
-            if (demoDef != null) { demoX = hcx - demoDef.Cell.x / 2 + demoDef.Pivot.x; demoY = hbottom - demoDef.Cell.y + demoDef.Pivot.y; }
-            // stack, top to bottom: swipe arrow, hint text, holster
-            // sign sits above the paw's rise so the demo never crosses the text; everything centred on the holster
+            // the sign hangs above the thumb's rise so the cue never crosses the text; everything centred on the holster
             int hh = holsterDef != null ? holsterDef.Cell.y : 40;
-            pawX = hcx - 6;
-            pawY = htop + hh / 2 - 2;   // paw top-left while resting on the grip
+            int gripTop = htop + hh / 2 - 2;
             signX = hcx - SignW / 2;
-            signY = Mathf.Max(safe.y + 2, pawY - pawRise - 4 - SignH);
+            signY = Mathf.Max(safe.y + 2, gripTop - SignLift - 4 - SignH);
             // thumb cue: grip centre ~14 px below the holster top (painted art), rising to just under the sign
             if (cue != null) cue.Place(hcx, htop + 14, signY + SignH + 4);
-            if (demoDef != null && signDef != null)
-                signY = Mathf.Max(safe.y + 2, hbottom - demoDef.Cell.y - 2 - signDef.Cell.y);   // just above the yanked gun
-            hint1.At(hcx, htop - 4 - (lh * 2 + 1));
-            hint2.At(hcx, htop - 4 - lh);
+            signPlacedX = int.MinValue;
             if (signPanel != null) PlaceSign();
         }
 
@@ -670,11 +547,16 @@ namespace PawNoon.Runtime
                     }
                 }
                 bool hurt = s.hurtLeft > 0f;
-                s.portrait.sprite = hurt ? s.hurt : s.normal;
-                var poff = hurt ? s.hurtOff : s.normalOff;
                 // 1px jolt while hurt (first part only)
                 int jolt = (hurt && s.hurtLeft > 0.6f && ((int)(s.hurtLeft * 30f) & 1) == 0) ? 1 : 0;
-                PawGfx.Place(s.portrait, s.portraitPos.x + poff.x + jolt, s.portraitPos.y + poff.y);
+                int pkey = (hurt ? 1 : 0) | (jolt << 1);
+                if (pkey != s.portraitKey)
+                {
+                    s.portraitKey = pkey;
+                    s.portrait.sprite = hurt ? s.hurt : s.normal;
+                    var poff = hurt ? s.hurtOff : s.normalOff;
+                    PawGfx.Place(s.portrait, s.portraitPos.x + poff.x + jolt, s.portraitPos.y + poff.y);
+                }
 
                 if (s.ghostDelay > 0f) s.ghostDelay -= dt;
                 else s.ghostV = Mathf.MoveTowards(s.ghostV, s.shown, dt * 0.5f);
