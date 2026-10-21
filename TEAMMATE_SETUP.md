@@ -120,7 +120,7 @@ Docs/                               architecture, timing model, decisions
 
 ### Files you can ignore
 - `Assets/_Lead/`: an editor-side file bridge the original author used to drive Unity remotely. It's harmless, and you can delete it.
-- `HANDOVER.md`: notes from an older prototype.
+- `Assets/Plugins/NuGet/`: the DLLs of the optional MCP editor bridge (`com.ivanmurzak.unity.mcp` in `Packages/manifest.json`: McpPlugin, ReflectorNet, SignalR, System.Text.Json ...). Nothing in `Assets/PawNoon` references them. Keep them while you use the MCP bridge; to drop it, remove the manifest line and this folder together. Check their import settings before a release build: a DLL whose `.meta` enables **Any** platform ships in the player (REVIEW pass 2, D1).
 
 ---
 

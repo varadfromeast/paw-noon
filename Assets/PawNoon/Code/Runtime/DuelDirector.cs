@@ -41,7 +41,6 @@ namespace PawNoon.Runtime
         public IOpponent Opponent { get { return opponent; } }
         /// <summary>Recorded-match rules of the current match, or null in solo.</summary>
         public RecordedMatchRules MatchRules { get { return rules; } }
-        private string OpponentLabel { get { return OpponentName; } }
 
         /// <summary>Raised once when the match result should be shown (player won?, drawn match = double KO in a tie?).</summary>
         public System.Action<bool, bool> MatchFinished;
@@ -95,8 +94,6 @@ namespace PawNoon.Runtime
         private bool tieLanded;
         private int lastFiredSlot = -1;
         private readonly Vector2[] muzzleAt = new Vector2[2];
-        private float desatT = -1f;
-        private bool desatOn;
 
         // the opponent talks (presentation only)
         /// <summary>Tail tip: just left of the opponent's muzzle, in bandit cell px (cell 117x120, pivot at the feet).</summary>
@@ -274,7 +271,6 @@ namespace PawNoon.Runtime
             audio.Duck(1f);
             audio.Heartbeat(0f);
             HideBubble();
-            ClearTieFx();
             EndLastLight();
             Screen.sleepTimeout = SleepTimeout.SystemSetting;
         }
@@ -331,7 +327,6 @@ namespace PawNoon.Runtime
             tieRound = false;
             tieLanded = false;
             lastFiredSlot = -1;
-            ClearTieFx();
             HideBubble();
             banterLine = null;
             banterAt = -1f;
@@ -811,18 +806,12 @@ namespace PawNoon.Runtime
             }
             float secs = (float)cfg.tieSlowMoSeconds;
             PawTime.SlowMo((float)cfg.tieSlowMoScale, secs);
-            if (PipeFx.SetDesaturation(pipe, (float)cfg.tieDesaturate)) { desatOn = true; desatT = secs; }
+            // cfg.tieDesaturate is unused until PixelPipeline grows a desaturation control (the reflection probe
+            // that looked for one was removed in the 21 Oct cleanup: the pipeline never had it)
             if (UiCatalog.Has("stamp_too_close")) cues.ShowStamp("stamp_too_close");
             else cues.ShowMessage("TOO CLOSE!", secs + 0.9f);
             audio.Play("sfx_lightning");
             HapticMoments.Tie();
-        }
-
-        private void ClearTieFx()
-        {
-            if (desatOn) PipeFx.SetDesaturation(pipe, 0f);
-            desatOn = false;
-            desatT = -1f;
         }
 
         private void ApplyImpact(int shooterSlot)
@@ -962,12 +951,6 @@ namespace PawNoon.Runtime
             }
             TickFalls();
             TickVignette();
-
-            if (desatT > 0f)
-            {
-                desatT -= PawTime.UnscaledDt;
-                if (desatT <= 0f) ClearTieFx();
-            }
 
             if (voidTimer > 0f)
             {
@@ -1236,7 +1219,6 @@ namespace PawNoon.Runtime
             acting.Clear();
             EndTell();
             HideBubble();
-            ClearTieFx();
             EndLastLight();
             banterLine = null;
             sweatT = -1f;
@@ -1344,42 +1326,6 @@ namespace PawNoon.Runtime
                    " lastLight=" + lastLight + " dmgMult=" + authority.Round.damageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
                    "/next " + authority.PendingDamageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
                    (rules != null ? " pvp=attempts:" + rules.Attempts + ",resolved:" + rules.Resolved + ",end:" + RecordedMatchRules.ToWire(rules.EndReason) : "");
-        }
-    }
-
-    /// <summary>
-    /// Optional pipeline hooks found by name, so the tie beat lights up as soon as PixelPipeline grows a
-    /// desaturation control ("Desaturate"/"Desaturation" 0..1, or "Saturation" 1 = normal) and is skipped until then.
-    /// </summary>
-    internal static class PipeFx
-    {
-        private static bool probed;
-        private static System.Reflection.FieldInfo field;
-        private static System.Reflection.PropertyInfo prop;
-        private static bool inverse;
-        private static readonly string[] Names = { "Desaturate", "Desaturation", "Saturation" };
-
-        /// <summary>Returns false (and does nothing) when the pipeline has no such control.</summary>
-        public static bool SetDesaturation(PixelPipeline pipe, float amount)
-        {
-            if (pipe == null) return false;
-            if (!probed)
-            {
-                probed = true;
-                var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
-                var t = typeof(PixelPipeline);
-                for (int i = 0; i < Names.Length && field == null && prop == null; i++)
-                {
-                    var f = t.GetField(Names[i], flags);
-                    if (f != null && f.FieldType == typeof(float)) { field = f; inverse = Names[i] == "Saturation"; break; }
-                    var p = t.GetProperty(Names[i], flags);
-                    if (p != null && p.PropertyType == typeof(float) && p.CanWrite) { prop = p; inverse = Names[i] == "Saturation"; break; }
-                }
-            }
-            float v = inverse ? 1f - amount : amount;
-            if (field != null) { field.SetValue(pipe, v); return true; }
-            if (prop != null) { prop.SetValue(pipe, v, null); return true; }
-            return false;
         }
     }
 }
