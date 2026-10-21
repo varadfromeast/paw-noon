@@ -117,6 +117,7 @@ Docs/                               architecture, timing model, decisions
 - **Timing is sacred.** Reaction time comes from input-event timestamps against the estimated photon time of the DRAW cue (`Docs/TIMING.md`). Presentation code must never change match timing.
 - **PvP-ready.** The authority owns the schedule (`DrawCue`), clients send `ShotReport`, and the bot uses the same path. Keep new logic in `Code/Core` when it affects outcomes.
 - UI is drawn on a separate overlay layer (layer 30) so it doesn't zoom or shake with the world.
+- **Before you push C#**, run `python3 Tools/Lint/check_cs.py` (no Unity needed: braces, CS0136 / CS0128, dangling `using`s, sprite keys vs `ui.json` / `fx.json`, sfx keys vs PawAudio's preload list, per-frame allocations). It must report 0 errors. Profiling notes are in `Docs/PERF.md`.
 
 ### Files you can ignore
 - `Assets/_Lead/`: an editor-side file bridge the original author used to drive Unity remotely. It's harmless, and you can delete it.
