@@ -61,13 +61,14 @@ namespace PawNoon.Runtime
 
             string[] sfx =
             {
-                "sfx_tick_3", "sfx_tick_2", "sfx_tick_1", "sfx_draw", "sfx_gun_hero_1", "sfx_gun_hero_2", "sfx_gun_hero_3",
-                "sfx_gun_bandit_1", "sfx_gun_bandit_2", "sfx_gun_bandit_3", "sfx_cock", "sfx_holster", "sfx_misfire",
-                "sfx_hit", "sfx_hit_cat", "sfx_ricochet", "sfx_shell", "sfx_bodyfall", "sfx_spurs", "sfx_stamp",
-                "sfx_whoosh", "sfx_lightning", "sfx_hp_tick", "sfx_ui_tap", "sfx_ui_back", "sfx_ui_toggle", "sfx_vulture", "sfx_heartbeat",
+                "sfx_tick_3", "sfx_tick_2", "sfx_tick_1", "sfx_tick_sub", "sfx_draw", "sfx_gun_hero_1", "sfx_gun_hero_2", "sfx_gun_hero_3",
+                "sfx_gun_bandit_1", "sfx_gun_bandit_2", "sfx_gun_bandit_3", "sfx_cock", "sfx_holster", "sfx_holster_draw", "sfx_misfire",
+                "sfx_hit", "sfx_hit_cat", "sfx_shell", "sfx_bodyfall", "sfx_spurs", "sfx_stamp",
+                "sfx_whoosh", "sfx_lightning", "sfx_hp_tick", "sfx_ui_tap", "sfx_ui_back", "sfx_ui_toggle", "sfx_heartbeat",
                 "sfx_meow_whiskers", "sfx_meow_pawtruth",  // per-character "meow signature" (SPEC_V2 §8.2, Tools/AudioGen/gen_voice.py)
                 "sfx_peacemaker_draw", "sfx_gun_peacemaker_1", "sfx_gun_peacemaker_2", "sfx_gun_peacemaker_3"   // M7 (gen_peacemaker.py)
             };
+            // every key Play() is called with must be here (Play only looks up preloaded clips; Tools/Lint/check_cs.py checks it)
             for (int i = 0; i < sfx.Length; i++) Clip("Audio/SFX/" + sfx[i], sfx[i]);
             draw.clip = Get("sfx_draw");
         }
