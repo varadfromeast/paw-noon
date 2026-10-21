@@ -226,6 +226,10 @@ namespace PawNoonLead
                 case "call":
                     CallStatic(arg);
                     break;
+                case "check":
+                    // In-memory Roslyn compile of one assembly (or "all"); no domain reload. Details in Lead/check.log.
+                    Out(string.IsNullOrEmpty(arg) || arg == "all" ? LeadCheck.CheckAll() : LeadCheck.Check(arg));
+                    break;
                 case "gamesize":
                     {
                         var p = arg.Split(' ');

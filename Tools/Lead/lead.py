@@ -6,6 +6,7 @@ sleeps. Runs on the machine that can see the project folder (the Mac, or the Lin
   python3 lead.py build NAME                    -> stop, refresh, recompile; wait for compile.log to settle; summary
   python3 lead.py test NAME                     -> build + run EditMode tests; wait for tests.log; summary
   python3 lead.py shots NAME wait1 [wait2 ...]  -> play, start a seeded auto-tap duel, screenshots at the given times
+  python3 lead.py check NAME [ASSEMBLY|all]     -> Roslyn compile check inside the Editor, no domain reload (~1-3 s)
 
 Prints a compact summary: compile errors (if any), exceptions in console.log, last status line, elapsed.
 Exit code 0 ok, 1 compile error, 2 tests failed, 3 timeout, 4 exceptions in play.
@@ -87,6 +88,19 @@ def cmd_build(name, also_tests=False):
         if l.startswith('Failed'): print('  ' + l)
     return 0 if 'failed=0' in tl else 2
 
+def cmd_check(name, asm='all'):
+    """Roslyn in-memory compile inside the Editor (no domain reload, ~1-3 s). Prints the errors from Lead/check.log."""
+    out = submit(name, ['check ' + asm])
+    s, el = wait_done(out, 90)
+    if el < 0: print('TIMEOUT (is Unity focused / bridge alive?)'); return 3
+    res = [l for l in s.splitlines() if 'ok ' in l or 'FAILED' in l]
+    for l in res: print('  ' + l[:400])
+    log = read(P('check.log'))
+    for l in log.splitlines():
+        if '): CS' in l: print('  ' + l[:300])
+    print('check %s in %.1fs' % ('ok' if not any('FAILED' in l for l in res) else 'FAILED', el))
+    return 0 if not any('FAILED' in l for l in res) else 1
+
 def cmd_run(name, cmds, timeout=180):
     out = submit(name, cmds)
     s, el = wait_done(out, timeout)
@@ -112,6 +126,7 @@ if __name__ == '__main__':
     if not a: print(__doc__); sys.exit(2)
     if a[0] == 'build': sys.exit(cmd_build(a[1]))
     if a[0] == 'test': sys.exit(cmd_build(a[1], True))
+    if a[0] == 'check': sys.exit(cmd_check(a[1], a[2] if len(a) > 2 else 'all'))
     if a[0] == 'run': sys.exit(cmd_run(a[1], a[2:]))
     if a[0] == 'shots': sys.exit(cmd_shots(a[1], a[2:]))
     print(__doc__); sys.exit(2)

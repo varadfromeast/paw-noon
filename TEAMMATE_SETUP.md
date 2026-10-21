@@ -119,7 +119,7 @@ Docs/                               architecture, timing model, decisions
 - UI is drawn on a separate overlay layer (layer 30) so it doesn't zoom or shake with the world.
 
 ### Files you can ignore
-- `Assets/_Lead/`: an editor-side file bridge the original author used to drive Unity remotely. It's harmless, and you can delete it.
+- `Assets/_Lead/`: an editor-side file bridge the original author used to drive Unity remotely (commands in `Lead/cmd/*.txt`, results in `Lead/out/`). Useful for agents: `python3 Tools/Lead/lead.py check NAME [Assembly|all]` compiles the project in memory with Roslyn inside the running Editor and prints `file(line,col): CSxxxx` errors in 1–3 s without a domain reload; `lead.py build NAME` does a real recompile; `lead.py test NAME` runs the EditMode tests. The folder is harmless and you can delete it.
 - `HANDOVER.md`: notes from an older prototype.
 
 ---
