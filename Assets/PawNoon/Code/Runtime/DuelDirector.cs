@@ -150,16 +150,8 @@ namespace PawNoon.Runtime
             if (bubble != null) bubble.SetReducedMotion(on);
         }
 
-        /// <summary>The opponent's speech bubble (created on first use under the cues' UI root unless one is supplied).</summary>
+        /// <summary>The opponent's speech bubble (created on first use under the cues' UI root).</summary>
         public SpeechBubble Bubble { get { return EnsureBubble(); } }
-
-        /// <summary>Optional: supply a bubble built with the game's shared UiKit (else the director builds its own).</summary>
-        public void SetSpeechBubble(SpeechBubble b)
-        {
-            if (bubble != null && bubble != b) bubble.Hide();
-            bubble = b;
-            if (bubble != null) bubble.SetReducedMotion(reducedMotion);
-        }
 
         public void SetSeed(int s) { seed = s; }
 

@@ -19,7 +19,7 @@ Classic music: Music/Classic/Lobby.mp3, Music/Classic/Standoff.mp3
   third-party license is inferred; the user is responsible for their rights.
 
 Everything else - Music/music_title, music_standoff, music_duel_a, music_duel_hold,
-music_duel_result, sting_win, sting_lose, sting_round; Loops/amb_wind, amb_town, amb_duel, heartbeat, tumbleweed_roll; and every other
+music_duel_result, sting_win, sting_lose, sting_round; Loops/amb_wind, amb_town, amb_duel, heartbeat; and every other
 SFX/*.wav - is original to the Paw Noon project: composed and synthesized from
 scratch (Karplus-Strong guitars, additive whistle/harmonica/bowed voices, band-limited
 sawtooth strings, bells,

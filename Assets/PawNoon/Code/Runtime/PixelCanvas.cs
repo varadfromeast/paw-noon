@@ -187,29 +187,6 @@ namespace PawNoon.Runtime
             BlitRegion(img, Mathf.RoundToInt(r.x), syTop, w, h, dx, dy);
         }
 
-        /// <summary>A 9-slice panel (borders copied 1:1, edges and centre tiled, never stretched).</summary>
-        public void BlitSliced(Sprite s, RectInt dst, int border)
-        {
-            if (s == null) return;
-            var img = PixelImage.Of(s.texture);
-            if (img == null) return;
-            var r = s.rect;
-            int sw = Mathf.RoundToInt(r.width), sh = Mathf.RoundToInt(r.height);
-            int sx = Mathf.RoundToInt(r.x), sy = img.Height - Mathf.RoundToInt(r.y) - sh;
-            int b = Mathf.Clamp(border, 0, Mathf.Min(sw, sh) / 2);
-            int[] sxs = { 0, b, sw - b, sw }, dxs = { dst.x, dst.x + b, dst.xMax - b, dst.xMax };
-            int[] sys = { 0, b, sh - b, sh }, dys = { dst.y, dst.y + b, dst.yMax - b, dst.yMax };
-            for (int j = 0; j < 3; j++)
-                for (int i = 0; i < 3; i++)
-                {
-                    int pw = sxs[i + 1] - sxs[i], ph = sys[j + 1] - sys[j];
-                    if (pw <= 0 || ph <= 0) continue;
-                    for (int ty = dys[j]; ty < dys[j + 1]; ty += ph)
-                        for (int tx = dxs[i]; tx < dxs[i + 1]; tx += pw)
-                            BlitRegion(img, sx + sxs[i], sy + sys[j], Mathf.Min(pw, dxs[i + 1] - tx), Mathf.Min(ph, dys[j + 1] - ty), tx, ty);
-                }
-        }
-
         // ------------------------------------------------------------------ text
 
         /// <summary>Width of a string in px, as BitmapText measures it (trailing spacing column dropped).</summary>

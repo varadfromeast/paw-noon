@@ -59,14 +59,6 @@ namespace PawNoon.Runtime
             if (warned.Add(key)) Debug.LogWarning("[PawNoon] " + message);
         }
 
-        public static void ClearCaches()
-        {
-            textures.Clear();
-            missingTex.Clear();
-            jsons.Clear();
-            sheets.Clear();
-        }
-
         public static Texture2D WhiteTexture
         {
             get

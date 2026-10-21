@@ -7,9 +7,7 @@ namespace PawNoon.Runtime
     public static class PawGfx
     {
         public static readonly int FlashId = Shader.PropertyToID("_Flash");
-        public static readonly int FlashColorId = Shader.PropertyToID("_FlashColor");
         public static readonly int HeatAmpId = Shader.PropertyToID("_HeatAmp");
-        public static readonly int MainTexId = Shader.PropertyToID("_MainTex");
 
         private static Material spriteMat;
         private static Shader spriteShader;

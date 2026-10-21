@@ -15,7 +15,7 @@ namespace PawNoon.Runtime
         private AudioSource[] pool;
         private int next;
         private readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
-        private AudioSource musicA, musicB, ambWind, ambTown, ambDuel, heartbeat, tumbleLoop, draw;
+        private AudioSource musicA, musicB, ambWind, ambTown, ambDuel, heartbeat, draw;
         private float duelAmbTarget;
         private bool aIsCurrent = true;
         private Track track = Track.None;
@@ -55,7 +55,6 @@ namespace PawNoon.Runtime
             ambTown = NewSource("ambTown", true);
             ambDuel = NewSource("ambDuel", true);
             heartbeat = NewSource("heartbeat", true);
-            tumbleLoop = NewSource("tumble", true);
             draw = NewSource("drawCue", false);
             draw.priority = 0;
 
@@ -244,22 +243,6 @@ namespace PawNoon.Runtime
         /// <summary>1 = duel soundscape (dry wind + creaks, no music); 0 = menu ambience.</summary>
         public void DuelAmbience(float target) { duelAmbTarget = Mathf.Clamp01(target); }
         public void Heartbeat(float target) { heartbeatTarget = Mathf.Clamp01(target); }
-
-        public void TumbleRoll(bool on)
-        {
-            if (on && SfxOn)
-            {
-                if (!tumbleLoop.isPlaying)
-                {
-                    var c = Clip("Audio/Loops/tumbleweed_roll", "tumbleweed_roll");
-                    if (c == null) return;
-                    tumbleLoop.clip = c;
-                    tumbleLoop.volume = 0.3f;
-                    tumbleLoop.Play();
-                }
-            }
-            else if (tumbleLoop.isPlaying) tumbleLoop.Stop();
-        }
 
         private void Update()
         {
