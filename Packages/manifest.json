@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.ivanmurzak.unity.mcp": "1.2.0",
     "com.unity.purchasing": "4.12.2",
     "com.unity.test-framework": "1.8.0",
     "com.unity.ugui": "2.6.0",
@@ -19,15 +18,5 @@
     "com.unity.modules.ui": "1.0.0",
     "com.unity.modules.unitywebrequest": "1.0.0",
     "com.unity.modules.vectorgraphics": "1.0.0"
-  },
-  "scopedRegistries": [
-    {
-      "name": "package.openupm.com",
-      "url": "https://package.openupm.com",
-      "scopes": [
-        "com.ivanmurzak",
-        "extensions.unity"
-      ]
-    }
-  ]
+  }
 }
