@@ -22,6 +22,7 @@ namespace PawNoon.Runtime
         private PixelButton gear;
         private PixelButton profileBtn;   // M6: profile card (left of the gear)
         private PixelButton trophy;       // M5: leaderboards (left of the profile button)
+        private PixelButton howTo;        // HOW TO PLAY: replays the tutorial (top-left, opposite the gear)
         // online (M4): PVP under PLAY (same wood sign); FRIEND beside it only when net_config "friendDuel" is on
         private const int PvpH = 30;
         private PixelButton pvp;
@@ -67,6 +68,7 @@ namespace PawNoon.Runtime
             gear = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_gear", new RectInt(0, 0, 30, 30), 240);
             profileBtn = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_profile", new RectInt(0, 0, 30, 30), 240);
             trophy = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "ico_trophy", new RectInt(0, 0, 30, 30), 240);
+            howTo = new PixelButton(kit, transform, "btn_icon", "btn_icon_pressed", null, "tap_hint", new RectInt(0, 0, 30, 30), 240);
             pvp = new PixelButton(kit, transform, "panel_wood", "panel_wood", "PVP", null, new RectInt(0, 0, 152, PvpH), 240);
             friend = new PixelButton(kit, transform, "panel_wood", "panel_wood", "FRIEND", null, new RectInt(0, 0, 56, PvpH), 240);
             best = LightText("Best", kit.Medium, 242, TextAlign.Center);
@@ -135,10 +137,15 @@ namespace PawNoon.Runtime
             segHardText.At(segHardRect.x + SegW / 2, ty);
             best.At(cx, segY + SegH + 5);
             bountyTop = segY + SegH + 5 + kit.Medium.LineHeight + 3;
-            gear.SetRect(new RectInt(safe.xMax - 4 - 30, safe.y + 2, 30, 30));
-            profileBtn.SetRect(new RectInt(safe.xMax - 4 - 30 - 4 - 30, safe.y + 2, 30, 30));
-            // M5 trophy left of the M6 profile button: [trophy][profile][gear], 30 px each, 4 px apart
-            trophy.SetRect(new RectInt(safe.xMax - 4 - 30 - 4 - 30 - 4 - 30, safe.y + 2, 30, 30));
+            // top-right icon row, right to left: [gear][profile (accounts on)][trophy][how to play], 30 px each, 4 px apart
+            int bx = safe.xMax - 4 - 30;
+            gear.SetRect(new RectInt(bx, safe.y + 2, 30, 30));
+            bx -= 34;
+            profileBtn.SetRect(new RectInt(bx, safe.y + 2, 30, 30));
+            if (AccountsUi.Enabled) bx -= 34;
+            trophy.SetRect(new RectInt(bx, safe.y + 2, 30, 30));
+            bx -= 34;
+            howTo.SetRect(new RectInt(bx, safe.y + 2, 30, 30));
             RefreshDifficulty();
             LayoutChoice();
         }
@@ -204,6 +211,7 @@ namespace PawNoon.Runtime
             gear.SetVisible(controls);
             profileBtn.SetVisible(controls && AccountsUi.Enabled);
             trophy.SetVisible(controls);
+            howTo.SetVisible(controls);
         }
 
         /// <summary>Shows the FRIEND button (room codes, M5) beside PVP. Off unless net_config.json "friendDuel" is true.</summary>
@@ -249,6 +257,7 @@ namespace PawNoon.Runtime
             if (gear.Tick()) return UiAction.OpenSettings;
             if (profileBtn.Tick()) return UiAction.OpenProfile;
             if (trophy.Tick()) return UiAction.Leaderboard;
+            if (howTo.Tick()) return UiAction.Tutorial;
             if (play.Tick()) return UiAction.Play;
             if (pvp.Tick()) return UiAction.Pvp;
             if (friend.Tick()) return UiAction.Friend;

@@ -537,6 +537,7 @@ namespace PawNoon.Runtime
                         else if (a == UiAction.Leaderboard) Online.OpenLeaderboard();
                         else if (a == UiAction.OpenSettings) OpenSettings();
                         else if (a == UiAction.OpenProfile) Accounts.OpenProfile();
+                        else if (a == UiAction.Tutorial) ReplayTutorial();
                         else if (a == UiAction.ChooseEasy) SetDifficulty(DuelConfig.DifficultyEasy);
                         else if (a == UiAction.ChooseHard) SetDifficulty(DuelConfig.DifficultyHard);
                     }

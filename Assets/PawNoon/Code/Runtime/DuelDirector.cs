@@ -586,7 +586,7 @@ namespace PawNoon.Runtime
                         else PresentHeroFoul();
                         break;
                     case DuelEventKind.NoShot:
-                        if (e.slot == 0 && !noShotShown) { noShotShown = true; cues.ShowStamp("stamp_no_shot"); hud.ShowHintOnce(); }
+                        if (e.slot == 0 && !noShotShown) { noShotShown = true; cues.ShowStamp("stamp_no_shot"); cues.ShowMessage("SWIPE UP FROM THE HOLSTER", 1.8f); hud.ShowHintOnce(); }
                         break;
                     case DuelEventKind.RoundVoid:
                         prevHeroEarly = heroFouledThisRound;
