@@ -21,6 +21,8 @@ namespace PawNoonLead
     public static class LeadCheck
     {
         private static readonly Dictionary<string, MetadataReference> refCache = new Dictionary<string, MetadataReference>();
+        /// <summary>Compilations from the current CheckAll run, so Runtime is checked against the fresh in-memory Core, not the stale DLL.</summary>
+        private static readonly Dictionary<string, CSharpCompilation> fresh = new Dictionary<string, CSharpCompilation>();
 
         public static string Check(string assemblyName)
         {
@@ -38,11 +40,17 @@ namespace PawNoonLead
                 var trees = sources.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(f), parse, f)).ToList();
                 var refs = new List<MetadataReference>();
                 foreach (var r in asm.compiledAssemblyReferences) refs.Add(Ref(r));
-                foreach (var r in asm.assemblyReferences) if (File.Exists(r.outputPath)) refs.Add(Ref(r.outputPath));
+                foreach (var r in asm.assemblyReferences)
+                {
+                    CSharpCompilation fc;
+                    if (fresh.TryGetValue(r.name, out fc)) refs.Add(fc.ToMetadataReference());
+                    else if (File.Exists(r.outputPath)) refs.Add(Ref(r.outputPath));
+                }
                 var opts = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: asm.compilerOptions.AllowUnsafeCode,
                     nullableContextOptions: NullableContextOptions.Disable, warningLevel: 1);
                 var comp = CSharpCompilation.Create(assemblyName + ".check", trees, refs, opts);
                 var diags = comp.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+                if (diags.Count == 0) fresh[assemblyName] = comp;
                 log.AppendLine("=== check " + assemblyName + " " + DateTime.Now.ToString("HH:mm:ss") + " files=" + sources.Count + " refs=" + refs.Count);
                 foreach (var d in diags.Take(40))
                 {
@@ -66,6 +74,7 @@ namespace PawNoonLead
         {
             string[] order = { "PawNoon.Core", "PawNoon.Runtime", "PawNoon.Editor", "PawNoon.Tests.EditMode", "PawNoon.Tests.Runtime" };
             var sb = new StringBuilder();
+            fresh.Clear();
             foreach (var a in order)
             {
                 string r = Check(a);
