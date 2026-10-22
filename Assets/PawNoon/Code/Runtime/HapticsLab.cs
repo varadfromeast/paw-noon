@@ -87,6 +87,8 @@ namespace PawNoon.Runtime
                 new Entry("GOOD/SLOW", "stamp: light", () => HapticMoments.Stamp(StampHaptics.Plain)),
                 new Entry("STAMP EARLY", "stamp: notify error", () => HapticMoments.Stamp(StampHaptics.TooEarly)),
                 new Entry("NO SHOT", "stamp: notify warning", () => HapticMoments.Stamp(StampHaptics.NoShot)),
+                new Entry("STREAK x2", "streak tag: two rising taps", () => HapticMoments.StreakStep(2)),
+                new Entry("NEW BEST", "best time: 3 sparkle taps + swell", HapticMoments.NewBest),
                 new Entry("WIN", "match won: rising taps + swell", () => HapticMoments.MatchEnd(true, PawHaptics.ReducedMotion)),
                 new Entry("LOSE", "match lost: drop + slow fade", () => HapticMoments.MatchEnd(false, PawHaptics.ReducedMotion)),
             };

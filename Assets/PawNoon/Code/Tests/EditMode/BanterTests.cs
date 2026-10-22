@@ -23,6 +23,25 @@ namespace PawNoon.Tests
         }
 
         [Test]
+        public void RattledByAWinStreak()
+        {
+            // 3 wins in a row (threshold 3) outrank "last one" and LIGHTNING, never the match start
+            Assert.AreEqual(BanterContext.Rattled, BanterPicker.Context(false, 100, 10, 30, true, false, 0, 3, 3));
+            Assert.AreEqual(BanterContext.Rattled, BanterPicker.Context(false, 100, 40, 30, false, false, 0, 5, 3));
+            Assert.AreEqual(BanterContext.LastOne, BanterPicker.Context(false, 100, 10, 30, true, false, 0, 2, 3));
+            Assert.AreEqual(BanterContext.MatchStart, BanterPicker.Context(true, 100, 100, 30, false, false, -1, 4, 3));
+            Assert.AreEqual(BanterContext.LastOne, BanterPicker.Context(false, 100, 10, 30, false, false, 0, 9, 0), "threshold 0 = off");
+            // the old signature is the streak-less one
+            Assert.AreEqual(BanterContext.BotLostRound, BanterPicker.Context(false, 100, 70, 30, false, false, 0));
+            // rattled always speaks, and both built-in casts have lines for it
+            Assert.IsTrue(BanterPicker.Always(BanterContext.Rattled));
+            var p = new BanterPicker(3);
+            Assert.IsNotNull(p.Pick(new BanterLines(), BanterContext.Rattled, 0.0));
+            Assert.IsNotNull(p.Pick(BanterLines.WhiskersDefaults(), BanterContext.Rattled, 0.0));
+            Assert.AreEqual(new BanterLines().rattled, BanterLines.FromJson(null, new BanterLines()).rattled);
+        }
+
+        [Test]
         public void NeverTheSameLineTwiceInARow()
         {
             var lines = new BanterLines();

@@ -197,6 +197,7 @@ namespace PawNoon.Runtime
                 // killing blow: reel in slow-mo, then fall; dust + body-fall land with the body (TickFalls)
                 dead[victim] = true;
                 fallStage[victim] = 1;
+                if (victim == 1) killPunchPending = true;   // fires after the slow-mo (TickKillPunch)
                 fallT[victim] = 0f;
                 v.Play("hit");
                 PawTime.SlowMo((float)cfg.killSlowMoScale, (float)cfg.killSlowMoSeconds);

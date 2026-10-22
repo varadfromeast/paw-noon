@@ -350,6 +350,7 @@ namespace PawNoon.Runtime
 
         public void SetRound(int n)
         {
+            labelFlashLeft = 0f;   // a real round change ends an "ON A ROLL" flash
             if (n == roundShown) return;
             roundShown = n;
             roundText.SetText("ROUND " + n);
@@ -364,7 +365,7 @@ namespace PawNoon.Runtime
         /// </summary>
         public void SetRoundLabel(string label)
         {
-            const int Named = int.MinValue;
+            labelFlashLeft = 0f;
             if (roundShown == Named && labelShown == label) return;
             roundShown = Named;
             labelShown = label;
@@ -375,6 +376,71 @@ namespace PawNoon.Runtime
         }
 
         private string labelShown;
+        private const int Named = int.MinValue;
+        /// <summary>roundShown while a FlashRoundLabel is up (so the next SetRound / SetRoundLabel always repaints).</summary>
+        private const int Flashing = int.MinValue + 1;
+        private float labelFlashLeft, labelFlashTotal;
+        private int flashRestoreRound = -1;
+        private string flashRestoreLabel;
+        private int flashColorStep = -1;
+
+        /// <summary>
+        /// Shows <paramref name="label"/> on the round sign for <paramref name="seconds"/> (pop + two yellow/white blinks,
+        /// Reduced Motion: just yellow), then puts back whatever it said (ROUND n / LAST LIGHT). A SetRound /
+        /// SetRoundLabel meanwhile ends the flash. Used for "ON A ROLL".
+        /// </summary>
+        public void FlashRoundLabel(string label, float seconds)
+        {
+            if (labelFlashLeft <= 0f)
+            {
+                flashRestoreRound = roundShown;
+                flashRestoreLabel = labelShown;
+            }
+            roundShown = Flashing;
+            labelFlashTotal = labelFlashLeft = Mathf.Max(0.2f, seconds);
+            flashColorStep = -1;
+            roundText.SetText(label);
+            roundText.MarkDirty();
+            ApplyFlashColor();
+            signPop = reducedMotion ? 0f : 0.35f;
+        }
+
+        /// <summary>True while a FlashRoundLabel is on the sign.</summary>
+        public bool RoundLabelFlashing { get { return labelFlashLeft > 0f; } }
+
+        private void ApplyFlashColor()
+        {
+            float t = labelFlashTotal - labelFlashLeft;
+            int step = (!reducedMotion && t < 0.48f) ? (((int)(t / 0.12f) & 1) == 0 ? 1 : 2) : 1;
+            if (step == flashColorStep) return;
+            flashColorStep = step;
+            roundText.Color = step == 2 ? (Color32)Pal.White : Pal.SigYellow;
+            roundText.MarkDirty();
+        }
+
+        private void TickLabelFlash(float dt)
+        {
+            if (labelFlashLeft <= 0f) return;
+            labelFlashLeft -= dt;
+            if (labelFlashLeft > 0f) { ApplyFlashColor(); return; }
+            labelFlashLeft = 0f;
+            // put the sign back without a second pop
+            if (flashRestoreRound == Named && flashRestoreLabel != null)
+            {
+                roundShown = Named;
+                labelShown = flashRestoreLabel;
+                roundText.SetText(flashRestoreLabel);
+                roundText.Color = Pal.SigYellow;
+            }
+            else
+            {
+                int n = flashRestoreRound > 0 ? flashRestoreRound : 1;
+                roundShown = n;
+                roundText.SetText("ROUND " + n);   // lint: alloc-ok (once, when the flash ends)
+                roundText.Color = Pal.Cream0;
+            }
+            roundText.MarkDirty();
+        }
 
         /// <summary>Difficulty tag beside the round sign (set when a match's rules are applied).</summary>
         public void SetDifficulty(bool easy)
@@ -599,6 +665,7 @@ namespace PawNoon.Runtime
             }
 
             if (signPanel != null) TickDemo(dt);
+            TickLabelFlash(dt);
 
             if (signPop > 0f)
             {

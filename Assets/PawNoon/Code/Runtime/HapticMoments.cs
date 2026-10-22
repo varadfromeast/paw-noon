@@ -65,6 +65,30 @@ namespace PawNoon.Runtime
             PawHaptics.Preset(won ? HapticPreset.Win : HapticPreset.Lose, 1f, reducedMotion ? 0 : BannerLandSeconds);
         }
 
+        /// <summary>
+        /// Win streak tag pops on the round card (x2, x3...): two rising taps matched to sfx_streak's two notes (90 ms
+        /// apart), a little firmer each step of the run. Reduced Motion: the first tap only.
+        /// </summary>
+        public static void StreakStep(int streak)
+        {
+            int k = streak < 2 ? 0 : (streak > 6 ? 4 : streak - 2);
+            PawHaptics.Transient(0.45f + 0.05f * k, 0.55f);
+            if (!PawHaptics.ReducedMotion) PawHaptics.Transient(0.65f + 0.05f * k, 0.80f, 0.09);   // 0.65 .. 0.85
+        }
+
+        /// <summary>
+        /// NEW BEST ribbon + confetti: three quick rising sparkle taps, then a soft swell after the last one (no transient
+        /// inside the continuous window, see HapticPresets). Reduced Motion: the first tap only.
+        /// </summary>
+        public static void NewBest()
+        {
+            PawHaptics.Transient(0.50f, 0.90f);
+            if (PawHaptics.ReducedMotion) return;
+            PawHaptics.Transient(0.70f, 0.90f, 0.07);
+            PawHaptics.Transient(0.85f, 0.90f, 0.14);   // under DRAW's 1.0 / 1.0: DRAW stays the sharpest hit
+            PawHaptics.Continuous(0.25f, 0.35f, 0.30f, 0.16);
+        }
+
         /// <summary>UI button press (PixelButton). Settings / difficulty toggles keep PawHaptics.Impact(0), a touch fuller.</summary>
         public static void UiTap() { PawHaptics.Preset(HapticPreset.UiTap); }
     }

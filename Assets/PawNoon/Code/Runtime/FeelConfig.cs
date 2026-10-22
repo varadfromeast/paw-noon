@@ -26,6 +26,33 @@ namespace PawNoon.Runtime
         /// <summary>Townsfolk + weather pass (Docs/TOWN.md): keys town* and weather*.</summary>
         public TownTuning Town = new TownTuning();
 
+        // ---- exchange outcome readability / win moments (Docs/FEEL.md "Outcome moments"); presentation only
+        /// <summary>Outright wins in a row before the round card shows the brass streak tag ("x2"); 0 = never.</summary>
+        public int streakMin = 2;
+        /// <summary>Wins in a row for "ON A ROLL" on the round sign and the opponent's rattled banter; 0 = never.</summary>
+        public int streakRollMin = 3;
+        /// <summary>Seconds after the grade stamp lands until the streak tag pops in.</summary>
+        public float streakTagDelay = 0.42f;
+        /// <summary>How long the round sign reads "ON A ROLL" before it goes back to ROUND n / LAST LIGHT.</summary>
+        public float rollLabelSeconds = 1.6f;
+        /// <summary>Seconds after the grade stamp lands until the NEW BEST! ribbon, confetti, sfx and haptic.</summary>
+        public float newBestDelay = 0.2f;
+        /// <summary>Confetti motes in the NEW BEST burst (whole pixels, two palette colours). Reduced Motion: none.</summary>
+        public int confettiCount = 26;
+        /// <summary>Life of a confetti mote (seconds, the last fifth blinks out).</summary>
+        public float confettiSeconds = 0.8f;
+        /// <summary>Launch speed of the confetti (canvas px/s, randomised 55-100 %).</summary>
+        public float confettiSpeed = 210f;
+        /// <summary>Confetti gravity (canvas px/s^2, y down).</summary>
+        public float confettiGravity = 320f;
+        /// <summary>Frames of solid white on the opponent after the kill slow-mo of the match-deciding hit (0 = off).</summary>
+        public int killPunchFlashFrames = 1;
+        /// <summary>Camera kick (canvas px, down) on the same frame. Reduced Motion: neither flash nor kick.</summary>
+        public float killPunchKickPx = 2f;
+
+        /// <summary>Pool size of the round card's confetti (confettiCount is clamped to it).</summary>
+        public const int ConfettiMax = 48;
+
         private static FeelConfig cached;
 
         public bool IntroOpponentWalks { get { return introOpponent != "stay"; } }
@@ -69,6 +96,17 @@ namespace PawNoon.Runtime
             t.slowRetries = PnJson.Int(root, "tutorialSlowRetries", t.slowRetries);
             t.Sanitize();
             c.Town = TownTuning.Read(root);
+            c.streakMin = Mathf.Clamp(PnJson.Int(root, "streakMin", c.streakMin), 0, 99);
+            c.streakRollMin = Mathf.Clamp(PnJson.Int(root, "streakRollMin", c.streakRollMin), 0, 99);
+            c.streakTagDelay = Mathf.Clamp((float)PnJson.Num(root, "streakTagDelay", c.streakTagDelay), 0f, 3f);
+            c.rollLabelSeconds = Mathf.Clamp((float)PnJson.Num(root, "rollLabelSeconds", c.rollLabelSeconds), 0.2f, 5f);
+            c.newBestDelay = Mathf.Clamp((float)PnJson.Num(root, "newBestDelay", c.newBestDelay), 0f, 3f);
+            c.confettiCount = Mathf.Clamp(PnJson.Int(root, "confettiCount", c.confettiCount), 0, ConfettiMax);
+            c.confettiSeconds = Mathf.Clamp((float)PnJson.Num(root, "confettiSeconds", c.confettiSeconds), 0.2f, 3f);
+            c.confettiSpeed = Mathf.Clamp((float)PnJson.Num(root, "confettiSpeed", c.confettiSpeed), 10f, 400f);
+            c.confettiGravity = Mathf.Clamp((float)PnJson.Num(root, "confettiGravity", c.confettiGravity), 0f, 1500f);
+            c.killPunchFlashFrames = Mathf.Clamp(PnJson.Int(root, "killPunchFlashFrames", c.killPunchFlashFrames), 0, 6);
+            c.killPunchKickPx = Mathf.Clamp((float)PnJson.Num(root, "killPunchKickPx", c.killPunchKickPx), 0f, 6f);
             return c;
         }
     }

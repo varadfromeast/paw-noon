@@ -27,6 +27,7 @@ Assets/PawNoon/
 | `MatchState.cs` | HP, round number, round wins, best/average reaction, `Finish`/`IsDraw` (double KO in a tie = drawn match, Winner −1). |
 | `Banter.cs` | Per-character lines (`BanterLines`; data in `Resources/Data/characters.json`, built-in fallback per context), `BanterPicker` (context priority, chance, never the same line twice in a row), `BubbleGeometry` (bubble + tail layout, clamping). |
 | `ClockSync.cs` | NTP-style offset/RTT estimator for future PvP. |
+| `RoundVerdict.cs`, `StreakCounter.cs` | Exchange classification (won / lost / tie / foul / no shot), the round card's verdict headline text in three lengths, the outright-win streak (Docs/FEEL.md "Outcome moments"). Presentation only. |
 | `TutorialFlow.cs` | First-run tutorial step machine (Grip, Hold, Fail, Regrip, Draw, Verdict, Ready), engine-free; see Docs/TUTORIAL.md. |
 
 ## Runtime

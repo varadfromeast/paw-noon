@@ -936,5 +936,39 @@
    0
   ],
   "note": "the shop price sign; fill at (1,1), drawn like font_medium sun1 + outline + shadow"
+ },
+ "tag_streak": {
+  "file": "tag_streak",
+  "size": [
+   17,
+   14
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   8,
+   4,
+   7,
+   4
+  ]
+ },
+ "tag_best": {
+  "file": "tag_best",
+  "size": [
+   22,
+   16
+  ],
+  "pivot": [
+   0,
+   0
+  ],
+  "border": [
+   10,
+   4,
+   10,
+   4
+  ]
  }
 }

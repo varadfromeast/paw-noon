@@ -26,6 +26,7 @@ namespace PawNoon.Runtime
             public bool ambient;
             public bool mote;
             public bool wind;        // storm mote: drifts right to left (weather pass), cleared by ClearWind
+            public bool confetti;    // tumbling paper mote (1x2 / 2x1 whole pixels, sways, blinks out)
             public float wobble;
             public Color32 color;
             public int order;
@@ -38,10 +39,13 @@ namespace PawNoon.Runtime
         private SpriteCatalog fx;
         private SheetDef moteSheet;
 
+        /// <summary>Unscaled time (UI confetti: ignores slow-mo and hit-stop). Default: presentation time.</summary>
+        public bool Unscaled;
+
         public void Init(int capacity, SpriteCatalog fxCatalog)
         {
             fx = fxCatalog;
-            moteSheet = fx.TryGet("dust_mote");
+            moteSheet = fx != null ? fx.TryGet("dust_mote") : null;
             ps = new P[capacity];
             srs = new SpriteRenderer[capacity];
             for (int i = 0; i < capacity; i++)
@@ -57,10 +61,12 @@ namespace PawNoon.Runtime
         /// <summary>FX sheet by name, or null when the art is missing (callers pass it to Burst, which ignores null).</summary>
         public SheetDef Fx(string name)
         {
-            var d = fx.TryGet(name);
+            var d = Sheet(name);
             if (d == null) ArtLib.Warn("fx:" + name, "Missing FX sprite '" + name + "' (skipped)");
             return d;
         }
+
+        private SheetDef Sheet(string name) { return fx != null ? fx.TryGet(name) : null; }
 
         private int Alloc()
         {
@@ -114,7 +120,7 @@ namespace PawNoon.Runtime
 
         public void Smoke(Vector2 canvas, int order, int count)
         {
-            var s = fx.TryGet("smoke_puff");
+            var s = Sheet("smoke_puff");
             if (s == null) return;
             for (int k = 0; k < count; k++)
             {
@@ -126,7 +132,7 @@ namespace PawNoon.Runtime
 
         public void Dust(Vector2 canvasFeet, int order, int count, float spread)
         {
-            var s = fx.TryGet("dust_puff");
+            var s = Sheet("dust_puff");
             if (s == null) return;
             for (int k = 0; k < count; k++)
             {
@@ -138,7 +144,7 @@ namespace PawNoon.Runtime
 
         public void Shell(Vector2 canvas, int order, float groundY)
         {
-            var s = fx.TryGet("shell");
+            var s = Sheet("shell");
             if (s == null) return;
             var v = new Vector2(Random.Range(-70f, -40f), Random.Range(-120f, -90f));
             int i = Burst(s, canvas, order, v, 520f, 2.2f);
@@ -149,7 +155,7 @@ namespace PawNoon.Runtime
 
         public void Sparks(Vector2 canvas, int order, int count)
         {
-            var s = fx.TryGet("spark");
+            var s = Sheet("spark");
             if (s == null) return;
             for (int k = 0; k < count; k++)
             {
@@ -165,7 +171,7 @@ namespace PawNoon.Runtime
         /// </summary>
         public void Coins(Vector2 canvas, int order, int count)
         {
-            var s = fx.TryGet("coin");
+            var s = Sheet("coin");
             if (s == null) return;
             for (int k = 0; k < count; k++)
             {
@@ -201,7 +207,54 @@ namespace PawNoon.Runtime
                 sr.sortingOrder = order;
                 sr.flipX = false;
                 sr.enabled = true;
+                sr.transform.localScale = Vector3.one;
                 Place(i);
+            }
+        }
+
+        /// <summary>
+        /// Paper confetti (NEW BEST): whole-pixel motes in two palette colours thrown up and out from a canvas point,
+        /// tumbling between 2x1 and 1x2 px, swaying as they fall; the last fifth of the life blinks out (no alpha fade).
+        /// Allocation-free (pooled renderers).
+        /// </summary>
+        public void Confetti(Vector2 canvas, int order, int count, Color32 a, Color32 b, float life, float speed, float gravity)
+        {
+            for (int k = 0; k < count; k++)
+            {
+                int i = Alloc();
+                var p = new P();
+                p.active = true;
+                p.confetti = true;
+                p.pos = canvas + new Vector2(Random.Range(-6f, 6f), Random.Range(-2f, 2f));
+                float ang = Random.Range(-160f, -20f) * Mathf.Deg2Rad;   // upward fan (canvas y is down)
+                p.vel = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * speed * Random.Range(0.55f, 1f);
+                p.gravity = gravity;
+                p.drag = 1.8f;
+                p.life = life * Random.Range(0.8f, 1.1f);
+                p.wobble = Random.Range(0f, 6.28f);
+                p.color = (k & 1) == 0 ? a : b;
+                p.order = order;
+                ps[i] = p;
+                var sr = srs[i];
+                sr.sprite = ArtLib.WhitePixel;
+                sr.color = p.color;
+                sr.sortingOrder = order;
+                sr.flipX = false;
+                sr.enabled = true;
+                sr.transform.localScale = (k % 3) == 0 ? new Vector3(1f, 2f, 1f) : new Vector3(2f, 1f, 1f);
+                Place(i);
+            }
+        }
+
+        /// <summary>Hides every non-ambient particle at once (a closed card must not resume an old burst).</summary>
+        public void ClearBursts()
+        {
+            if (ps == null) return;
+            for (int i = 0; i < ps.Length; i++)
+            {
+                if (!ps[i].active || ps[i].ambient) continue;
+                ps[i].active = false;
+                srs[i].enabled = false;
             }
         }
 
@@ -228,6 +281,7 @@ namespace PawNoon.Runtime
                 sr.color = moteSheet != null ? (Color)Pal.White : (Color)p.color;
                 sr.sortingOrder = order;
                 sr.enabled = true;
+                sr.transform.localScale = Vector3.one;
                 Place(i);
             }
         }
@@ -289,7 +343,7 @@ namespace PawNoon.Runtime
             for (int i = 0; i < ps.Length; i++)
             {
                 if (!ps[i].active) continue;
-                float dt = ps[i].ambient ? PawTime.AmbientDt : PawTime.Dt;
+                float dt = ps[i].ambient ? PawTime.AmbientDt : (Unscaled ? PawTime.UnscaledDt : PawTime.Dt);
                 if (dt <= 0f) continue;
                 var p = ps[i];
                 p.age += dt;
@@ -319,6 +373,17 @@ namespace PawNoon.Runtime
                 p.vel.y += p.gravity * dt;
                 if (p.drag > 0f) p.vel *= Mathf.Max(0f, 1f - p.drag * dt);
                 p.pos += p.vel * dt;
+                if (p.confetti)
+                {
+                    // sway as it falls, tumble (2x1 <-> 1x2) every ~0.09 s, blink out over the last fifth
+                    p.pos.x += Mathf.Sin(p.age * 13f + p.wobble) * 22f * dt;
+                    int tumble = (int)((p.age + p.wobble) / 0.09f) & 1;
+                    var sc = srs[i].transform.localScale;
+                    bool wide = sc.x > 1.5f;
+                    if ((tumble == 1) == wide) srs[i].transform.localScale = wide ? new Vector3(1f, 2f, 1f) : new Vector3(2f, 1f, 1f);
+                    float left = p.life - p.age;
+                    srs[i].enabled = left > p.life * 0.2f || ((int)(left / 0.05f) & 1) == 0;
+                }
                 if (p.groundY > 0f && p.pos.y > p.groundY && p.vel.y > 0f)
                 {
                     p.pos.y = p.groundY;

@@ -141,6 +141,14 @@ namespace PawNoon.Runtime
             flashLeft = seconds;
         }
 
+        /// <summary>Solid white for exactly <paramref name="frames"/> rendered frames (no step-down), e.g. the kill-shot punch.</summary>
+        public void FlashFrames(int frames)
+        {
+            if (frames > flashFrames) flashFrames = frames;
+        }
+
+        private int flashFrames;
+
         public void Shake(float px)
         {
             shakeAmp = Mathf.Max(shakeAmp, px);
@@ -177,6 +185,7 @@ namespace PawNoon.Runtime
             impulseTotal = 0f;
             shakeAmp = 0f;
             flashLeft = 0f;
+            flashFrames = 0;
             if (Anim != null) Anim.Speed = 1f;
             Snap();
         }
@@ -201,7 +210,12 @@ namespace PawNoon.Runtime
                 shakeAmp = Mathf.Max(0f, shakeAmp - udt * 18f);
             }
             float f = 0f;
-            if (flashLeft > 0f)
+            if (flashFrames > 0)
+            {
+                flashFrames--;
+                f = 1f;
+            }
+            else if (flashLeft > 0f)
             {
                 flashLeft -= udt;
                 // hold full white for the first half, then step down in two pixel-honest levels

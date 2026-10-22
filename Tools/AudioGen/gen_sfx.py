@@ -391,6 +391,39 @@ def sfx_ui_toggle(seed=43):
     return finalize_sfx(y, loud_target=LOUD_UI, fade_ms=10)
 
 
+# ------------------------------------------------------------------ outcome moments (Docs/FEEL.md)
+def sfx_streak(seed=80):
+    """Win streak tag: two rising brass-bell notes (E6 -> A6, 90 ms apart) over a wood tok. The engine raises the
+    pitch a step per streak level, so x2, x3, x4 climb."""
+    r = rng(seed)
+    n = ns(0.75)
+    p = [(1, 1, .45), (2.0, .45, .25), (3.0, .18, .12), (4.2, .08, .06)]
+    y = mix(n, (0, wood_tok(r, 1660, 0.06), 0.55),
+            (0.0, bell(mtof(88), 0.5, r, partials=p, strike=0.5), 0.75),
+            (0.09, bell(mtof(93), 0.5, r, partials=p, strike=0.5), 1.0),
+            (0.09, bell(mtof(105), 0.25, r, partials=[(1, 1, .05)], strike=0), 0.12))
+    return finalize_sfx(y, loud_target=LOUD_MID)
+
+
+def sfx_new_best(seed=81):
+    """NEW BEST ribbon: a quick rising A-major arpeggio (A5 C#6 E6 A6) on bright bells, a soft air swell under it
+    and a few high glints trailing off (no lightning crackle, so it never reads as the LIGHTNING stamp)."""
+    r = rng(seed)
+    n = ns(1.1)
+    t = tt(n)
+    p = [(1, 1, .35), (2.0, .4, .2), (3.0, .15, .1), (5.4, .05, .05)]
+    notes = [(0.0, 81), (0.06, 85), (0.12, 88), (0.18, 93)]
+    air = bw(r.standard_normal(n), 'bandpass', (2500, 9000), 2) * np.exp(-((t - 0.16) / 0.12) ** 2) * 0.12
+    y = mix(n, (0, air, 1.0), *[(t0, bell(mtof(m), 0.9, r, partials=p, strike=0.35), 0.5 + 0.12 * i)
+                                for i, (t0, m) in enumerate(notes)])
+    for k in np.sort(r.uniform(0.22, 0.8, 9)):
+        g = bell(r.uniform(4200, 7800), 0.25, r, partials=[(1, 1, .1)], strike=0) * ramp_in(ns(0.25), 3)
+        a = ns(k)
+        m = min(len(g), n - a)
+        y[a:a + m] += g[:m] * 0.1 * np.exp(-(k - 0.22) / 0.35)
+    return finalize_sfx(y, loud_target=LOUD_MID)
+
+
 # ================================================================== duel layer v2 (minimal, cinematic)
 TOLL_HZ = float(mtof(52))      # one deep church bell, strike E3 (hum E2); same bell for all three
 
@@ -538,7 +571,8 @@ def all_sfx():
          'sfx_bodyfall': sfx_bodyfall, 'sfx_spurs': sfx_spurs, 'sfx_stamp': sfx_stamp, 'sfx_whoosh': sfx_whoosh,
          'sfx_lightning': sfx_lightning, 'sfx_hp_tick': sfx_hp_tick, 'sfx_ui_tap': sfx_ui_tap,
          'sfx_ui_back': sfx_ui_back, 'sfx_ui_toggle': sfx_ui_toggle,
-         'sfx_tick_sub': _tick_sub, 'sfx_door_creak': sfx_door_creak}
+         'sfx_tick_sub': _tick_sub, 'sfx_door_creak': sfx_door_creak,
+         'sfx_streak': sfx_streak, 'sfx_new_best': sfx_new_best}
     return d
 
 

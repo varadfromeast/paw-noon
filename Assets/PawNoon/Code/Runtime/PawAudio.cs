@@ -66,7 +66,8 @@ namespace PawNoon.Runtime
                 "sfx_whoosh", "sfx_lightning", "sfx_hp_tick", "sfx_ui_tap", "sfx_ui_back", "sfx_ui_toggle", "sfx_heartbeat",
                 "sfx_meow_whiskers", "sfx_meow_pawtruth",  // per-character "meow signature" (SPEC_V2 §8.2, Tools/AudioGen/gen_voice.py)
                 "sfx_peacemaker_draw", "sfx_gun_peacemaker_1", "sfx_gun_peacemaker_2", "sfx_gun_peacemaker_3",   // M7 (gen_peacemaker.py)
-                "sfx_door_creak"   // saloon door at the first peek of the townsfolk (gen_sfx.py, Docs/TOWN.md)
+                "sfx_door_creak",                // saloon door at the first peek of the townsfolk (gen_sfx.py, Docs/TOWN.md)
+                "sfx_streak", "sfx_new_best"     // outcome moments (gen_sfx.py, Docs/FEEL.md)
             };
             // every key Play() is called with must be here (Play only looks up preloaded clips; Tools/Lint/check_cs.py checks it)
             for (int i = 0; i < sfx.Length; i++) Clip("Audio/SFX/" + sfx[i], sfx[i]);
