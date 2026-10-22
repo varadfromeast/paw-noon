@@ -56,6 +56,8 @@ namespace PawNoon.Runtime
         private int soloSeed;
         private bool pvpRanked;
         private string pvpOpponentGun = Guns.Standard;
+        // first-run tutorial (Docs/TUTORIAL.md): what happens when it ends
+        private System.Action<bool> tutorialThenMatch, tutorialThenTitle;
 
         /// <summary>Difficulty of the rules the next / current match uses ("easy" / "hard").</summary>
         public string Difficulty { get { return pendingConfig != null ? pendingConfig.Difficulty : Config.Difficulty; } }
@@ -203,6 +205,11 @@ namespace PawNoon.Runtime
             Director.SetPersona(Roster.Get(CharacterRoster.OpponentOf(CharacterRoster.Whiskers)));
             Director.Intro.SetShadow(banditShadow, Layout.BanditFeet);
             Director.SetStreet(Street);   // LAST LIGHT dawn crossfade
+            var tutorialCard = NewChild<TutorialCard>("TutorialCard", ui);
+            tutorialCard.Init(kit, Layout, Pipeline);
+            Director.AttachTutorial(tutorialCard);
+            tutorialThenMatch = OnTutorialThenMatch;
+            tutorialThenTitle = OnTutorialThenTitle;
             Online = new OnlineDirector();
             Online.Init(this, kit, Layout, Pipeline, ui, title, matchScreen, transport);
             AccountsUi.Enabled = Online.Config == null || Online.Config.Accounts;
@@ -359,7 +366,41 @@ namespace PawNoon.Runtime
             bestAtMatchStart = PawSettings.BestNs;
             Shop.Close();
             Shop.ApplyLoadout(Director, pvpActive, pvpRanked, pvpOpponentGun);   // M7: guns latch at the next countdown
-            Director.StartMatch();
+            // first solo match ever: the tutorial runs on this stage first, then the match starts as usual
+            bool reviewRun = MatchIntro.SkipNextForReview || Director.AutoTapMs >= 0;
+            if (!pvpActive && TutorialDirector.ShouldAutoRun(reviewRun)) Director.StartTutorial(tutorialThenMatch, false);
+            else Director.StartMatch();
+        }
+
+        private void OnTutorialThenMatch(bool skipped)
+        {
+            if (CurrentMode == Mode.Duel) Director.StartMatch();
+        }
+
+        private void OnTutorialThenTitle(bool skipped)
+        {
+            ShowTitle();
+        }
+
+        /// <summary>Settings > Tutorial (REPLAY): runs the tutorial on the duel stage, then back to the title.</summary>
+        public void ReplayTutorial()
+        {
+            if (pvpActive || (Online != null && Online.InPvp))
+            {
+                EndPvp();
+                Online.OnTitle();
+            }
+            if (Accounts != null) Accounts.CloseAll();
+            title.Close();
+            settings.Close();
+            matchScreen.Close();
+            if (title.ChoiceOpen) title.CloseChoice();
+            Shop.Close();
+            ApplyPendingConfig();
+            CurrentMode = Mode.Duel;
+            Street.SetDawn(0f);
+            Shop.ApplyLoadout(Director, false, false, Guns.Standard);
+            Director.StartTutorial(tutorialThenTitle, true);
         }
 
         /// <summary>
@@ -480,6 +521,7 @@ namespace PawNoon.Runtime
                         var sa = settings.Tick();
                         if (sa == UiAction.CloseSettings) settings.Close();
                         else if (sa == UiAction.OpenAccount) Accounts.OpenAccount();
+                        else if (sa == UiAction.Tutorial) ReplayTutorial();
                     }
                     else if (Online.CardOpen)
                     {

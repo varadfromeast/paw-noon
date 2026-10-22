@@ -10,7 +10,7 @@ namespace PawNoon.Runtime
     /// </summary>
     public sealed partial class DuelDirector
     {
-        public enum Pres { Off, Standoff, Live, Result, MatchEnd, Review }
+        public enum Pres { Off, Standoff, Live, Result, MatchEnd, Review, Tutorial }
 
         // wiring
         private readonly DuelConfig cfg;
@@ -246,6 +246,7 @@ namespace PawNoon.Runtime
 
         public void Stop()
         {
+            CancelTutorial();
             State = Pres.Off;
             intro.Cancel();
             pipe.SetTension(0f);
@@ -361,6 +362,7 @@ namespace PawNoon.Runtime
                 if (State == Pres.Review && panel.IsOpen && panel.Tick()) StampLanded();
                 return;
             }
+            if (State == Pres.Tutorial) { TickTutorial(frameStartNs); return; }   // DuelDirector.Tutorial.cs
             long lat = PresentLatencyNs;
 
             opponent.PreAuthorityTick(frameStartNs);
@@ -412,17 +414,20 @@ namespace PawNoon.Runtime
             if (State != Pres.Live) input.Clear();
             authority.Tick();
             DrainEvents();
-            if (zoomRelaxing)
-            {
-                // slow ease-out back to the neutral framing (about 1.2 s); stops when the hold starts a new push-in
-                if (holdPresented || cuePresented) zoomRelaxing = false;
-                else
-                {
-                    pipe.Zoom = Mathf.MoveTowards(pipe.Zoom, 1f, PawTime.UnscaledDt * 0.06f);
-                    if (Mathf.Abs(pipe.Zoom - 1f) < 0.0005f) { pipe.Zoom = 1f; zoomRelaxing = false; }
-                }
-            }
+            RelaxZoom();
             TickPresentation();
+        }
+
+        private void RelaxZoom()
+        {
+            if (!zoomRelaxing) return;
+            // slow ease-out back to the neutral framing (about 1.2 s); stops when the hold starts a new push-in
+            if (holdPresented || cuePresented) zoomRelaxing = false;
+            else
+            {
+                pipe.Zoom = Mathf.MoveTowards(pipe.Zoom, 1f, PawTime.UnscaledDt * 0.06f);
+                if (Mathf.Abs(pipe.Zoom - 1f) < 0.0005f) { pipe.Zoom = 1f; zoomRelaxing = false; }
+            }
         }
 
         private void TickLive(long frameStartNs, long lat)
@@ -434,7 +439,7 @@ namespace PawNoon.Runtime
                 ShowRoundSign(rs.roundNumber);
             }
 
-            if (player.PollCue(frameStartNs, lat)) PresentDraw(frameStartNs);
+            if (player.PollCue(frameStartNs, lat)) PresentDraw(player.CuePresentedNs);
 
             // countdown numerals / hold, driven by the client's own receipt time (no cue knowledge)
             if (player.InRound && !player.HasCue)
@@ -527,7 +532,8 @@ namespace PawNoon.Runtime
             sweatT = Random.value < (float)cfg.holdSweatChance ? Random.Range(0.5f, 1.4f) : -1f;
         }
 
-        private void PresentDraw(long frameStartNs)
+        /// <summary>DRAW on screen this frame; <paramref name="cuePresentedNs"/> = the client's photon estimate (DRAW sound / haptic lead).</summary>
+        private void PresentDraw(long cuePresentedNs)
         {
             hud.SetCueMode(SwipeCue.Mode.Go);
             cuePresented = true;
@@ -544,7 +550,7 @@ namespace PawNoon.Runtime
             // the framing stays exactly where the hold left it: nothing on screen moves at the reaction moment
             pipe.Kick(new Vector2(0f, -1.5f));
             // schedule the DRAW sound at the estimated photon time on the DSP clock
-            double ahead = (player.CuePresentedNs - clock.NowNs) / 1e9;
+            double ahead = (cuePresentedNs - clock.NowNs) / 1e9;
             if (ahead < 0) ahead = 0;
             audio.PlayDrawAt(AudioSettings.dspTime + ahead);
             HapticMoments.DrawCue(ahead);   // same lead: the haptic lands with the photons (Docs/HAPTICS.md)

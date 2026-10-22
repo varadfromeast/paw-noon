@@ -4,5 +4,12 @@
   "bountyEnabled": true,
   "bountyWinsRequired": 3,
   "bountyReward": 20,
-  "shareEnabled": true
+  "shareEnabled": true,
+  "tutorialGripSeconds": 0.6,
+  "tutorialHoldMinSeconds": 2.8,
+  "tutorialHoldMaxSeconds": 4.2,
+  "tutorialLiftGraceSeconds": 0.2,
+  "tutorialFailSeconds": 1.8,
+  "tutorialVerdictSeconds": 1.8,
+  "tutorialSlowRetries": 1
 }

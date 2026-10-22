@@ -105,7 +105,7 @@ namespace PawNoon.Runtime
         /// </summary>
         public string ReviewSetHp(double heroHp, double banditHp)
         {
-            if (State == Pres.Off || State == Pres.Review) return "error: no duel running (ReviewDirector.StartDuel first)";
+            if (State == Pres.Off || State == Pres.Review || State == Pres.Tutorial) return "error: no duel running (ReviewDirector.StartDuel first)";
             if (State == Pres.Live) return "error: an exchange is in flight; retry in the standoff or on the result card";
             if (State == Pres.MatchEnd || authority.Match.Over) return "error: the match is over";
             var m = authority.Match;

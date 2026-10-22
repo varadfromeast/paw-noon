@@ -273,6 +273,7 @@ namespace PawNoon.Runtime
                    " fps=" + UnityEngine.Application.targetFrameRate + " virtual=" + g.Pipeline.VirtualW + "x" + g.Pipeline.VirtualH +
                    " preciseInput=" + g.Input.HasPreciseTimestamps +
                    " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
+                   " tutorial=" + TutorialStatus() +
                    " haptics=" + (PawHaptics.Enabled ? "on" : "off") + (HapticsLab.IsOpen ? "(lab)" : "") +
                    " opponent=" + (g.Director.Persona != null ? g.Director.Persona.id : "cfg") +
                    " " + (g.Online != null ? g.Online.Status() : "online=none") +

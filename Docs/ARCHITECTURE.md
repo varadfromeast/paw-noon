@@ -27,6 +27,7 @@ Assets/PawNoon/
 | `MatchState.cs` | HP, round number, round wins, best/average reaction, `Finish`/`IsDraw` (double KO in a tie = drawn match, Winner −1). |
 | `Banter.cs` | Per-character lines (`BanterLines`; data in `Resources/Data/characters.json`, built-in fallback per context), `BanterPicker` (context priority, chance, never the same line twice in a row), `BubbleGeometry` (bubble + tail layout, clamping). |
 | `ClockSync.cs` | NTP-style offset/RTT estimator for future PvP. |
+| `TutorialFlow.cs` | First-run tutorial step machine (Grip, Hold, Fail, Regrip, Draw, Verdict, Ready), engine-free; see Docs/TUTORIAL.md. |
 
 ## Runtime
 | File | Role |
@@ -55,6 +56,7 @@ Assets/PawNoon/
 | `PawAudio.cs` | SFX pool, music crossfade (Original/Classic), duck, stings, ambience, heartbeat, scheduled DRAW. |
 | `PawHaptics.cs` | iOS plugin / Android VibrationEffect / no-op. |
 | `PawSettings.cs` | PlayerPrefs settings + all-time best. |
+| `Tutorial/TutorialDirector.cs`, `Tutorial/TutorialCard.cs`, `DuelDirector.Tutorial.cs` | First-run tutorial on the duel stage (private DuelClient on the real input / cue path, paper card, director seam `StartTutorial`). Docs/TUTORIAL.md. |
 | `ReviewDirector.cs` | Static review/automation API (Show, StartDuel, SimulateTap, SetAutoTap, SetTimeScale, Status, Seed). |
 
 ## Frame order (PawGame.Update, execution order −500)
