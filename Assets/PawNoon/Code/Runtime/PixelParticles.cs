@@ -25,6 +25,7 @@ namespace PawNoon.Runtime
             public int bounces;
             public bool ambient;
             public bool mote;
+            public bool wind;        // storm mote: drifts right to left (weather pass), cleared by ClearWind
             public float wobble;
             public Color32 color;
             public int order;
@@ -231,6 +232,52 @@ namespace PawNoon.Runtime
             }
         }
 
+        /// <summary>
+        /// Dust-storm motes (weather pass, Docs/TOWN.md): like the ambient motes but blown right to left at
+        /// about <paramref name="speed"/> px/s, wrapping inside the visible rect. Persistent until ClearWind.
+        /// </summary>
+        public void SpawnWind(int count, int order, float speed)
+        {
+            for (int k = 0; k < count; k++)
+            {
+                int i = Alloc();
+                var p = new P();
+                p.active = true;
+                p.mote = true;
+                p.wind = true;
+                p.ambient = true;
+                p.pos = new Vector2(Random.Range(bounds.xMin, bounds.xMax), Random.Range(bounds.yMin + 60, bounds.yMax - 40));
+                p.vel = new Vector2(-speed * Random.Range(0.7f, 1.3f), Random.Range(-2f, 3f));
+                p.wobble = Random.Range(0f, 10f);
+                p.life = float.MaxValue;
+                p.order = order;
+                p.color = (k % 3 == 0) ? Pal.Sand3 : Pal.Sand0;
+                ps[i] = p;
+                var sr = srs[i];
+                bool big = moteSheet != null && moteSheet.Count > 1 && (k % 3 == 0);
+                sr.sprite = big ? moteSheet.Frames[1] : ArtLib.WhitePixel;
+                sr.color = big ? (Color)Pal.White : (Color)p.color;
+                sr.sortingOrder = order;
+                sr.flipX = false;
+                sr.enabled = true;
+                Place(i);
+            }
+        }
+
+        /// <summary>Removes every storm mote (weather back to clear). No allocations.</summary>
+        public void ClearWind()
+        {
+            if (ps == null) return;
+            for (int i = 0; i < ps.Length; i++)
+            {
+                if (!ps[i].active || !ps[i].wind) continue;
+                ps[i].active = false;
+                ps[i].wind = false;
+                ps[i].mote = false;
+                srs[i].enabled = false;
+            }
+        }
+
         private void Place(int i)
         {
             srs[i].transform.localPosition = Px.WorldSnap(ps[i].pos.x, ps[i].pos.y);
@@ -250,8 +297,9 @@ namespace PawNoon.Runtime
                 {
                     p.wobble += dt;
                     p.pos.x += p.vel.x * dt;
-                    p.pos.y += (p.vel.y + Mathf.Sin(p.wobble * 0.9f) * 3f) * dt;
+                    p.pos.y += (p.vel.y + Mathf.Sin(p.wobble * (p.wind ? 2.1f : 0.9f)) * (p.wind ? 6f : 3f)) * dt;
                     if (p.pos.x > bounds.xMax + 2) p.pos.x = bounds.xMin - 2;
+                    else if (p.pos.x < bounds.xMin - 2) p.pos.x = bounds.xMax + 2;
                     if (p.pos.y < bounds.yMin + 40) p.pos.y = bounds.yMax - 50;
                     if (p.pos.y > bounds.yMax - 30) p.pos.y = bounds.yMin + 60;
                     // twinkle: hide for brief moments (alpha is 0/255 only)

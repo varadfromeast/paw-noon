@@ -37,6 +37,9 @@ namespace PawNoon.Runtime
         /// <summary>The first-run tutorial finished or was skipped (Docs/TUTORIAL.md); Settings > Tutorial replays it.</summary>
         public static bool TutorialDone;
         private const string KTutorial = "pn_tutorialDone";
+        /// <summary>Matches started on this install (tutorial excluded). The weather pass waits for the first few (Docs/TOWN.md).</summary>
+        public static int MatchesPlayed;
+        private const string KMatches = "pn_matchesPlayed";
 
         private static int Int(string key, string legacyKey, int def)
         {
@@ -50,6 +53,7 @@ namespace PawNoon.Runtime
             // defaults first, so a storage failure still leaves sane values
             Music = true; ClassicMusic = false; Sfx = true; Haptics = true; ReducedMotion = false; BestNs = -1;
             Difficulty = DuelConfig.DifficultyHard; DifficultyChosen = false; SwipeHint = true; TutorialDone = false;
+            MatchesPlayed = 0;
             try
             {
                 Music = Int(KMusic, "pn.music", 1) == 1;
@@ -65,6 +69,7 @@ namespace PawNoon.Runtime
                 // players from builds before the tutorial (a stored best) count as taught; they can replay it in Settings
                 TutorialDone = PlayerPrefs.HasKey(KTutorial) ? PlayerPrefs.GetInt(KTutorial, 0) == 1 : BestNs > 0;
                 Difficulty = DuelConfig.NormalizeDifficulty(PlayerPrefs.GetString(KDifficulty, DuelConfig.DifficultyHard));
+                MatchesPlayed = Mathf.Max(0, PlayerPrefs.GetInt(KMatches, 0));
             }
             catch (System.Exception e)
             {
@@ -121,6 +126,21 @@ namespace PawNoon.Runtime
             catch (System.Exception e)
             {
                 Debug.LogWarning("[PawNoon] difficulty clear failed: " + e.Message);
+            }
+        }
+
+        /// <summary>One more match started (stored at once; match start only, never per frame).</summary>
+        public static void CountMatch()
+        {
+            if (MatchesPlayed < int.MaxValue) MatchesPlayed++;
+            try
+            {
+                PlayerPrefs.SetInt(KMatches, MatchesPlayed);
+                PlayerPrefs.Save();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[PawNoon] match counter save failed: " + e.Message);
             }
         }
 

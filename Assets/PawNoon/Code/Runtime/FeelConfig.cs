@@ -23,6 +23,8 @@ namespace PawNoon.Runtime
         /// <summary>First-run tutorial pacing (Docs/TUTORIAL.md): keys tutorialGripSeconds, tutorialHoldMinSeconds,
         /// tutorialHoldMaxSeconds, tutorialLiftGraceSeconds, tutorialFailSeconds, tutorialVerdictSeconds, tutorialSlowRetries.</summary>
         public TutorialTuning Tutorial = new TutorialTuning();
+        /// <summary>Townsfolk + weather pass (Docs/TOWN.md): keys town* and weather*.</summary>
+        public TownTuning Town = new TownTuning();
 
         private static FeelConfig cached;
 
@@ -66,6 +68,7 @@ namespace PawNoon.Runtime
             t.verdictSeconds = PnJson.Num(root, "tutorialVerdictSeconds", t.verdictSeconds);
             t.slowRetries = PnJson.Int(root, "tutorialSlowRetries", t.slowRetries);
             t.Sanitize();
+            c.Town = TownTuning.Read(root);
             return c;
         }
     }

@@ -30,6 +30,33 @@ namespace PawNoon.Runtime
 
         /// <summary>Title mood: 1 = dawn plate fully shown (crossfades over ~1.2 s), 0 = high noon.</summary>
         public void SetDawn(float target) { dawnTarget = Mathf.Clamp01(target); }
+
+        // weather pass (Docs/TOWN.md): a dusk floor under SetDawn, a plate tint, extra tumbleweed sway
+        private float weatherDawn;
+        private float plateTint = 1f;
+        private float windSway = 1f;
+        private float dawnShown;
+        private readonly List<SpriteRenderer> plateLayers = new List<SpriteRenderer>();
+
+        /// <summary>Dusk: the dawn plate never shows less than this (LAST LIGHT / title can still raise it to 1). 0 = off.</summary>
+        public void SetWeatherDawn(float floor) { weatherDawn = Mathf.Clamp01(floor); }
+
+        /// <summary>Stepped alpha of the dawn plate on screen right now (0..1, in 1/8 steps).</summary>
+        public float DawnShown { get { return dawnShown; } }
+
+        /// <summary>Brightness of the painted plate (1 = as painted; the dust storm uses 0.9). Applied at once.</summary>
+        public float PlateTint { get { return plateTint; } }
+
+        public void SetPlateTint(float k)
+        {
+            plateTint = Mathf.Clamp01(k);
+            var c = new Color(plateTint, plateTint, plateTint, 1f);
+            for (int i = 0; i < plateLayers.Count; i++) plateLayers[i].color = c;
+            if (dawn != null) dawn.color = new Color(plateTint, plateTint, plateTint, dawnShown);
+        }
+
+        /// <summary>Dust storm: tumbleweeds bounce and sway more (1 = normal).</summary>
+        public void SetWindSway(float k) { windSway = Mathf.Max(1f, k); }
         private Vector2 vultureCenter = new Vector2(150, 120);
         private Vector2 vultureRadius = new Vector2(40, 12);
         private float vultureAngle;
@@ -88,6 +115,7 @@ namespace PawNoon.Runtime
                 sr.sprite = spr;
                 PawGfx.Place(sr, 0, 0); // canvas-sized layers: top-left at canvas (0,0)
                 if (PnJson.Bool(L, "heat", false)) heatLayers.Add(sr);
+                if (lname != "sun") plateLayers.Add(sr);
                 if (lname == "sun") sun = sr;
             }
             SetHeat(true);
@@ -254,13 +282,15 @@ namespace PawNoon.Runtime
 
         private void Update()
         {
-            if (dawn != null && (dawnAlpha != dawnTarget))
+            float want = Mathf.Max(dawnTarget, weatherDawn);
+            if (dawn != null && (dawnAlpha != want))
             {
-                dawnAlpha = Mathf.MoveTowards(dawnAlpha, dawnTarget, PawTime.UnscaledDt / 1.2f);
+                dawnAlpha = Mathf.MoveTowards(dawnAlpha, want, PawTime.UnscaledDt / 1.2f);
                 // stepped alpha keeps the crossfade pixel-honest (no soft blend bands)
                 float q = Mathf.Round(dawnAlpha * 8f) / 8f;
+                dawnShown = q;
                 dawn.enabled = q > 0f;
-                dawn.color = new Color(1f, 1f, 1f, q);
+                dawn.color = new Color(plateTint, plateTint, plateTint, q);
             }
             PushHeatClock();
             float dt = PawTime.AmbientDt;
@@ -305,14 +335,16 @@ namespace PawNoon.Runtime
                 {
                     tumbleX += tumbleDir * tumbleSpeed * dt;
                     tumblePhase += dt * 2.6f;
-                    float hop = Mathf.Abs(Mathf.Sin(tumblePhase * Mathf.PI)) * 7f * Mathf.Max(0.3f, 1f - tumblePhase * 0.04f);
+                    float hop = Mathf.Abs(Mathf.Sin(tumblePhase * Mathf.PI)) * 7f * windSway * Mathf.Max(0.3f, 1f - tumblePhase * 0.04f);
+                    // storm: a slow side-to-side sway on top of the roll (whole pixels via Place)
+                    float sway = (windSway - 1f) * 4f * Mathf.Sin(tumblePhase * 1.7f);
                     int bounceIdx = (int)tumblePhase;
                     if (bounceIdx != lastBounce)
                     {
                         lastBounce = bounceIdx;
                         if (particles != null) particles.Dust(new Vector2(tumbleX, tumbleY), 77, 1, 8f);
                     }
-                    PawGfx.Place(tumble, tumbleX, tumbleY - hop);
+                    PawGfx.Place(tumble, tumbleX + sway, tumbleY - hop);
                     if (tumbleX < -40f || tumbleX > canvasW + 40f)
                     {
                         tumbleActive = false;

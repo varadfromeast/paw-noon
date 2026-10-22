@@ -237,6 +237,7 @@ namespace PawNoon.Runtime
             hero.ResetPose();
             bandit.ResetPose();
             hud.ShowHolster(true);
+            TownMatchStart(seed - 1);   // town: weather from this match's seed, onlookers + creak (DuelDirector.Town.cs)
             BeginStandoff(1.4f, BanterContext.MatchStart);
             if (playIntro) intro.Begin(reducedMotion, firstMatch);
             audio.PlayMusic(PawAudio.Track.DuelBed);   // composed standoff bed (falls back to music_standoff)
@@ -266,6 +267,7 @@ namespace PawNoon.Runtime
             audio.Heartbeat(0f);
             HideBubble();
             EndLastLight();
+            TownMatchEnd();
             Screen.sleepTimeout = SleepTimeout.SystemSetting;
         }
 
@@ -310,6 +312,7 @@ namespace PawNoon.Runtime
             audio.Heartbeat(0f);
             cues.HideAll();
             ApplySuddenDeath();   // LAST LIGHT rule for this standoff (multiplier, dawn), before anything is shown
+            TownStandoff();
             cues.ShowGetReady(true);
             hud.SetRound(authority.Match.RoundNumber);
             PresentLastLightStandoff();
@@ -456,6 +459,7 @@ namespace PawNoon.Runtime
                         audio.Play("sfx_tick_sub", n == 3 ? 0.5f : (n == 2 ? 0.7f : 0.9f));   // low thump for weight (silent if missing)
                         HapticMoments.CountdownTick(n);
                         if (n == 1) PawHaptics.Prepare();
+                        if (n == 1) TownDuck();
                     }
                     else EnterHold();
                 }
@@ -498,6 +502,7 @@ namespace PawNoon.Runtime
             if (player.Closed && !wasClosed && !player.Reported && !noShotShown)
             {
                 noShotShown = true;
+                TownNoShot();
                 cues.ShowStamp("stamp_no_shot");
                 hud.ShowHintOnce();
                 audio.Play("sfx_misfire", 0.5f);
@@ -586,7 +591,7 @@ namespace PawNoon.Runtime
                         else PresentHeroFoul();
                         break;
                     case DuelEventKind.NoShot:
-                        if (e.slot == 0 && !noShotShown) { noShotShown = true; cues.ShowStamp("stamp_no_shot"); cues.ShowMessage("SWIPE UP FROM THE HOLSTER", 1.8f); hud.ShowHintOnce(); }
+                        if (e.slot == 0 && !noShotShown) { noShotShown = true; TownNoShot(); cues.ShowStamp("stamp_no_shot"); cues.ShowMessage("SWIPE UP FROM THE HOLSTER", 1.8f); hud.ShowHintOnce(); }
                         break;
                     case DuelEventKind.RoundVoid:
                         prevHeroEarly = heroFouledThisRound;
@@ -778,6 +783,7 @@ namespace PawNoon.Runtime
             cues.HideDraw();
             cues.HideStamp();
             panel.Show(v);
+            TownExchangeOver(v.grade);
             if (r.isTie) DecorateTiePanel(r);
             if (panel.ReplayVisible && panel.ReplayBottom > layout.Timer.y - 2) cues.HideTimer();   // card + strip say it already
             audio.Duck(1f);

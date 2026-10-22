@@ -489,6 +489,36 @@ def sfx_holster_draw(seed=72):
     return finalize_sfx(y, loud_target=LOUD_MID, fade_ms=30)
 
 
+# ------------------------------------------------------------------ town (SPEC_V2 §8.3)
+def sfx_door_creak(seed=80):
+    """Saloon swing door: a stick-slip hinge creak (pulse train whose rate rises then sags, through a few wood
+    body resonances), then the leaf taps the frame softly. Quiet, dry, ~0.8 s; played at match start."""
+    r = rng(seed)
+    n = ns(0.85)
+    dur = 0.62
+    m = ns(dur)
+    tc = tt(m)
+    # stick-slip rate (pulses / s): catches, rises into a squeal, sags as the door slows
+    rate = 70 + 190 * np.sin(np.pi * np.clip(tc / dur, 0, 1)) ** 0.8 + 25 * np.sin(2 * np.pi * 7.5 * tc)
+    rate *= 1 + 0.06 * lp_noise(m, 30, r)
+    ph = np.cumsum(rate) / SR
+    hits = np.nonzero(np.diff(np.floor(ph)) > 0)[0]
+    exc = np.zeros(m)
+    for h in hits:
+        exc[h] += r.uniform(0.6, 1.0)
+    k = ns(0.0004)
+    exc = np.convolve(exc, r.standard_normal(k) * np.exp(-np.arange(k) / (k / 4)))[:m]
+    body = (bw(exc, 'bandpass', (480, 620), 2) * 1.0 + bw(exc, 'bandpass', (1050, 1250), 2) * 0.8 +
+            bw(exc, 'bandpass', (2150, 2500), 2) * 0.45 + bw(exc, 'bandpass', (3300, 3700), 2) * 0.2)
+    env = np.minimum(1, tc / 0.05) * np.where(tc > dur - 0.12, np.exp(-(tc - (dur - 0.12)) / 0.04), 1.0)
+    creak = body * env
+    y = mix(n, (0, creak / peak(creak), 1.0),
+            (0.66, wood_tok(r, 420, 0.12), 0.35), (0.66, noise_burst(r, 0.05, 150, 1200, 0.012), 0.25),
+            (0.75, wood_tok(r, 470, 0.09), 0.15))
+    y = bw(y, 'lowpass', 7000, 2)
+    return finalize_sfx(y, loud_target=-15.0)
+
+
 def _tick_sub():
     from gen_duel import sfx_tick_sub
     return sfx_tick_sub()
@@ -508,7 +538,7 @@ def all_sfx():
          'sfx_bodyfall': sfx_bodyfall, 'sfx_spurs': sfx_spurs, 'sfx_stamp': sfx_stamp, 'sfx_whoosh': sfx_whoosh,
          'sfx_lightning': sfx_lightning, 'sfx_hp_tick': sfx_hp_tick, 'sfx_ui_tap': sfx_ui_tap,
          'sfx_ui_back': sfx_ui_back, 'sfx_ui_toggle': sfx_ui_toggle,
-         'sfx_tick_sub': _tick_sub}
+         'sfx_tick_sub': _tick_sub, 'sfx_door_creak': sfx_door_creak}
     return d
 
 

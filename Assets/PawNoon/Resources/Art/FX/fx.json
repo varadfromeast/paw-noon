@@ -227,5 +227,125 @@
   "frames": 3,
   "fps": 24,
   "loop": false
+ },
+ "town_bonnet": {
+  "file": "town_bonnet",
+  "size": [
+   48,
+   18
+  ],
+  "cell": [
+   16,
+   18
+  ],
+  "frames": 3,
+  "fps": 0,
+  "loop": false,
+  "pivot": [
+   8,
+   17
+  ],
+  "at": [
+   152,
+   321
+  ],
+  "duckDrop": 8,
+  "cover": "town_cover_left",
+  "note": "townsfolk (SPEC_V2 \u00a78.3, Tools/ArtGen/town/gen_townsfolk.py): frame 0 peek, 1 ducked, 2 blink; pivot sits on canvas \"at\"; left onlooker"
+ },
+ "town_bowler": {
+  "file": "town_bowler",
+  "size": [
+   48,
+   18
+  ],
+  "cell": [
+   16,
+   18
+  ],
+  "frames": 3,
+  "fps": 0,
+  "loop": false,
+  "pivot": [
+   8,
+   17
+  ],
+  "at": [
+   309,
+   238
+  ],
+  "duckDrop": 8,
+  "cover": "town_cover_right",
+  "note": "townsfolk (SPEC_V2 \u00a78.3, Tools/ArtGen/town/gen_townsfolk.py): frame 0 peek, 1 ducked, 2 blink; pivot sits on canvas \"at\"; right onlooker",
+  "hat": "town_bowler_hat",
+  "hatOffset": [
+   0,
+   -11
+  ]
+ },
+ "town_bowler_hat": {
+  "file": "town_bowler_hat",
+  "size": [
+   12,
+   6
+  ],
+  "cell": [
+   12,
+   6
+  ],
+  "frames": 1,
+  "fps": 0,
+  "loop": false,
+  "pivot": [
+   6,
+   5
+  ],
+  "note": "townsfolk (SPEC_V2 \u00a78.3, Tools/ArtGen/town/gen_townsfolk.py): the bowler; pivot = brim centre; flies 4 px on LIGHTNING"
+ },
+ "town_cover_left": {
+  "file": "town_cover_left",
+  "size": [
+   52,
+   26
+  ],
+  "cell": [
+   26,
+   26
+  ],
+  "frames": 2,
+  "fps": 0,
+  "loop": false,
+  "pivot": [
+   0,
+   0
+  ],
+  "at": [
+   140,
+   316
+  ],
+  "note": "townsfolk (SPEC_V2 \u00a78.3, Tools/ArtGen/town/gen_townsfolk.py): plate pixels in front of the left onlooker; frame 0 noon plate, 1 dawn plate (crossfaded with the street); top-left at canvas \"at\""
+ },
+ "town_cover_right": {
+  "file": "town_cover_right",
+  "size": [
+   44,
+   26
+  ],
+  "cell": [
+   22,
+   26
+  ],
+  "frames": 2,
+  "fps": 0,
+  "loop": false,
+  "pivot": [
+   0,
+   0
+  ],
+  "at": [
+   300,
+   226
+  ],
+  "note": "townsfolk (SPEC_V2 \u00a78.3, Tools/ArtGen/town/gen_townsfolk.py): plate pixels in front of the right onlooker; frame 0 noon plate, 1 dawn plate (crossfaded with the street); top-left at canvas \"at\""
  }
 }

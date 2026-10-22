@@ -35,6 +35,7 @@ namespace PawNoon.Runtime
         public ShopDirector Shop { get; private set; }
 
         private PixelParticles particles;
+        private TownLife town;
         private DuelHud hud;
         private DuelCues cues;
         private TitleScreen title;
@@ -144,6 +145,10 @@ namespace PawNoon.Runtime
             sgo.transform.SetParent(world, false);
             Street = sgo.AddComponent<StreetScene>();
             Street.Init(Layout, particles, Audio);
+            var townGo = new GameObject("Town");
+            townGo.transform.SetParent(world, false);
+            town = townGo.AddComponent<TownLife>();
+            town.Init(fxCatalog, Street, particles, Pipeline, Audio, FeelConfig.Current.Town);
 
             var heroDef = CharacterDef.Load("Art/Characters/Hero/", "hero", "hero", new Vector2Int(200, 300), new Vector2Int(0, 300), new Vector2Int(110, 120));
             var banditDef = CharacterDef.Load("Art/Characters/Bandit/", "bandit", "bandit", new Vector2Int(128, 128), new Vector2Int(64, 124), new Vector2Int(64, 64));
@@ -205,6 +210,7 @@ namespace PawNoon.Runtime
             Director.SetPersona(Roster.Get(CharacterRoster.OpponentOf(CharacterRoster.Whiskers)));
             Director.Intro.SetShadow(banditShadow, Layout.BanditFeet);
             Director.SetStreet(Street);   // LAST LIGHT dawn crossfade
+            Director.SetTown(town);       // townsfolk + weather (Docs/TOWN.md)
             var tutorialCard = NewChild<TutorialCard>("TutorialCard", ui);
             tutorialCard.Init(kit, Layout, Pipeline);
             Director.AttachTutorial(tutorialCard);
@@ -312,6 +318,7 @@ namespace PawNoon.Runtime
             PawHaptics.ReducedMotion = PawSettings.ReducedMotion;
             Pipeline.ReducedMotion = PawSettings.ReducedMotion;
             Street.SetReducedMotion(PawSettings.ReducedMotion);
+            town.SetReducedMotion(PawSettings.ReducedMotion);
             cues.SetReducedMotion(PawSettings.ReducedMotion);
             Director.SetReducedMotion(PawSettings.ReducedMotion);
         }
