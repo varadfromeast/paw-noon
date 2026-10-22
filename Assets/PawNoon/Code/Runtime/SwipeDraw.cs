@@ -185,14 +185,11 @@ namespace PawNoon.Runtime
                 for (int i = 0; i < touches.Count; i++)
                 {
                     var tc = touches[i];
-                    int id;
-                    float fid;
-                    if (!tc.touchId.ReadValueFromEvent(eventPtr, out fid)) continue;
-                    id = (int)fid;
+                    int id;                                   // touchId is an IntegerControl
+                    if (!tc.touchId.ReadValueFromEvent(eventPtr, out id)) continue;
                     if (id == 0) continue;
-                    float ph;
-                    if (!tc.phase.ReadValueFromEvent(eventPtr, out ph)) continue;
-                    var phase = (UnityEngine.InputSystem.TouchPhase)(int)ph;
+                    UnityEngine.InputSystem.TouchPhase phase;  // phase is a TouchPhaseControl
+                    if (!tc.phase.ReadValueFromEvent(eventPtr, out phase)) continue;
                     Vector2 pos;
                     if (!tc.position.ReadValueFromEvent(eventPtr, out pos)) continue;
                     HandleTouch(id, phase, pos, tNs);
