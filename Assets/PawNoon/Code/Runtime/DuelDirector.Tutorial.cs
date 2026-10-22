@@ -58,7 +58,6 @@ namespace PawNoon.Runtime
             if (State == Pres.Off) duelVignetteT = 0f;
             State = Pres.Tutorial;
             intro.Cancel();
-            MatchIntro.ShownThisSession = true;   // the cats are already on their marks: no walk-in after the tutorial
             pipe.SetTension(0f);
             PawTime.ClearEffects();
             EndLastLight();

@@ -55,8 +55,8 @@ Practice reports are drained and dropped: no authority, no bot shot, no all-time
 
 `PawGame.BeginDuel` runs the tutorial before a solo match when `TutorialDirector.ShouldAutoRun` (first run, not a
 review run), then calls `StartMatch`. Settings > Tutorial (REPLAY) calls `PawGame.ReplayTutorial`, which runs it and
-returns to the title. The match intro is marked shown when the tutorial stages the cats (they are already on their
-marks). Card layout: centred on `layout.Cue.x`, top one pixel below the hud_badge art (canvas y 268..310 by default,
+returns to the title. On the first run the match intro is marked shown (the cats are already on their marks when
+the match starts); a Settings replay leaves it alone. Card layout: centred on `layout.Cue.x`, top one pixel below the hud_badge art (canvas y 268..310 by default,
 the ready card 250..310), so it never covers the badge's monitor, the opponent (hat top y 313), the guns or the
 holster.
 

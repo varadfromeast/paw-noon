@@ -83,6 +83,8 @@ namespace PawNoon.Runtime
             transport.Clear();
             client.Reset();
             director.TutorialStage();
+            // first run: the cats are already on their marks when the match starts, so no walk-in intro after it
+            if (!isReplay) MatchIntro.ShownThisSession = true;
             card.SetReducedMotion(PawSettings.ReducedMotion);
             flow.Begin();
             shownRevision = -1;
