@@ -6,7 +6,7 @@ namespace PawNoon.Runtime
     /// <summary>Beta switch (net_config.json "accounts": false): hides the profile and ACCOUNT buttons.</summary>
     public static class AccountsUi { public static bool Enabled = true; }
 
-    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend, OpenProfile, OpenAccount, Leaderboard }
+    public enum UiAction { None, Play, OpenSettings, CloseSettings, Rematch, Menu, Continue, ChooseEasy, ChooseHard, Pvp, Friend, OpenProfile, OpenAccount, Leaderboard, Tutorial }
 
     /// <summary>Common base: a root object that can be shown/hidden, laid out against the pipeline rects.</summary>
     public abstract class ScreenBase : MonoBehaviour

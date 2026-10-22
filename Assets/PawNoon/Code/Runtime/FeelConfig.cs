@@ -20,6 +20,9 @@ namespace PawNoon.Runtime
         public int bountyReward = 20;
         /// <summary>SHARE buttons on the round card and the match result screen.</summary>
         public bool shareEnabled = true;
+        /// <summary>First-run tutorial pacing (Docs/TUTORIAL.md): keys tutorialGripSeconds, tutorialHoldMinSeconds,
+        /// tutorialHoldMaxSeconds, tutorialLiftGraceSeconds, tutorialFailSeconds, tutorialVerdictSeconds, tutorialSlowRetries.</summary>
+        public TutorialTuning Tutorial = new TutorialTuning();
 
         private static FeelConfig cached;
 
@@ -54,6 +57,15 @@ namespace PawNoon.Runtime
             c.bountyWinsRequired = Mathf.Max(1, PnJson.Int(root, "bountyWinsRequired", c.bountyWinsRequired));
             c.bountyReward = Mathf.Max(0, PnJson.Int(root, "bountyReward", c.bountyReward));
             c.shareEnabled = PnJson.Bool(root, "shareEnabled", c.shareEnabled);
+            var t = c.Tutorial;
+            t.gripSeconds = PnJson.Num(root, "tutorialGripSeconds", t.gripSeconds);
+            t.holdMinSeconds = PnJson.Num(root, "tutorialHoldMinSeconds", t.holdMinSeconds);
+            t.holdMaxSeconds = PnJson.Num(root, "tutorialHoldMaxSeconds", t.holdMaxSeconds);
+            t.liftGraceSeconds = PnJson.Num(root, "tutorialLiftGraceSeconds", t.liftGraceSeconds);
+            t.failSeconds = PnJson.Num(root, "tutorialFailSeconds", t.failSeconds);
+            t.verdictSeconds = PnJson.Num(root, "tutorialVerdictSeconds", t.verdictSeconds);
+            t.slowRetries = PnJson.Int(root, "tutorialSlowRetries", t.slowRetries);
+            t.Sanitize();
             return c;
         }
     }

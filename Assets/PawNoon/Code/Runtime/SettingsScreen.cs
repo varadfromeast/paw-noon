@@ -26,20 +26,22 @@ namespace PawNoon.Runtime
         private readonly BitmapText[] labels = new BitmapText[NRows];
         private readonly SpriteRenderer[] icons = new SpriteRenderer[NRows];
         private readonly SpriteRenderer[] toggles = new SpriteRenderer[NRows];
-        private SpriteRenderer segOrig, segClassic;
-        private BitmapText segOrigText, segClassicText;
+        private SpriteRenderer segOrig, segClassic, segReplay;
+        private BitmapText segOrigText, segClassicText, segReplayText;
         private readonly RectInt[] rows = new RectInt[NRows];
-        private RectInt segOrigRect, segClassicRect;
+        private RectInt segOrigRect, segClassicRect, segReplayRect;
         private RectInt panelRect;
         private readonly bool[] shown = new bool[NRows];
         private readonly float[] slideLeft = new float[NRows];
         private Sprite midToggle;
         private bool midTried;
         private const float SlideSeconds = 0.07f;
-        private const int NRows = 6;
-        private static readonly string[] Names = { "Music", "Music style", "Sound FX", "Haptics", "Reduced Motion", "Swipe Hint" };
-        private static readonly string[] IconOn = { "ico_music_on", "ico_music_on", "ico_sound_on", "ico_haptic_on", "ico_motion", "tap_hint" };
-        private static readonly string[] IconOff = { "ico_music_off", "ico_music_on", "ico_sound_off", "ico_haptic_off", "ico_motion", "tap_hint" };
+        private const int NRows = 7;
+        /// <summary>"Tutorial" row: a REPLAY tile instead of a toggle (Docs/TUTORIAL.md).</summary>
+        private const int TutorialRow = 6;
+        private static readonly string[] Names = { "Music", "Music style", "Sound FX", "Haptics", "Reduced Motion", "Swipe Hint", "Tutorial" };
+        private static readonly string[] IconOn = { "ico_music_on", "ico_music_on", "ico_sound_on", "ico_haptic_on", "ico_motion", "tap_hint", "tap_hint" };
+        private static readonly string[] IconOff = { "ico_music_off", "ico_music_on", "ico_sound_off", "ico_haptic_off", "ico_motion", "tap_hint", "tap_hint" };
 
         /// <summary>Raised after any change (game applies settings).</summary>
         public System.Action Changed;
@@ -57,7 +59,7 @@ namespace PawNoon.Runtime
                 labels[i] = InkText("L" + i, kit.Medium, O + 3, TextAlign.Left);
                 labels[i].SetText(Names[i]);
                 icons[i] = PawGfx.NewSprite("I" + i, transform, O + 3);
-                if (i != 1) toggles[i] = PawGfx.NewSprite("T" + i, transform, O + 3);
+                if (i != 1 && i != TutorialRow) toggles[i] = PawGfx.NewSprite("T" + i, transform, O + 3);
             }
             segOrig = PawGfx.NewSprite("SegO", transform, O + 2);
             segClassic = PawGfx.NewSprite("SegC", transform, O + 2);
@@ -65,6 +67,9 @@ namespace PawNoon.Runtime
             segOrigText.SetText("ORIGINAL");
             segClassicText = LightText("SegCT", kit.Small, O + 4, TextAlign.Center);
             segClassicText.SetText("CLASSIC");
+            segReplay = PawGfx.NewSprite("SegR", transform, O + 2);
+            segReplayText = LightText("SegRT", kit.Small, O + 4, TextAlign.Center);
+            segReplayText.SetText("REPLAY");
             howTitle = InkText("HowTitle", kit.Medium, O + 3, TextAlign.Left);
             howTitle.SetText("HOW TO PLAY");
             for (int i = 0; i < howLines.Length; i++)
@@ -111,6 +116,9 @@ namespace PawNoon.Runtime
             segOrigRect = new RectInt(segClassicRect.x - 2 - segW, sy, segW, segH);
             segOrigText.At(segOrigRect.x + segW / 2, segOrigRect.y + (segH - kit.Small.LineHeight) / 2 + 1);
             segClassicText.At(segClassicRect.x + segW / 2, segClassicRect.y + (segH - kit.Small.LineHeight) / 2 + 1);
+            int ty = y + RowsTop + TutorialRow * RowH + (RowH - segH) / 2;
+            segReplayRect = new RectInt(x + w - 12 - segW, ty, segW, segH);
+            segReplayText.At(segReplayRect.x + segW / 2, segReplayRect.y + (segH - kit.Small.LineHeight) / 2 + 1);
             int hy = y + RowsTop + NRows * RowH + 6;
             howTitle.At(x + 14, hy);
             for (int i = 0; i < howLines.Length; i++) howLines[i].At(x + 14, hy + 13 + i * 10);
@@ -158,6 +166,7 @@ namespace PawNoon.Runtime
             }
             kit.PlaceSeg(segOrig, !PawSettings.ClassicMusic, segOrigRect);
             kit.PlaceSeg(segClassic, PawSettings.ClassicMusic, segClassicRect);
+            kit.PlaceSeg(segReplay, true, segReplayRect);
         }
 
         private void SetToggleSprite(int i)
@@ -278,6 +287,12 @@ namespace PawNoon.Runtime
             {
                 if (!UiPointer.In(rows[i])) continue;
                 UiPointer.Consumed = true;
+                if (i == TutorialRow)
+                {
+                    if (kit.Audio != null) kit.Audio.Play("sfx_ui_tap", 0.8f);
+                    PawHaptics.Impact(0);
+                    return UiAction.Tutorial;   // the game runs it on the duel stage, then returns to the title
+                }
                 switch (i)
                 {
                     case 0: PawSettings.Music = !PawSettings.Music; break;

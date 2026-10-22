@@ -34,6 +34,9 @@ namespace PawNoon.Runtime
         /// <summary>SWIPE UP TO DRAW cue every round; on until the player switches it off in Settings.</summary>
         public static bool SwipeHint = true;
         private const string KSwipe = "pn_swipeHint";
+        /// <summary>The first-run tutorial finished or was skipped (Docs/TUTORIAL.md); Settings > Tutorial replays it.</summary>
+        public static bool TutorialDone;
+        private const string KTutorial = "pn_tutorialDone";
 
         private static int Int(string key, string legacyKey, int def)
         {
@@ -46,7 +49,7 @@ namespace PawNoon.Runtime
         {
             // defaults first, so a storage failure still leaves sane values
             Music = true; ClassicMusic = false; Sfx = true; Haptics = true; ReducedMotion = false; BestNs = -1;
-            Difficulty = DuelConfig.DifficultyHard; DifficultyChosen = false; SwipeHint = true;
+            Difficulty = DuelConfig.DifficultyHard; DifficultyChosen = false; SwipeHint = true; TutorialDone = false;
             try
             {
                 Music = Int(KMusic, "pn.music", 1) == 1;
@@ -59,6 +62,8 @@ namespace PawNoon.Runtime
                 BestNs = long.TryParse(best, NumberStyles.Integer, CultureInfo.InvariantCulture, out v) && v > 0 ? v : -1;
                 DifficultyChosen = PlayerPrefs.HasKey(KDifficulty);
                 SwipeHint = PlayerPrefs.GetInt(KSwipe, 1) == 1;
+                // players from builds before the tutorial (a stored best) count as taught; they can replay it in Settings
+                TutorialDone = PlayerPrefs.HasKey(KTutorial) ? PlayerPrefs.GetInt(KTutorial, 0) == 1 : BestNs > 0;
                 Difficulty = DuelConfig.NormalizeDifficulty(PlayerPrefs.GetString(KDifficulty, DuelConfig.DifficultyHard));
             }
             catch (System.Exception e)
@@ -73,6 +78,7 @@ namespace PawNoon.Runtime
             {
                 PlayerPrefs.SetInt(KMusic, Music ? 1 : 0);
                 PlayerPrefs.SetInt(KSwipe, SwipeHint ? 1 : 0);
+                PlayerPrefs.SetInt(KTutorial, TutorialDone ? 1 : 0);
                 PlayerPrefs.SetInt(KClassic, ClassicMusic ? 1 : 0);
                 PlayerPrefs.SetInt(KSfx, Sfx ? 1 : 0);
                 PlayerPrefs.SetInt(KHaptics, Haptics ? 1 : 0);
