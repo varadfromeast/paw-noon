@@ -62,6 +62,8 @@ namespace PawNoon.Runtime
         public BitmapFont Small;
         public BitmapFont Medium;
         public BitmapFont Timer;
+        /// <summary>Tall capitals (font_code, 18 px) for one-word cues such as WAIT. Optional: null when not loaded.</summary>
+        public BitmapFont Code;
         public PawAudio Audio;
 
         public SpriteRenderer Sprite(string name, Transform parent, int order)

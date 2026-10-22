@@ -102,6 +102,11 @@ namespace PawNoon.Runtime
         private float messageLeft;
         private bool reducedMotion;
         private EcgMonitor ecg;
+        // "WAIT" over the heart monitor: playtesters read the heartbeat as a prompt to move. The word says what the beat means.
+        private BitmapText waitLabel;
+        private float waitThump;              // seconds left of the beat thump (label drops 1 px and flashes yellow)
+        private int waitThumpStep = -1;
+        private const float ThumpSeconds = 0.14f;
         /// <summary>Heart monitor R peak during the hold: (beat index, frenzy 0..1, early/skipped beat).</summary>
         public System.Action<int, float, bool> OnHeartBeat;
         private bool holdMood;
@@ -135,8 +140,31 @@ namespace PawNoon.Runtime
             if (bd != null && bd.HasInner) { ew = bd.Inner.width - 8; eh = bd.Inner.height - 8; }
             ecg = new EcgMonitor(transform, Order + 1, ew, eh);
             ecg.Bpm = HeartBpm;
-            ecg.OnBeat = (i, f, wide) => { if (OnHeartBeat != null) OnHeartBeat(i, f, wide); };
+            ecg.OnBeat = (i, f, wide) => { waitThump = ThumpSeconds; if (OnHeartBeat != null) OnHeartBeat(i, f, wide); };
             ecg.PlaceAt(layout.Cue.x - ew / 2, layout.Cue.y - eh / 2);
+            var wf = kit.Code != null ? kit.Code : kit.Medium;
+            waitLabel = BitmapText.Create("WaitLabel", transform, wf, Order + 2, TextAlign.Center);
+            waitLabel.SetColors(Pal.Cream0, Pal.Ink, Pal.Ink2);
+            waitLabel.SetText("WAIT");
+            waitLabel.At(layout.Cue.x, layout.Cue.y - wf.LineHeight / 2);
+            waitLabel.Visible = false;
+        }
+
+        /// <summary>Whether the WAIT word sits over the heart monitor during the hold (off for LAST LIGHT's flat line).</summary>
+        public bool WaitLabel = true;
+
+        private void ApplyWaitLabel()
+        {
+            if (waitLabel == null) return;
+            bool on = holdMood && WaitLabel;
+            if (waitLabel.Visible != on) waitLabel.Visible = on;
+            if (!on) { waitThump = 0f; waitThumpStep = -1; return; }
+            int step = waitThump > 0f ? (waitThump > ThumpSeconds * 0.5f ? 2 : 1) : 0;
+            if (step == waitThumpStep) return;
+            waitThumpStep = step;
+            waitLabel.Color = step == 2 ? (Color32)Pal.SigYellow : Pal.Cream0;
+            waitLabel.MarkDirty();
+            waitLabel.At(layout.Cue.x, layout.Cue.y - waitLabel.Height / 2 + (step == 2 ? 1 : 0));
         }
 
         /// <summary>
@@ -149,6 +177,7 @@ namespace PawNoon.Runtime
             if (on == holdMood) return;
             holdMood = on;
             if (ecg != null) ecg.SetVisible(on);
+            ApplyWaitLabel();
         }
 
         public void SetReducedMotion(bool on) { reducedMotion = on; }
@@ -166,6 +195,7 @@ namespace PawNoon.Runtime
                 return;
             }
             lastNumeral = n;
+            WaitLabel = true;
             SetHoldMood(false);
             numeral.Show(kit.Ui.Get(n < NumeralKeys.Length ? NumeralKeys[n] : "cue_" + n), layout.Cue, Amp(-10f), FlashT(0.05f));
         }
@@ -180,6 +210,8 @@ namespace PawNoon.Runtime
             numeral.Hide();
             SetHoldMood(true);
             if (ecg != null) ecg.FlatLine(seconds);
+            WaitLabel = false;                 // the flat line is the whole message; the word would read as a fake-out
+            ApplyWaitLabel();
         }
 
         public void ShowGetReady(bool on)
@@ -256,7 +288,12 @@ namespace PawNoon.Runtime
             burst.Tick(dt);
             ready.Tick(dt);
             stamp.Tick(dt);
-            if (holdMood && ecg != null) ecg.Tick(dt);
+            if (holdMood && ecg != null)
+            {
+                ecg.Tick(dt);
+                if (waitThump > 0f) waitThump -= dt;
+                ApplyWaitLabel();
+            }
             if (messageLeft > 0f)
             {
                 messageLeft -= dt;

@@ -67,7 +67,7 @@ namespace PawNoon.Runtime
         private int signPlacedX = int.MinValue, signPlacedY = int.MinValue;
         private SheetDef signPanelDef;
         private int holsterFrameShown = -1;
-        private const int SignW = 100, SignH = 16;
+        private const int SignW = 150, SignH = 24;   // medium font, readable from arm's length (playtest: the 100x16 sign went unnoticed)
         /// <summary>Clearance above the grip that the cue's thumb rises through, below the sign (px).</summary>
         private const int SignLift = 56;
         private static readonly int[] Swing = { -1, 1, -1, 1, 0 };
@@ -79,6 +79,20 @@ namespace PawNoon.Runtime
         private PixelPipeline pipe;
         private int roundShown = -1;
         private float signPop;
+        private int signColorStep = -1;
+        private SwipeCue.Mode signMode = SwipeCue.Mode.Grip;
+
+        /// <summary>Sign text colour by mode: cream at rest, ink-on-wood "wait", and a yellow/white flash for the first second of DRAW.</summary>
+        private void ApplySignColor()
+        {
+            int step;
+            if (signMode == SwipeCue.Mode.Go && signT < 1.0f) step = 2 + ((int)(signT / 0.12f) & 1);
+            else step = signMode == SwipeCue.Mode.Go ? 2 : (signMode == SwipeCue.Mode.Wait ? 1 : 0);
+            if (step == signColorStep) return;
+            signColorStep = step;
+            signText.Color = step == 3 ? (Color32)Pal.White : (step == 2 ? Pal.SigYellow : (step == 1 ? Pal.Cream1 : Pal.Cream0));
+            signText.MarkDirty();
+        }
 
         public void Init(UiKit k, GameLayout l, PixelPipeline p, CharacterDef hero, CharacterDef bandit, string heroName, string banditName)
         {
@@ -222,8 +236,10 @@ namespace PawNoon.Runtime
         {
             if (cue == null) return;
             cue.SetMode(m);
-            signText.SetText(m == SwipeCue.Mode.Grip ? "REST THUMB HERE" : (m == SwipeCue.Mode.Wait ? "WAIT FOR DRAW!" : "NOW! SWIPE UP"));
-            signText.MarkDirty();
+            signMode = m;
+            signText.SetText(m == SwipeCue.Mode.Grip ? "REST THUMB HERE" : (m == SwipeCue.Mode.Wait ? "WAIT... DON'T MOVE" : "DRAW! SWIPE UP"));
+            signColorStep = -1;
+            ApplySignColor();
             if (m == SwipeCue.Mode.Go) signT = 0f;   // the sign swings again on DRAW
             signPlacedX = int.MinValue;   // the text width changed: re-centre it
             PlaceSign();
@@ -244,7 +260,7 @@ namespace PawNoon.Runtime
         {
             signPanelDef = kit.Ui.Get("panel_wood");
             signPanel = kit.Panel("panel_wood", transform, Order + 3, new RectInt(0, 0, SignW, SignH));
-            signText = kit.Text("SignText", transform, kit.Small, Order + 5, TextAlign.Center, "REST THUMB HERE");
+            signText = kit.Text("SignText", transform, kit.Medium, Order + 5, TextAlign.Center, "REST THUMB HERE");
             signText.SetColors(Pal.Cream0, Pal.Ink, Pal.Ink);
             signText.Shadow = false;
             cue = new SwipeCue(transform, Order + 6);
@@ -286,6 +302,7 @@ namespace PawNoon.Runtime
             if (!signPanel.enabled) return;
             signT += dt;
             PlaceSign();
+            ApplySignColor();
             if (quietOn)
             {
                 quietLeft -= dt;

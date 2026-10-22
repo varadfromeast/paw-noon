@@ -160,6 +160,7 @@ namespace PawNoon.Runtime
             kit.Small = BitmapFont.Load("font_small", 8);
             kit.Medium = BitmapFont.Load("font_medium", 10);
             kit.Timer = BitmapFont.Load("font_timer", 17);
+            kit.Code = BitmapFont.Load("font_code", 18);
             kit.Audio = Audio;
 
             var ui = new GameObject("UI").transform;
