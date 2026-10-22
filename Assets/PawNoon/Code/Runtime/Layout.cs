@@ -116,6 +116,7 @@ namespace PawNoon.Runtime
         public static readonly Color32 Wood4 = new Color32(0x4A, 0x2C, 0x1C, 255);
         public static readonly Color32 Brass0 = new Color32(0xFF, 0xEB, 0x99, 255);
         public static readonly Color32 Brass1 = new Color32(0xF2, 0xC1, 0x4E, 255);
+        public static readonly Color32 Brass2 = new Color32(0xC4, 0x8A, 0x2C, 255);
         public static readonly Color32 PaintRed = new Color32(0xB2, 0x43, 0x3A, 255);
         public static readonly Color32 Red1 = new Color32(0xD6, 0x3C, 0x2F, 255);
         public static readonly Color32 Green2 = new Color32(0x57, 0x7E, 0x3C, 255);

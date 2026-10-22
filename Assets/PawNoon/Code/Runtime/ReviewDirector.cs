@@ -9,7 +9,8 @@ namespace PawNoon.Runtime
     /// </summary>
     public static partial class ReviewDirector
     {
-        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "win", "lose", "settings", "foul", "difficulty", "lastlight",
+        public static readonly string[] States = { "title", "countdown2", "draw", "roundresult", "roundresult <faster|beaten|deadheat|early|noshot|clean> [streakN] [newbest]",
+            "killpunch", "rattled", "win", "lose", "settings", "foul", "difficulty", "lastlight",
             "bounty", "profile", "account", "keypad", "delete", "switch",
             "pvp", "friend", "room", "join", "waiting", "leaderboard", "fastest", "shop", "haptics" };
 
@@ -21,6 +22,9 @@ namespace PawNoon.Runtime
         private static string NotRunning() { return "error: game not running (enter Play mode)"; }
 
         /// <summary>Forces a deterministic still: title, countdown2, draw, roundresult, win, lose, settings, foul,
+        /// "roundresult &lt;verdict&gt; [streakN] [newbest]" (outcome moments, Docs/FEEL.md: e.g. "roundresult beaten",
+        /// "roundresult faster streak3 newbest"), killpunch (opponent dropped: flash held 30 frames + camera kick),
+        /// rattled (ON A ROLL on the round sign + a rattled banter line),
         /// difficulty (title with the first-launch EASY / HARD card; the stored pick is kept), haptics (the haptics
         /// lab: every haptic as a button, see Docs/HAPTICS.md).</summary>
         public static string Show(string state)
@@ -28,6 +32,9 @@ namespace PawNoon.Runtime
             var g = Game();
             if (g == null) return NotRunning();
             string s = (state ?? "").Trim().ToLowerInvariant();
+            string variant = null;   // "roundresult beaten streak3 newbest": everything after the first word
+            int sp = s.IndexOf(' ');
+            if (sp > 0) { variant = s.Substring(sp + 1).Trim(); s = s.Substring(0, sp); }
             if (s == "haptics" || s == "haptic" || s == "hapticslab") return HapticsLab.Open();
             HapticsLab.Close();
             try
@@ -49,7 +56,16 @@ namespace PawNoon.Runtime
                     case "roundresult":
                     case "result":
                         g.EnterReviewDuel();
-                        g.Director.ReviewRoundResult();
+                        g.Director.ReviewRoundResult(variant);
+                        break;
+                    case "killpunch":
+                        g.EnterReviewDuel();
+                        g.Director.ReviewKillPunch(30);
+                        break;
+                    case "rattled":
+                    case "onaroll":
+                        g.EnterReviewDuel();
+                        g.Director.ReviewRattled();
                         break;
                     case "win":
                         g.ShowMatchResultSample(true);
@@ -112,7 +128,7 @@ namespace PawNoon.Runtime
             {
                 return "error: " + e.GetType().Name + ": " + e.Message;
             }
-            return "ok: showing " + s;
+            return "ok: showing " + s + (variant != null ? " " + variant : "");
         }
 
         /// <summary>

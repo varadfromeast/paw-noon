@@ -51,6 +51,8 @@ curve on intensity and sharpness; Android: 10 ms amplitude steps).
 | Tie (TOO CLOSE) | `TieDrama` | T 1.0/0.95, T 1.0/0.95 at 60, C 250 ms 0.40→0 sharp 0.60→0.30 | waveform | Two guns, then a ring under the slow-mo. |
 | Intro name plate | `MatchIntro.Plate` | T 0.55/0.75 (YOU ×0.9) | tap | A stamp, firm and short. |
 | Stamps | `StampLanded` → `HapticMoments.Stamp` | LIGHTNING / PERFECT: one native pattern (heavy ×3 at 65 ms; medium + heavy at 85 ms) on the haptic clock. GREAT medium, GOOD/SLOW light (transients). TOO EARLY / NO SHOT: `UINotificationFeedbackGenerator` error / warning | LIGHTNING / PERFECT as one Composition or waveform. Notify look-alikes (success 2 taps rising, warning 2 falling, error 3) | The §8.6 table is unchanged. The multi-pulse stamps now keep exact rhythm (the haptic clock, not frame ticks). Reduced Motion: first pulse. |
+| Streak tag (x2, x3 ...) | `ResultPanel` tag pop → `StreakTagLanded` → `HapticMoments.StreakStep(n)` | T 0.45/0.55 + T 0.65/0.80 at 90, each +0.05 per extra win (cap 0.65 / 0.85) | two taps (transients) | Two rising taps on `sfx_streak`'s two notes; a run you can feel climb. Reduced Motion: first tap. Waits for the NEW BEST swell when both land on one card. |
+| NEW BEST | `ResultPanel` ribbon pop → `NewBestLanded` → `HapticMoments.NewBest()` | T 0.50/0.90, 0.70/0.90 at 70, 0.85/0.90 at 140 + C 250 ms 0.35 sharp 0.30 at 160 | taps + buzz | Three sparkle taps rising under the arpeggio, a soft swell after the last tap (no transient inside it). Kept under DRAW's 1.0 / 1.0. Reduced Motion: first tap. |
 | Match won / lost | `TickMatchEnd`, 0.10 s later (when the banner lands) | won: T 0.50, 0.75, 1.0 at 0/90/180 + C 300 ms swell; lost: T 0.60/0.15 + C 450 ms 0.55→0 | waveform | Rising vs sinking. A double KO counts as lost. |
 | UI button press | `PixelButton.Tick` | T 0.40/0.80 | tap | Light and crisp. |
 | Settings / difficulty toggles | `SettingsScreen.cs`, `TitleScreen.cs` (`PawHaptics.Impact(0)`, unchanged) | T 0.45/0.70 | tap | A touch fuller than a button press. |
@@ -108,9 +110,9 @@ the option is a server rule ("DRAW haptic always on" or "always off").
 ## 5. The haptics lab
 
 `ReviewDirector.Show haptics` (bridge or editor), or on a device **hold a finger on the top-left corner of the
-title screen for 1.5 s**. One button per haptic (28): 3 ticks, 4 heartbeats (frenzy 0.40, 0.70, max, skipped), DRAW
+title screen for 1.5 s**. One button per haptic (30): 3 ticks, 4 heartbeats (frenzy 0.40, 0.70, max, skipped), DRAW
 CUE (one frame ahead), swipe, shot, shot+hit, shot+kill, hit taken, killed, body fall, too early, too close, LAST
-LIGHT, name plate, UI tap, the six stamps, win, lose. A haptic plays on **finger-down**, so nothing else is felt
+LIGHT, name plate, UI tap, the six stamps, streak x2, new best, win, lose. A haptic plays on **finger-down**, so nothing else is felt
 first: lab buttons have no tap haptic of their own. The line under the header names what just played. **PLAY ALL**
 walks through every haptic 1.1 s apart (tap to stop). **CLOSE** returns to the title. The lab respects the Haptics
 toggle and Reduced Motion, which are shown in the header, so gating can be checked too.

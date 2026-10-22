@@ -13,12 +13,14 @@ namespace PawNoon.Core
         PlayerEarly,
         BotWonRound,
         BotLostRound,
-        MatchWin
+        MatchWin,
+        /// <summary>The player has won several exchanges in a row (StreakCounter >= the rattled threshold).</summary>
+        Rattled
     }
 
     /// <summary>
     /// One character's one-liners per context (keys: matchStart, lastOne, lightning, playerEarly, botWon,
-    /// botLost, matchWin; "bot" = the speaker, "player" = the cat across the street). The field defaults are
+    /// botLost, matchWin, rattled; "bot" = the speaker, "player" = the cat across the street). The field defaults are
     /// Pawtruth's lines; <see cref="WhiskersDefaults"/> are Whiskers'. Data lives in
     /// Resources/Data/characters.json (see <see cref="CharacterRoster"/>); a context the file does not define
     /// falls back to these built-ins.
@@ -33,6 +35,7 @@ namespace PawNoon.Core
         public string[] botWon = { "Too slow, pardner.", "Keep up, kid.", "That all ya got?" };
         public string[] botLost = { "Lucky shot.", "Beginner's luck.", "Won't happen twice." };
         public string[] matchWin = { "Sleep tight, kid.", "Come back with more whiskers." };
+        public string[] rattled = { "Now hold on a minute...", "Lucky streak. Won't last.", "Who ARE you, kid?" };
 
         public string[] For(BanterContext c)
         {
@@ -45,6 +48,7 @@ namespace PawNoon.Core
                 case BanterContext.BotWonRound: return botWon;
                 case BanterContext.BotLostRound: return botLost;
                 case BanterContext.MatchWin: return matchWin;
+                case BanterContext.Rattled: return rattled;
                 default: return null;
             }
         }
@@ -60,6 +64,7 @@ namespace PawNoon.Core
             b.botWon = new[] { "Blink and you miss me.", "Too slow, shadow.", "I'd say sorry. I won't." };
             b.botLost = new[] { "Fine. Lucky paw.", "That one tickled.", "Noted. Won't happen again." };
             b.matchWin = new[] { "Go home, shadow.", "Tell 'em a white cat did it." };
+            b.rattled = new[] { "Okay. Okay. Breathe.", "Stop doing that.", "My tail's twitching. Rude." };
             return b;
         }
 
@@ -85,6 +90,7 @@ namespace PawNoon.Core
                 b.botWon = fallback.botWon;
                 b.botLost = fallback.botLost;
                 b.matchWin = fallback.matchWin;
+                b.rattled = fallback.rattled;
             }
             if (node == null) return b;
             b.matchStart = Strings(node, "matchStart", b.matchStart);
@@ -94,6 +100,7 @@ namespace PawNoon.Core
             b.botWon = Strings(node, "botWon", b.botWon);
             b.botLost = Strings(node, "botLost", b.botLost);
             b.matchWin = Strings(node, "matchWin", b.matchWin);
+            b.rattled = Strings(node, "rattled", b.rattled);
             return b;
         }
 
@@ -130,7 +137,7 @@ namespace PawNoon.Core
         /// <summary>Contexts that always speak (no chance roll).</summary>
         public static bool Always(BanterContext c)
         {
-            return c == BanterContext.MatchStart || c == BanterContext.LastOne || c == BanterContext.MatchWin;
+            return c == BanterContext.MatchStart || c == BanterContext.LastOne || c == BanterContext.MatchWin || c == BanterContext.Rattled;
         }
 
         /// <summary>
@@ -141,7 +148,19 @@ namespace PawNoon.Core
         public static BanterContext Context(bool matchStart, double hp0, double hp1, double lowHp,
             bool playerLightning, bool playerEarly, int lastWinner)
         {
+            return Context(matchStart, hp0, hp1, lowHp, playerLightning, playerEarly, lastWinner, 0, 0);
+        }
+
+        /// <summary>
+        /// As above, with the player's win streak: at <paramref name="rattledStreak"/> or more wins in a row (0 = off)
+        /// the opponent is rattled, which outranks everything but the match start (a 3-win run usually also means he is
+        /// under lowHp, and "rattled" is the rarer, better line).
+        /// </summary>
+        public static BanterContext Context(bool matchStart, double hp0, double hp1, double lowHp,
+            bool playerLightning, bool playerEarly, int lastWinner, int playerStreak, int rattledStreak)
+        {
             if (matchStart) return BanterContext.MatchStart;
+            if (rattledStreak > 0 && playerStreak >= rattledStreak) return BanterContext.Rattled;
             if ((hp0 > 0 && hp0 < lowHp) || (hp1 > 0 && hp1 < lowHp)) return BanterContext.LastOne;
             if (playerLightning) return BanterContext.Lightning;
             if (playerEarly) return BanterContext.PlayerEarly;

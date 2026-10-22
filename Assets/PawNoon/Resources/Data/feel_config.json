@@ -11,5 +11,17 @@
   "tutorialLiftGraceSeconds": 0.2,
   "tutorialFailSeconds": 1.8,
   "tutorialVerdictSeconds": 1.8,
-  "tutorialSlowRetries": 1
+  "tutorialSlowRetries": 1,
+  "_outcome": "Outcome moments (Docs/FEEL.md): streak tag from streakMin wins in a row, ON A ROLL + rattled banter from streakRollMin, NEW BEST ribbon + confetti, kill-shot punch.",
+  "streakMin": 2,
+  "streakRollMin": 3,
+  "streakTagDelay": 0.42,
+  "rollLabelSeconds": 1.6,
+  "newBestDelay": 0.2,
+  "confettiCount": 26,
+  "confettiSeconds": 0.8,
+  "confettiSpeed": 210,
+  "confettiGravity": 320,
+  "killPunchFlashFrames": 1,
+  "killPunchKickPx": 2
 }

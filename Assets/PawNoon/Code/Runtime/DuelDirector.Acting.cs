@@ -16,7 +16,8 @@ namespace PawNoon.Runtime
             var m = authority.Match;
             bool hasLast = r.roundId > 0 && !r.isVoid;
             bool lightning = hasLast && r.slots[0].outcome == SlotOutcome.Shot && r.slots[0].grade == Grade.Lightning;
-            return BanterPicker.Context(false, m.Hp[0], m.Hp[1], cfg.banterLowHp, lightning, prevHeroEarly, hasLast ? r.winnerSlot : -1);
+            return BanterPicker.Context(false, m.Hp[0], m.Hp[1], cfg.banterLowHp, lightning, prevHeroEarly, hasLast ? r.winnerSlot : -1,
+                streak.Current, FeelConfig.Current.streakRollMin);
         }
 
         private SpeechBubble EnsureBubble()

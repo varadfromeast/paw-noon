@@ -89,7 +89,6 @@ namespace PawNoon.Runtime
         private readonly float[] fallT = new float[2];
 
         // near-miss drama (authority-decided tie): both impacts land together at the second trigger pull
-        private static readonly Color32 SigOrange = new Color32(0xFF, 0x9C, 0x3D, 255);
         private bool tieRound;
         private bool tieLanded;
         private int lastFiredSlot = -1;
@@ -110,6 +109,14 @@ namespace PawNoon.Runtime
         private string foulMessage = "PAWTRUTH JUMPED THE GUN!";
         private int[] stampHaptic;
         private readonly MatchIntro intro;
+
+        // outcome moments (Docs/FEEL.md): outright-win streak, kill-shot punch; presentation only
+        private readonly StreakCounter streak = new StreakCounter();
+        private bool killPunchPending;
+        public const string OnARollLabel = "ON A ROLL";
+
+        /// <summary>The player's current run of outright exchange wins this match.</summary>
+        public int Streak { get { return streak.Current; } }
 
         public DuelDirector(DuelConfig cfg, GameLayout layout, IDuelClock clock, LocalAuthority authority, DuelClient player, BotClient bot,
             SwipeDraw input, DuelActor hero, DuelActor bandit, PixelParticles fx, DuelCues cues, DuelHud hud, ResultPanel panel,
@@ -140,6 +147,11 @@ namespace PawNoon.Runtime
             hero.OnFire = HeroFired;
             cues.OnHeartBeat = HoldHeartBeat;
             bandit.OnFire = BanditFired;
+            if (panel != null)
+            {
+                panel.OnStreakTag = StreakTagLanded;
+                panel.OnNewBest = NewBestLanded;
+            }
             State = Pres.Off;
         }
 
@@ -219,6 +231,8 @@ namespace PawNoon.Runtime
             prevHeroEarly = false;
             itch = 0;
             actingRoundId = -1;
+            streak.Reset();
+            killPunchPending = false;
             authority.StartMatch();
             player.Reset();
             opponent.Client.Reset();
@@ -266,6 +280,7 @@ namespace PawNoon.Runtime
             audio.Heartbeat(0f);
             HideBubble();
             EndLastLight();
+            killPunchPending = false;
             Screen.sleepTimeout = SleepTimeout.SystemSetting;
         }
 
@@ -647,6 +662,7 @@ namespace PawNoon.Runtime
                 else if (a.Anim.Speed == 0f) a.Anim.Speed = 1f;
             }
             TickFalls();
+            TickKillPunch();
             TickVignette();
 
             if (voidTimer > 0f)
@@ -772,8 +788,13 @@ namespace PawNoon.Runtime
             v.replay = ReplayMarks.FromRound(r, (float)cfg.replayStripSeconds);
             stampHaptic = StampHaptics.For(v.youFoul, v.youNoShot, v.grade);
             // review: automation (ReviewDirector auto-tap / SimulateSwipe) must never become the all-time BEST
+            // (and so never earns the NEW BEST ribbon either)
             if (s0.outcome == SlotOutcome.Shot && !(s0.hasReport && s0.report.inputSource == InputSource.Injected))
-                PawSettings.SubmitBest(s0.reactionNs);
+                v.newBest = PawSettings.SubmitBest(s0.reactionNs);
+            v.tie = r.isTie;
+            var outcome = RoundVerdict.Classify(r, 0);
+            int run = streak.Record(outcome);
+            v.streak = StreakCounter.ShowsTag(outcome, run, FeelConfig.Current.streakMin) ? run : 0;
 
             cues.HideDraw();
             cues.HideStamp();
@@ -802,19 +823,9 @@ namespace PawNoon.Runtime
             }
         }
 
-        /// <summary>Tie line on the round panel: "±x.xx ms  TOO CLOSE" in sigOrange, and both hits.</summary>
+        /// <summary>Tie on the round panel: both hits on the damage line (the verdict line already says DEAD HEAT +-x ms).</summary>
         private void DecorateTiePanel(RoundRecord r)
         {
-            var gapText = PanelText("Gap");
-            long gapNs;
-            if (gapText != null && r.TryGetGapNs(out gapNs))
-            {
-                Glyph g;
-                bool hasPm = gapText.Font != null && !gapText.Font.Fallback && gapText.Font.TryGet('\u00B1', out g);
-                gapText.SetText((hasPm ? "\u00B1" : "+-") + NumFmt.Ms2(gapNs) + " ms  TOO CLOSE");
-                gapText.Color = SigOrange;
-                gapText.MarkDirty();
-            }
             var dmgText = PanelText("Dmg");
             if (dmgText != null)
             {
@@ -830,6 +841,38 @@ namespace PawNoon.Runtime
         {
             var t = panel != null ? panel.transform.Find(child) : null;
             return t != null ? t.GetComponent<BitmapText>() : null;
+        }
+
+        /// <summary>The streak tag popped on the round card: rising 2-note sting (a step higher per win), haptic step,
+        /// and from streakRollMin wins in a row "ON A ROLL" on the round sign.</summary>
+        private void StreakTagLanded(int run)
+        {
+            float pitch = 1f + 0.059f * Mathf.Clamp(run - 2, 0, 5);   // ~a semitone per extra win
+            audio.Play("sfx_streak", 0.85f, pitch);
+            HapticMoments.StreakStep(run);
+            int roll = FeelConfig.Current.streakRollMin;
+            if (roll > 0 && run >= roll) hud.FlashRoundLabel(OnARollLabel, FeelConfig.Current.rollLabelSeconds);
+        }
+
+        /// <summary>The NEW BEST ribbon popped (confetti is the panel's): its sfx and haptic.</summary>
+        private void NewBestLanded()
+        {
+            audio.Play("sfx_new_best", 0.9f);
+            HapticMoments.NewBest();
+        }
+
+        /// <summary>
+        /// Kill-shot punch: once the kill slow-mo (and any hit-stop) of the hit that dropped the opponent is over, one
+        /// solid white frame on him and a small downward camera kick (PixelPipeline.Kick). Reduced Motion: nothing.
+        /// </summary>
+        private void TickKillPunch()
+        {
+            if (!killPunchPending || PawTime.InSlowMo || PawTime.InHitStop) return;
+            killPunchPending = false;
+            if (reducedMotion) return;
+            var feel = FeelConfig.Current;
+            if (feel.killPunchFlashFrames > 0) bandit.FlashFrames(feel.killPunchFlashFrames);
+            if (feel.killPunchKickPx > 0f) pipe.Kick(new Vector2(0f, feel.killPunchKickPx));
         }
 
         private void StampLanded()
