@@ -9,7 +9,7 @@ cue, timer and jam) before the first solo match, and can be replayed from Settin
 | Card | Step (`TutorialFlow`) | Advances when | On screen |
 |---|---|---|---|
 | 1/3 REST YOUR THUMB ON THE HOLSTER | `Grip` | a finger rests in the holster zone for `tutorialGripSeconds` (0.6 s) without a break | SwipeCue Grip, holster glows while resting, PRACTICE round sign |
-| 2/3 WAIT... DON'T MOVE ("The heartbeat means WAIT. Swipe now and you lose the round.") | `Hold` | the hold ends after a seeded uniform `tutorialHoldMin..MaxSeconds` (2.8..4.2 s) | the real hold: `EnterHold` (heart monitor via `SetHoldMood(true)`, heartbeat sfx + haptic, push-in, ambient freeze), SwipeCue Wait |
+| 2/3 WAIT... DON'T MOVE ("The heartbeat means WAIT. Swipe now and you lose the round.") | `Hold` | the hold ends after a seeded uniform `tutorialHoldMin..MaxSeconds` (2.8..4.2 s) | the real hold: `EnterHold` + `TickHold` (heart monitor via `SetHoldMood(true)`, heartbeat sfx + haptic, push-in, hold vignette, haptic warm-up, ambient freeze), SwipeCue Wait |
 | 2/3 TOO EARLY! / STAY ON THE HOLSTER / 3/3 NO SHOT! | `Fail` | after `tutorialFailSeconds` (1.8 s) | swipe: the real jam (foul anim, TOO EARLY stamp, misfire, error haptic); lift: misfire + warning haptic; no shot: NO SHOT stamp. Card shakes |
 | 2/3 THUMB BACK ON THE HOLSTER / ONE MORE TIME | `Regrip` | rest again for `tutorialGripSeconds` | back to step 2 (a new hold length each attempt) |
 | 3/3 DRAW! SWIPE UP! | `Draw` | a valid swipe, an early one (Fail), or the no-shot timeout (Fail) | the real `PresentDraw` (burst, cue_draw, flash, DSP-scheduled sfx + haptic, SwipeCue Go), live 6-decimal timer |
@@ -42,6 +42,9 @@ Practice reports are drained and dropped: no authority, no bot shot, no all-time
   glow while it is true in steps 1-2.
 - **Early swipe**: a press the client classifies `PressResult.Early`, or a Shot under the anticipation floor.
 - **Lift during the hold**: `FingerResting` false for longer than `tutorialLiftGraceSeconds` (0.2 s, touch jitter).
+- **App backgrounded** (device only, `DuelDirector.VoidForLifecycle`): a hold or DRAW in flight goes back to
+  `Regrip` ("THUMB BACK ON THE HOLSTER") via `TutorialFlow.Interrupt`, with no fail card, sound or haptic; the
+  practice round is dropped. Other steps carry on.
 
 ## Code
 
