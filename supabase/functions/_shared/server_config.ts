@@ -166,8 +166,30 @@ export const RATE = {
   leaderboard_read: { windowSec: 60, max: 30 },
   loadout_equip: { windowSec: 60, max: 20 },
   account_delete: { windowSec: 3600, max: 6 },
+  // live duels (Docs/LIVE_DUELS.md): a match is ~2 create/join + ~2 ready and ~2 reports per attempt + rare syncs
+  live_create: { windowSec: 600, max: 20 },
+  live_join: { windowSec: 60, max: 20 },
+  live_miss: { windowSec: 600, max: 12 },
+  live_ready: { windowSec: 60, max: 40 },
+  live_report: { windowSec: 60, max: 40 },
+  live_round: { windowSec: 60, max: 40 },
 } as const;
 export type RateKind = keyof typeof RATE;
+
+/**
+ * Live duels: soft reaction-vs-RTT checks (Docs/LIVE_DUELS.md "Anti-cheat"). Server-only like PLAUSIBILITY: they never
+ * reject and never show. For an accepted shot, `excess = (report received - cue sent) - reaction` is the latency the
+ * phone implicitly claims (cue down + report up + presentation). Honest phones keep it near their RTT.
+ */
+export const LIVE_PLAUS = {
+  /** excess_latency: excess > rttMs * factor + slack (a reaction shaved below what the server saw pass). */
+  excessRttFactor: 2,
+  excessSlackMs: 400,
+  /** rtt_inflated: the phone claims more RTT than the excess it showed (inflating its own headroom). */
+  rttInflateSlackMs: 300,
+  /** Hold the player's live recording (never served, C10) when at least this many rounds carry a flag. */
+  holdFlaggedRounds: 2,
+} as const;
 
 export const DAILY = {
   winsRequired: 3,
