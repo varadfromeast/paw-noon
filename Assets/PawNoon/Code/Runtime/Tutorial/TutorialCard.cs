@@ -268,26 +268,9 @@ namespace PawNoon.Runtime
 
         private static Sprite DotSprite(bool filled)
         {
-            if (filled) { if (dotFillSprite == null) dotFillSprite = FromRows("PawTutDotFill", DotFill); return dotFillSprite; }
-            if (dotRingSprite == null) dotRingSprite = FromRows("PawTutDotRing", DotRing);
+            if (filled) { if (dotFillSprite == null) dotFillSprite = SwipeCue.FromRows("PawTutDotFill", DotFill, Pal.White, Pal.White, false); return dotFillSprite; }
+            if (dotRingSprite == null) dotRingSprite = SwipeCue.FromRows("PawTutDotRing", DotRing, Pal.White, Pal.White, false);   // white, tinted by the renderer
             return dotRingSprite;
-        }
-
-        /// <summary>Rows of '.'/'X' -> white sprite (tinted by the renderer), pivot top-left.</summary>
-        private static Sprite FromRows(string name, string[] rows)
-        {
-            int h = rows.Length, w = rows[0].Length;
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Point;
-            tex.wrapMode = TextureWrapMode.Clamp;
-            tex.name = name;
-            var px = new Color32[w * h];
-            for (int y = 0; y < h; y++)
-                for (int x = 0; x < w; x++)
-                    px[(h - 1 - y) * w + x] = rows[y][x] == 'X' ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
-            tex.SetPixels32(px);
-            tex.Apply(false, true);
-            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0f, 1f), 1f, 0, SpriteMeshType.FullRect);
         }
     }
 }

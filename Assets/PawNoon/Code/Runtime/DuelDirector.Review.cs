@@ -10,6 +10,7 @@ namespace PawNoon.Runtime
     {
         public void EnterReview()
         {
+            CancelTutorial();   // a still taken mid-tutorial: the card and its step machine must not linger
             State = Pres.Review;
             intro.Cancel();
             pipe.SetTension(0f);

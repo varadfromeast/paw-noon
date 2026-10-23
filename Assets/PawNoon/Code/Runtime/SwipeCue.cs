@@ -229,8 +229,9 @@ namespace PawNoon.Runtime
             return dotSprite;
         }
 
-        /// <summary>Rows of '.'/'X' -> sprite. With fill=true the enclosed interior is filled (scanline), the X ring is the outline.</summary>
-        private static Sprite FromRows(string name, string[] rows, Color32 fillCol, Color32 lineCol, bool fill)
+        /// <summary>Rows of '.'/'X' -> sprite (pivot top-left). With fill=true the enclosed interior is filled (scanline), the X ring is the outline.
+        /// Also used by TutorialCard's step dots.</summary>
+        internal static Sprite FromRows(string name, string[] rows, Color32 fillCol, Color32 lineCol, bool fill)
         {
             int h = rows.Length, w = rows[0].Length;
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);

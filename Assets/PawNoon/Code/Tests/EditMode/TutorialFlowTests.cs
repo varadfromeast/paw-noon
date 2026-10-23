@@ -221,5 +221,57 @@ namespace PawNoon.Tests
             Assert.GreaterOrEqual(t.holdMaxSeconds, t.holdMinSeconds);
             Assert.AreEqual(0, t.slowRetries);
         }
+
+        // ---- app backgrounded (review 2026-10-23): DuelDirector.VoidForLifecycle -> TutorialDirector.Interrupt
+
+        [Test]
+        public void InterruptDuringHoldGoesBackToRegripWithoutAFail()
+        {
+            var f = Make();
+            ToHold(f);
+            int rev = f.Revision;
+            Assert.IsTrue(f.Interrupt());
+            Assert.AreEqual(TutorialStep.Regrip, f.Step);
+            Assert.AreEqual(TutorialFail.None, f.LastFail);
+            Assert.Greater(f.Revision, rev, "the presenter sees the change");
+            Assert.AreEqual(2, f.CardStep);
+            // a resumed lift is not a fail: Regrip just waits for the thumb
+            Run(f, 1.0, false);
+            Assert.AreEqual(TutorialStep.Regrip, f.Step);
+            Run(f, f.Tuning.gripSeconds + 0.05, true);
+            Assert.AreEqual(TutorialStep.Hold, f.Step);
+            Assert.AreEqual(2, f.Attempts);
+        }
+
+        [Test]
+        public void InterruptDuringDrawGoesBackToRegripAndIgnoresALateNoShot()
+        {
+            var f = Make();
+            ToDraw(f);
+            Assert.IsTrue(f.Interrupt());
+            Assert.AreEqual(TutorialStep.Regrip, f.Step);
+            f.NoShot();   // the client's window closing on resume must not turn into a NO SHOT card
+            f.Shot(DuelConfig.MsToNs(250));
+            Assert.AreEqual(TutorialStep.Regrip, f.Step);
+            Assert.AreEqual(TutorialFail.None, f.LastFail);
+        }
+
+        [Test]
+        public void InterruptElsewhereChangesNothing()
+        {
+            var f = Make();
+            int rev = f.Revision;
+            Assert.IsFalse(f.Interrupt(), "Grip");
+            Assert.AreEqual(TutorialStep.Grip, f.Step);
+            Assert.AreEqual(rev, f.Revision);
+            ToHold(f);
+            f.Early();
+            Assert.AreEqual(TutorialStep.Fail, f.Step);
+            Assert.IsFalse(f.Interrupt(), "Fail times out by itself");
+            Assert.AreEqual(TutorialFail.Swiped, f.LastFail);
+            f.Skip();
+            Assert.IsFalse(f.Interrupt(), "Done");
+            Assert.AreEqual(TutorialStep.Done, f.Step);
+        }
     }
 }

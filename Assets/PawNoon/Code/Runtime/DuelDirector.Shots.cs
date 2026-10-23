@@ -40,7 +40,7 @@ namespace PawNoon.Runtime
             restAnim[0] = "ready";
             cues.ShowNumeral(0);
             cues.ShowStamp("stamp_too_early");
-            if (State != Pres.Tutorial) cues.ShowMessage("WAIT FOR DRAW!", 1.8f);   // coaching line under the stamp (the tutorial card says it)
+            if (State != Pres.Tutorial) cues.ShowMessage("WAIT FOR DRAW!", CoachSeconds);   // coaching line under the stamp (the tutorial card says it)
             audio.Play("sfx_misfire");                 // the dry jam click
             audio.Play("sfx_cock", 0.35f, 0.8f);       // hammer catching, low and dull
             HapticMoments.Foul();

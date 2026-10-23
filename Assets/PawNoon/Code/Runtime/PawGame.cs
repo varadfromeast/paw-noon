@@ -167,7 +167,7 @@ namespace PawNoon.Runtime
             kit.Small = BitmapFont.Load("font_small", 8);
             kit.Medium = BitmapFont.Load("font_medium", 10);
             kit.Timer = BitmapFont.Load("font_timer", 17);
-            kit.Code = BitmapFont.Load("font_code", 18);
+            kit.Code = M5Fonts.Code;   // one font_code instance for the WAIT word and the room codes
             kit.Audio = Audio;
 
             var ui = new GameObject("UI").transform;
@@ -398,6 +398,8 @@ namespace PawNoon.Runtime
                 Online.OnTitle();
             }
             if (Accounts != null) Accounts.CloseAll();
+            // a clean stage even when called mid-match (bridge "run"): no round, onlookers, weather or LAST LIGHT carry over
+            Director.Stop();
             title.Close();
             settings.Close();
             matchScreen.Close();

@@ -226,7 +226,10 @@ namespace PawNoon.Runtime
 
         // ------------------------------------------------------------------ match hooks
 
-        /// <summary>Match start: picks the weather (seeded) unless gated, hides the onlookers and schedules the first peek + creak.</summary>
+        /// <summary>
+        /// Match start: picks the weather (seeded) unless gated, hides the onlookers and schedules the first peek + creak.
+        /// Reads PawSettings.MatchesPlayed; the director counts the match afterwards (never for review / auto-tap runs).
+        /// </summary>
         public void BeginMatch(int matchSeed, bool allowWeather)
         {
             HideAll();
@@ -237,7 +240,6 @@ namespace PawNoon.Runtime
             var w = TownWeather.Clear;
             if (allowWeather && cfg.weatherEnabled && PawSettings.MatchesPlayed >= cfg.weatherMinMatches)
                 w = TownTuning.Pick(matchSeed, cfg.duskOneIn, cfg.stormOneIn);
-            PawSettings.CountMatch();
             ApplyWeather(w);
         }
 
