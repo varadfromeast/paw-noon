@@ -1,5 +1,8 @@
 # Online client (M4 + M5): recorded ghost PvP, friend duels, ranked, leaderboards
 
+Live duels (phase 2, both phones online) are a separate path: protocol, server and the C# seam to implement
+(`LiveOpponent`, `IRealtimeChannel`, `ILiveApi`) are in `Docs/LIVE_DUELS.md`. Nothing below changes for them.
+
 This is the Unity side of SPEC_V2 §4.0–4.6. The server side (M3) is `supabase/` (HTTP contract in
 `supabase/README.md`). Solo play never depends on anything here. If the server is unreachable or not set
 up, PVP explains that in pixel text, and PLAY works as always.

@@ -22,8 +22,10 @@ supabase/
   migrations/0060_m6_accounts.sql        names only via profile-update, name shape check, after-link hook (linked_at)
   migrations/0061_review2.sql  review pass 2: old rows repaired + checks validated, character ids, rate_events +
                                pn_rate_*, purchases only move with device proof (pn_grant_entitlement p_allow_transfer)
+  migrations/0070_live.sql     phase 2 LIVE duels: live_matches, live_rounds, matches.live_match_id, RLS + Realtime
+                               channel policies, pn_live_create / quick / join / save / finish (one transaction) / sweep
   scripts/check_migrations.sh  migration order guard + migrations.lock (new migrations must sort after the applied ones)
-  tests/pg/run.sh              SQL tests on a REAL Postgres (throwaway initdb cluster, no Docker): m5.test.sql, review2.test.sql
+  tests/pg/run.sh              SQL tests on a REAL Postgres (throwaway initdb cluster, no Docker): live, m5, review2 .test.sql
   seed.sql                     three house ghosts
   scripts/sync_duel_config.sh  copies Assets/.../duel_config.json into functions/_shared/ (--check for CI)
   functions/
@@ -41,9 +43,13 @@ supabase/
       plausibility.ts          A4 margin vs ghost, B5-B9 rolling stats, hold / shadow / quarantine decision
       auth.ts, db.ts, http.ts, server_config.ts, match_types.ts, rows.ts, server.test.ts, m5.test.ts
       display_name.ts, profile.ts, account.test.ts   (M6; names share Tools/Parity/display_names.json with C#)
+      live.ts                  LIVE duels: the pure state machine (Docs/LIVE_DUELS.md); live_service.ts (load -> transition ->
+                               compare-and-set -> broadcast, round driver), live_bus.ts (Realtime REST broadcast adapter),
+                               live_store.ts (pn_live_*), live_finish.ts (what a finished match writes), live_http.ts, live.test.ts
       payments/                M7: der.ts + jws.ts (Apple JWS chain, WebCrypto only), apple.ts, google.ts,
                                receipt.ts (Unity IAP receipts), validate.ts, payments.test.ts + fixtures/
     match-start/ match-submit/ room-create/ room-join/ leaderboard-read/ account-delete/ daily-claim/ purchase-validate/ profile-read/ profile-update/ loadout-equip/
+    live-create/ live-join/ live-ready/ live-report/ live-round/      (phase 2 live duels)
 ```
 
 ---
@@ -76,11 +82,12 @@ Every function call then sends `Authorization: Bearer $JWT` and `apikey: $ANON`.
 
 ```bash
 deno test --allow-read --allow-env supabase/functions/_shared/   # parity + validator + Glicko + M5 (rooms, seasons, plausibility)
-node Tools/Parity/run_node_tests.ts                     # same tests without Deno (Node >= 22.18): 67 tests
-supabase/tests/pg/run.sh                                # SQL: pn_complete_match atomicity, rooms, quarantine, leaderboards
+node Tools/Parity/run_node_tests.ts                     # same tests without Deno (Node >= 22.18): 87 tests (20 live)
+supabase/tests/pg/run.sh                                # SQL: pn_complete_match atomicity, rooms, quarantine, leaderboards, live (RLS)
 supabase/scripts/sync_duel_config.sh --check            # rules copy in sync
 supabase/scripts/check_migrations.sh                    # migration files in applied order (db push would refuse a gap)
 python3 Tools/Parity/reference_vectors.py --check       # independent Python reference agrees with vectors.json
+python3 Tools/Parity/live_reference.py --check          # live duels: the independent reference agrees with live_vectors.json
 ```
 
 `supabase/tests/pg/run.sh` needs only Postgres 15+ binaries (`initdb`, `pg_ctl`, `psql`; on a Mac
@@ -107,7 +114,12 @@ supabase db push                                          # migrations
 psql "<connection string from Dashboard > Connect>" -f supabase/seed.sql   # house ghosts (idempotent)
 supabase secrets set PN_RANKED_BUILDS="1.0.0+42" PN_DAY_TZ=Asia/Kolkata
 supabase functions deploy match-start match-submit room-create room-join leaderboard-read account-delete daily-claim purchase-validate profile-read profile-update loadout-equip
+supabase functions deploy live-create live-join live-ready live-report live-round        # phase 2 live duels
 ```
+
+Live duels also need: Realtime enabled with **private channels** (Dashboard > Realtime > Settings: turn off "Allow public
+access", so the `realtime.messages` policies of 0070 apply), and optionally pg_cron running `select public.pn_live_sweep();`
+every minute (closes lobbies and matches nobody touches; see `Docs/LIVE_DUELS.md` §5).
 
 The house ghosts are required in production: without them the first player gets `503 no_opponent`.
 
@@ -162,6 +174,8 @@ Server tunables that are not secrets (3 rounds, 9 max attempts, +60 s submit sla
 | `rooms` (M5) | friend-duel rooms: code, host, status open / recorded / used / expired / cancelled, reserved recording | **none**: room-create / room-join |
 | `account_stats` (M5) | rolling plausibility window per account (last 60 shots + margin counters) | none |
 | `plausibility_log` (M5) | every tripped check with its data (reject / hold / shadow / log) | none |
+| `live_matches` (0070) | live duels: membership, status, the state machine (`state`, `version`: secret seed and cue time) | members select status/result columns only (never `state`, `seed`, auth ids) |
+| `live_rounds` (0070) | one row per resolved live attempt (raw reports, inputs, soft flags, view) | members select the view columns only (never `reports` / `flags`) |
 
 M5 columns: `profiles.shadow` (C11 shadow flag, set by the rolling checks, cleared by ops only), `recordings.quarantine_left`
 (C10: further clean matches of the owner before strangers are served it) and `recordings.held` (tripped a check: kept for
@@ -366,6 +380,23 @@ M5 response field: `room: { "code": "HOWL", "status": "recorded" }` when this re
 the player's open room. The plausibility checks that do not reject (A4 margin against the ghost, B5-B9 rolling
 statistics) never change the response: a tripped match only holds the recording, leaves the best reaction off the
 leaderboard and may set the shadow flag (see `Docs/M5_PLAUSIBILITY.md` and `plausibility_log`).
+
+### Live duels: `live-create`, `live-join`, `live-ready`, `live-report`, `live-round` (phase 2)
+
+Both phones online; the server sends DRAW over the Realtime channel `live:<matchId>` and resolves each attempt by the
+reactions the phones report. Full protocol, messages, timeouts and the client seam: **`Docs/LIVE_DUELS.md`**. Every answer
+is `{ matchId, channel, verdict, ok, view, serverNowMs }` (+ `code`, `kind`, `mode` from live-create); `view` never
+contains the seed (until the result) or the cue time.
+
+| Call | Body | Notes |
+|---|---|---|
+| `live-create` | `{ kind: "friend" \| "quick", mode?, clientBuild }` | friend: a 4-letter code (casual). quick: joins the closest waiting lobby or hosts one for 30 s. Ranked: the ranked gate (403 `link_required` / `ranked_not_allowed`) |
+| `live-join` | `{ code }` | 404 `room_not_found`, 410 `room_expired` \| `room_used`, 409 `own_room` \| `room_taken`; again after a lost answer = the same match |
+| `live-ready` | `{ matchId, attempt }` | the second ready starts the round (round driver runs in the background) |
+| `live-report` | `{ matchId, report: { roundId, kind: "Shot" \| "Early", reactionNs, cuePresentedNs, inputNs, countdownStartNs, rttMs? } }` | 400 `bad_report`; verdict `Implausible` / `Inconsistent` is logged, `Implausible` counts towards the flag |
+| `live-round` | `{ matchId, action?: "sync" \| "forfeit" }` | snapshot + applies passed deadlines (reconnection, a dead driver); forfeit |
+
+Errors as everywhere: `404 match_not_found` (also for a match you are not in), `429 rate_limited`, `503 busy`.
 
 ### `POST /room-create` (M5)
 

@@ -168,3 +168,27 @@ Later product decisions: final name, online PvP scope, additional outlaw charact
 - **Retry semantics.** `ApiResult.RetryLater` (no answer, no session, 401, 408, 429, 5xx) keeps a match-submit queued; before, 503 `busy` and 429 dropped it although the match was back in `issued`. One session refresh / guest sign-up at a time (two parallel calls at launch could create two guests).
 - **Nothing online during a duel.** Purchase validation retries and deferred store purchases wait until the round is over (`IapService.Quiet`). Bounty claims, queue flushes, room polls and profile calls already only run on the title / result screens.
 - **Haptics lab** gesture (hold the top-left corner, where SHOP is) only in development builds; release builds open it through the bridge only.
+
+# Phase 2: live duels, server side (SPEC_V2 D1b; details in Docs/LIVE_DUELS.md)
+
+- **The ghost path is untouched.** Live duels have their own tables (`live_matches`, `live_rounds`), migration
+  `0070_live.sql`, five functions (`live-create/-join/-ready/-report/-round`) and a client seam still to be written.
+  A finished live match is written as two ordinary `matches` rows and two pooled `recordings`, one per player, so stats,
+  the daily bounty, history and the ghost pool see it as two ghost duels.
+- **Authority = stored state + whichever request touches it.** `live.ts` is a pure state machine (server ms in, messages
+  out). `LiveService` runs load, transition, compare-and-set (`version`), then broadcast. The second `ready` keeps a
+  round driver alive with `EdgeRuntime.waitUntil`: it sleeps to the secret cue, sends DRAW, sleeps to the report deadline
+  and resolves missing reports as no-shots. Every transition first applies passed deadlines, so a dead driver costs only
+  a late cue, and any later call (a report, or `live-round` from either phone) moves the match on.
+- **Same rules as ghost duels.** Each attempt is resolved by replaying all attempts through `playRecordedMatch`, so
+  reactions are ordered by what the reports carry, never by arrival (NetGames '03). The seed and the cue time stay
+  secret until `match_over`, which is stronger than ghost duels, where the seed is known up front.
+- **Anti-cheat.** The §4.3 checks run per report. Server elapsed time must be at least the reaction (hard). The
+  reaction-vs-RTT flags `excess_latency` and `rtt_inflated` are soft and server-only: two flagged rounds hold the
+  recording. B5-B7 rolling stats run on live shots. `Implausible` reports count towards the account flag; `Inconsistent`
+  ones are only logged (a hitch can cause them).
+- **Parity in three languages.** `Tools/Parity/live_reference.py` is an independent Python reference resolved with the
+  existing Python authority port. It writes `live_vectors.json` (19 scripted matches, 266 ops), which `live.test.ts`
+  replays in TS and `LiveMatchStateTests` replays in C#. The C# mirror (`Core/LiveMatchState.cs`, new file) is
+  engine-free and was not compiled here: the lead compiles it.
+- **Numbering.** The migration is `0070_live.sql` as asked: it sorts after `0061` and is appended to `migrations.lock`.
