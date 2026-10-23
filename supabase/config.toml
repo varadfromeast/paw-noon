@@ -119,3 +119,18 @@ verify_jwt = true
 
 [functions.loadout-equip]
 verify_jwt = true
+
+[functions.live-create]
+verify_jwt = true
+
+[functions.live-join]
+verify_jwt = true
+
+[functions.live-ready]
+verify_jwt = true
+
+[functions.live-report]
+verify_jwt = true
+
+[functions.live-round]
+verify_jwt = true

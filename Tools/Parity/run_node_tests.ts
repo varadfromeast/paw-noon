@@ -25,6 +25,7 @@ const files = [
   "supabase/functions/_shared/m5.test.ts",
   "supabase/functions/_shared/payments/payments.test.ts",
   "supabase/functions/_shared/review2.test.ts",
+  "supabase/functions/_shared/live.test.ts",
 ];
 for (const f of files) await import(pathToFileURL(resolve(root, f)).href);
 
