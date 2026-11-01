@@ -31,12 +31,14 @@ namespace PawNoon.Runtime
             ReviewThumb = -1;
         }
 
-        /// <summary>Whether StartDuel should open with the tutorial. reviewRun = an automated run (intro skip / auto-tap).</summary>
+        /// <summary>
+        /// Whether StartDuel should open with the practice round. Since the HOW TO DUEL comic (HowToComic) teaches
+        /// first-run players, the practice no longer runs by itself: only the bridge's "on" mode forces it (Settings >
+        /// Practice still replays it). reviewRun is kept for callers.
+        /// </summary>
         public static bool ShouldAutoRun(bool reviewRun)
         {
-            if (ReviewMode < 0) return false;
-            if (ReviewMode > 0) return true;
-            return !PawSettings.TutorialDone && !reviewRun;
+            return ReviewMode > 0;
         }
 
         private readonly DuelDirector director;

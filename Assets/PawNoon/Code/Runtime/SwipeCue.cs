@@ -175,7 +175,7 @@ namespace PawNoon.Runtime
         // ------------------------------------------------------------------ procedural pixel sprites
 
         /// <summary>16x18 thumb pad: cream fill, 1 px ink outline, a brass nail line. Reads as "your thumb" at phone size.</summary>
-        private static Sprite ThumbSprite()
+        internal static Sprite ThumbSprite()
         {
             if (thumbSprite != null) return thumbSprite;
             string[] rows =
@@ -204,7 +204,7 @@ namespace PawNoon.Runtime
         }
 
         /// <summary>16x8 solid chevron band pointing up: white fill (tinted by the renderer), 1 px ink outline.</summary>
-        private static Sprite ChevronSprite()
+        internal static Sprite ChevronSprite()
         {
             if (chevronSprite != null) return chevronSprite;
             string[] rows =

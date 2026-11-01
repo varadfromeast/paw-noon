@@ -37,9 +37,9 @@ namespace PawNoon.Runtime
         private bool midTried;
         private const float SlideSeconds = 0.07f;
         private const int NRows = 7;
-        /// <summary>"Tutorial" row: a REPLAY tile instead of a toggle (Docs/TUTORIAL.md).</summary>
+        /// <summary>"Practice" row: a REPLAY tile instead of a toggle; runs the interactive practice round (Docs/TUTORIAL.md).</summary>
         private const int TutorialRow = 6;
-        private static readonly string[] Names = { "Music", "Music style", "Sound FX", "Haptics", "Reduced Motion", "Swipe Hint", "Tutorial" };
+        private static readonly string[] Names = { "Music", "Music style", "Sound FX", "Haptics", "Reduced Motion", "Swipe Hint", "Practice" };
         private static readonly string[] IconOn = { "ico_music_on", "ico_music_on", "ico_sound_on", "ico_haptic_on", "ico_motion", "tap_hint", "tap_hint" };
         private static readonly string[] IconOff = { "ico_music_off", "ico_music_on", "ico_sound_off", "ico_haptic_off", "ico_motion", "tap_hint", "tap_hint" };
 
@@ -291,7 +291,7 @@ namespace PawNoon.Runtime
                 {
                     if (kit.Audio != null) kit.Audio.Play("sfx_ui_tap", 0.8f);
                     PawHaptics.Impact(0);
-                    return UiAction.Tutorial;   // the game runs it on the duel stage, then returns to the title
+                    return UiAction.Practice;   // the game runs the practice on the duel stage, then returns to the title
                 }
                 switch (i)
                 {

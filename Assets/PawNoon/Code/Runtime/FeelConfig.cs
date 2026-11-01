@@ -25,6 +25,8 @@ namespace PawNoon.Runtime
         public TutorialTuning Tutorial = new TutorialTuning();
         /// <summary>Townsfolk + weather pass (Docs/TOWN.md): keys town* and weather*.</summary>
         public TownTuning Town = new TownTuning();
+        /// <summary>HOW TO DUEL comic (Docs/TUTORIAL.md): keys howTo*.</summary>
+        public HowToTuning HowTo = new HowToTuning();
 
         // ---- exchange outcome readability / win moments (Docs/FEEL.md "Outcome moments"); presentation only
         /// <summary>Outright wins in a row before the round card shows the brass streak tag ("x2"); 0 = never.</summary>
@@ -96,6 +98,7 @@ namespace PawNoon.Runtime
             t.slowRetries = PnJson.Int(root, "tutorialSlowRetries", t.slowRetries);
             t.Sanitize();
             c.Town = TownTuning.Read(root);
+            c.HowTo = HowToTuning.Read(root);
             c.streakMin = Mathf.Clamp(PnJson.Int(root, "streakMin", c.streakMin), 0, 99);
             c.streakRollMin = Mathf.Clamp(PnJson.Int(root, "streakRollMin", c.streakRollMin), 0, 99);
             c.streakTagDelay = Mathf.Clamp((float)PnJson.Num(root, "streakTagDelay", c.streakTagDelay), 0f, 3f);

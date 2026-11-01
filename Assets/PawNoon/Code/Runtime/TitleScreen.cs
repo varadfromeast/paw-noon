@@ -22,7 +22,7 @@ namespace PawNoon.Runtime
         private PixelButton gear;
         private PixelButton profileBtn;   // M6: profile card (left of the gear)
         private PixelButton trophy;       // M5: leaderboards (left of the profile button)
-        private PixelButton howTo;        // HOW TO PLAY: replays the tutorial (top-left, opposite the gear)
+        private PixelButton howTo;        // HOW TO PLAY: opens the HOW TO DUEL comic (Docs/TUTORIAL.md)
         // online (M4): PVP under PLAY (same wood sign); FRIEND beside it only when net_config "friendDuel" is on
         private const int PvpH = 30;
         private PixelButton pvp;

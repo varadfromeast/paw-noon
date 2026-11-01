@@ -59,6 +59,13 @@ namespace PawNoon.Runtime
         private string pvpOpponentGun = Guns.Standard;
         // first-run tutorial (Docs/TUTORIAL.md): what happens when it ends
         private System.Action<bool> tutorialThenMatch, tutorialThenTitle;
+        // HOW TO DUEL comic (Docs/TUTORIAL.md): over the title; what follows GOT IT / SKIP
+        public enum HowToThen { Title, Play, Pvp }
+        private HowToComic howTo;
+        private HowToThen howToThen;
+
+        /// <summary>The HOW TO DUEL comic (review hooks).</summary>
+        public HowToComic HowTo { get { return howTo; } }
 
         /// <summary>Difficulty of the rules the next / current match uses ("easy" / "hard").</summary>
         public string Difficulty { get { return pendingConfig != null ? pendingConfig.Difficulty : Config.Difficulty; } }
@@ -186,6 +193,8 @@ namespace PawNoon.Runtime
             settings.Changed = ApplySettings;
             matchScreen = NewChild<MatchResultScreen>("MatchResult", ui);
             matchScreen.Setup(kit, Layout, Pipeline);
+            howTo = NewChild<HowToComic>("HowToDuel", ui);
+            howTo.Setup(kit, Layout, Pipeline);
             Pipeline.SetOverlayRoot(ui);
             hero.Anim.Jitter = 0.35f;
             bandit.Anim.Jitter = 0.3f;
@@ -321,6 +330,7 @@ namespace PawNoon.Runtime
             town.SetReducedMotion(PawSettings.ReducedMotion);
             cues.SetReducedMotion(PawSettings.ReducedMotion);
             Director.SetReducedMotion(PawSettings.ReducedMotion);
+            howTo.SetReducedMotion(PawSettings.ReducedMotion);
         }
 
         // ------------------------------------------------------------------ modes
@@ -340,6 +350,7 @@ namespace PawNoon.Runtime
             resultPanel.Close();
             matchScreen.Close();
             settings.Close();
+            howTo.Close();
             Shop.Close();
             title.Open();
             Street.SetDawn(1f);
@@ -389,7 +400,32 @@ namespace PawNoon.Runtime
             ShowTitle();
         }
 
-        /// <summary>Settings > Tutorial (REPLAY): runs the tutorial on the duel stage, then back to the title.</summary>
+        /// <summary>
+        /// Opens the HOW TO DUEL comic over the title. <paramref name="then"/>: back to the title (HOW TO PLAY), or the
+        /// solo / PvP match the player asked for (first PLAY / PVP before the comic was ever finished).
+        /// </summary>
+        public void ShowHowTo(HowToThen then)
+        {
+            if (CurrentMode != Mode.Title) ShowTitle();
+            if (Accounts != null) Accounts.CloseAll();
+            settings.Close();
+            Shop.Close();
+            howToThen = then;
+            howTo.Open();
+        }
+
+        /// <summary>GOT IT! or SKIP: the first-run lesson counts as done, then whatever the player had asked for.</summary>
+        public void FinishHowTo()
+        {
+            if (!howTo.IsOpen) return;
+            PawSettings.TutorialDone = true;
+            PawSettings.Save();
+            howTo.Close();
+            if (howToThen == HowToThen.Play) StartDuel();
+            else if (howToThen == HowToThen.Pvp) Online.BeginQuickDuel();
+        }
+
+        /// <summary>Settings > Practice (REPLAY): runs the interactive practice on the duel stage, then back to the title.</summary>
         public void ReplayTutorial()
         {
             if (pvpActive || (Online != null && Online.InPvp))
@@ -510,7 +546,7 @@ namespace PawNoon.Runtime
                 particles.SetBounds(Pipeline.Visible);
             }
 
-            Shop.Tick(PawTime.UnscaledDt, CurrentMode == Mode.Title && title.IsOpen && !title.ChoiceOpen && !settings.IsOpen && !Online.CardOpen && !Accounts.Open);
+            Shop.Tick(PawTime.UnscaledDt, CurrentMode == Mode.Title && title.IsOpen && !title.ChoiceOpen && !settings.IsOpen && !howTo.IsOpen && !Online.CardOpen && !Accounts.Open);
             switch (CurrentMode)
             {
                 case Mode.Title:
@@ -518,6 +554,11 @@ namespace PawNoon.Runtime
                     if (Accounts.Tick())
                     {
                         title.Tick(false);   // an account card is up (over the title or over settings)
+                    }
+                    else if (howTo.IsOpen)
+                    {
+                        title.Tick(false);   // the HOW TO DUEL comic is modal over the town
+                        if (howTo.Tick()) FinishHowTo();
                     }
                     else if (Shop.IsOpen)
                     {
@@ -530,7 +571,7 @@ namespace PawNoon.Runtime
                         var sa = settings.Tick();
                         if (sa == UiAction.CloseSettings) settings.Close();
                         else if (sa == UiAction.OpenAccount) Accounts.OpenAccount();
-                        else if (sa == UiAction.Tutorial) ReplayTutorial();
+                        else if (sa == UiAction.Practice) ReplayTutorial();
                     }
                     else if (Online.CardOpen)
                     {
@@ -540,13 +581,14 @@ namespace PawNoon.Runtime
                     else if (!Shop.TickButton())
                     {
                         var a = title.Tick(true);
-                        if (a == UiAction.Play) StartDuel();
-                        else if (a == UiAction.Pvp) Online.BeginQuickDuel();
+                        // first launch: the comic teaches the duel before the first PLAY / PVP
+                        if (a == UiAction.Play) { if (PawSettings.TutorialDone) StartDuel(); else ShowHowTo(HowToThen.Play); }
+                        else if (a == UiAction.Pvp) { if (PawSettings.TutorialDone) Online.BeginQuickDuel(); else ShowHowTo(HowToThen.Pvp); }
                         else if (a == UiAction.Friend) Online.FriendTapped();
                         else if (a == UiAction.Leaderboard) Online.OpenLeaderboard();
                         else if (a == UiAction.OpenSettings) OpenSettings();
                         else if (a == UiAction.OpenProfile) Accounts.OpenProfile();
-                        else if (a == UiAction.Tutorial) ReplayTutorial();
+                        else if (a == UiAction.Tutorial) ShowHowTo(HowToThen.Title);
                         else if (a == UiAction.ChooseEasy) SetDifficulty(DuelConfig.DifficultyEasy);
                         else if (a == UiAction.ChooseHard) SetDifficulty(DuelConfig.DifficultyHard);
                     }

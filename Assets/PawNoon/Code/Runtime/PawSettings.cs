@@ -34,7 +34,7 @@ namespace PawNoon.Runtime
         /// <summary>SWIPE UP TO DRAW cue every round; on until the player switches it off in Settings.</summary>
         public static bool SwipeHint = true;
         private const string KSwipe = "pn_swipeHint";
-        /// <summary>The first-run tutorial finished or was skipped (Docs/TUTORIAL.md); Settings > Tutorial replays it.</summary>
+        /// <summary>The first-run lesson (HOW TO DUEL comic, or the practice round) finished or was skipped (Docs/TUTORIAL.md).</summary>
         public static bool TutorialDone;
         private const string KTutorial = "pn_tutorialDone";
         /// <summary>Matches started on this install (tutorial excluded). The weather pass waits for the first few (Docs/TOWN.md).</summary>

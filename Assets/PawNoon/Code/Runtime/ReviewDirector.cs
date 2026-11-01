@@ -290,6 +290,7 @@ namespace PawNoon.Runtime
                    " preciseInput=" + g.Input.HasPreciseTimestamps +
                    " intro=" + MatchIntro.StatusText + (g.Director.Intro.Active ? "(playing)" : "") +
                    " tutorial=" + TutorialStatus() +
+                   " howto=" + (g.HowTo != null ? g.HowTo.StatusText : "none") +
                    " haptics=" + (PawHaptics.Enabled ? "on" : "off") + (HapticsLab.IsOpen ? "(lab)" : "") +
                    " opponent=" + (g.Director.Persona != null ? g.Director.Persona.id : "cfg") +
                    " " + (g.Online != null ? g.Online.Status() : "online=none") +
