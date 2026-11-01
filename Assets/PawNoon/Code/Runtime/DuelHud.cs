@@ -86,7 +86,7 @@ namespace PawNoon.Runtime
         private void ApplySignColor()
         {
             int step;
-            if (signMode == SwipeCue.Mode.Go && signT < 1.0f) step = 2 + ((int)(signT / 0.12f) & 1);
+            if (signMode == SwipeCue.Mode.Go && signT < 1.0f && !reducedMotion) step = 2 + ((int)(signT / 0.12f) & 1);   // Reduced Motion: steady yellow
             else step = signMode == SwipeCue.Mode.Go ? 2 : (signMode == SwipeCue.Mode.Wait ? 1 : 0);
             if (step == signColorStep) return;
             signColorStep = step;

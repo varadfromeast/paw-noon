@@ -19,10 +19,15 @@ namespace PawNoon.Runtime
 
         public TownLife Town { get { return town; } }
 
-        /// <summary>StartMatch: weather from the match seed (never in the tutorial, never on the first matches), first peek + creak.</summary>
-        private void TownMatchStart(int matchSeed)
+        /// <summary>
+        /// StartMatch: weather from the match seed (never in the tutorial, never on the first matches), first peek + creak.
+        /// <paramref name="countMatch"/> = a player's match (not a review / auto-tap run): it counts toward the weather gate
+        /// (PawSettings.MatchesPlayed), after the gate was read so the count is the matches before this one.
+        /// </summary>
+        private void TownMatchStart(int matchSeed, bool countMatch)
         {
             if (town != null) town.BeginMatch(matchSeed, State != Pres.Tutorial);
+            if (countMatch) PawSettings.CountMatch();
         }
 
         private void TownStandoff() { if (town != null) town.Standoff(); }

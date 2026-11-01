@@ -142,7 +142,7 @@ namespace PawNoon.Runtime
             ecg.Bpm = HeartBpm;
             ecg.OnBeat = (i, f, wide) => { waitThump = ThumpSeconds; if (OnHeartBeat != null) OnHeartBeat(i, f, wide); };
             ecg.PlaceAt(layout.Cue.x - ew / 2, layout.Cue.y - eh / 2);
-            var wf = kit.Code != null ? kit.Code : kit.Medium;
+            var wf = kit.Code != null && !kit.Code.Fallback ? kit.Code : kit.Medium;   // font_code is optional: box glyphs would not read
             waitLabel = BitmapText.Create("WaitLabel", transform, wf, Order + 2, TextAlign.Center);
             waitLabel.SetColors(Pal.Cream0, Pal.Ink, Pal.Ink2);
             waitLabel.SetText("WAIT");
@@ -159,7 +159,8 @@ namespace PawNoon.Runtime
             bool on = holdMood && WaitLabel;
             if (waitLabel.Visible != on) waitLabel.Visible = on;
             if (!on) { waitThump = 0f; waitThumpStep = -1; return; }
-            int step = waitThump > 0f ? (waitThump > ThumpSeconds * 0.5f ? 2 : 1) : 0;
+            // Reduced Motion: the word stays put and cream (the monitor still shows every beat)
+            int step = waitThump > 0f && !reducedMotion ? (waitThump > ThumpSeconds * 0.5f ? 2 : 1) : 0;
             if (step == waitThumpStep) return;
             waitThumpStep = step;
             waitLabel.Color = step == 2 ? (Color32)Pal.SigYellow : Pal.Cream0;
@@ -241,6 +242,7 @@ namespace PawNoon.Runtime
             ready.Hide();
             HideDraw();
             stamp.Hide();
+            WaitLabel = true;   // a LAST LIGHT flat line switched it off for its own standoff only
             SetHoldMood(false);
             lastNumeral = -1;
             timer.Visible = false;

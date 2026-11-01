@@ -102,6 +102,22 @@ namespace PawNoon.Runtime
             transport.Clear();
             client.Reset();
             card.Hide();
+            hud.SetResting(false);
+        }
+
+        /// <summary>
+        /// The app was backgrounded (DuelDirector.VoidForLifecycle, device only): a hold or DRAW in flight goes back to
+        /// "thumb on the holster" without a fail, and the practice round is dropped (the OS ate the touch, the
+        /// stopwatch kept running: neither a lift nor a no-shot is the player's doing).
+        /// </summary>
+        public void Interrupt()
+        {
+            if (!flow.Active) return;
+            if (flow.Interrupt())
+            {
+                transport.Clear();
+                client.Reset();
+            }
         }
 
         /// <summary>Per frame from DuelDirector.Tick while it is in Pres.Tutorial.</summary>

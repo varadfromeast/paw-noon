@@ -199,6 +199,18 @@ namespace PawNoon.Core
             if (Step == TutorialStep.Draw) Fail(TutorialFail.NoShot);
         }
 
+        /// <summary>
+        /// The app was backgrounded mid-hold or mid-DRAW: back to <see cref="TutorialStep.Regrip"/> with no fail recorded
+        /// (the next hold draws a new length). Other steps carry on. True when it changed the step.
+        /// </summary>
+        public bool Interrupt()
+        {
+            if (Step != TutorialStep.Hold && Step != TutorialStep.Draw) return false;
+            LastFail = TutorialFail.None;
+            Go(TutorialStep.Regrip);
+            return true;
+        }
+
         /// <summary>SKIP on the card: done, from any active step.</summary>
         public void Skip()
         {

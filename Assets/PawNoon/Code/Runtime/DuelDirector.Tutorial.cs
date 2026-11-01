@@ -45,6 +45,7 @@ namespace PawNoon.Runtime
         {
             tutorial.Tick(frameStartNs);
             if (State != Pres.Tutorial) return;   // finished this frame: the match / title took over
+            TickHold();   // the same push-in, hold vignette, haptic warm-up and sweat drop as a match hold
             RelaxZoom();
             TickPresentation();
         }
@@ -61,6 +62,8 @@ namespace PawNoon.Runtime
             pipe.SetTension(0f);
             PawTime.ClearEffects();
             EndLastLight();
+            TownMatchEnd();             // no onlookers or weather in practice (a rematch / bridge run can land here mid-match)
+            killPunchPending = false;
             HideBubble();
             banterLine = null;
             acting.Clear();

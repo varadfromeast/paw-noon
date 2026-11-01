@@ -5,8 +5,10 @@
 // the attempt resolves when both have reported (or at the report deadline), ordered by the reactions carried.
 // 200 { matchId, channel, verdict, ok, view, serverNowMs }
 //   verdict: Accepted | Duplicate (a retry of an accepted report) | Stale | WrongRound | Late | Implausible |
-//   Inconsistent | NotPlaying. A refused report changes nothing (the slot times out as a no-shot); Implausible and
-//   Inconsistent are logged and count towards the account flag (§4.3, three = flagged).
+//   Inconsistent | NotPlaying. A refused report changes nothing (the slot times out as a no-shot). Implausible and
+//   Inconsistent are logged; Implausible (a shot before DRAW, a reaction longer than the time the server saw pass, out
+//   of bounds: impossible for an honest phone) also counts towards the account flag (§4.3, three = flagged).
+//   Inconsistent does not count: a long hitch on an honest phone can push its cue offset out of tolerance.
 // Errors: 400 bad_request | bad_report, 404 match_not_found, 429 rate_limited, 503 busy.
 import { requireUser } from "../_shared/auth.ts";
 import { admin, must } from "../_shared/db.ts";
@@ -34,7 +36,9 @@ serve("live-report", async (req) => {
       detail: { liveMatchId: matchId, verdict: v, report },
     });
     if (error) console.error("[live-report] log failed:", error.message);
-    must(await db.rpc("pn_register_rejection", { p_user: user.id, p_flag_at: MATCH.rejectionsToFlag }), "register rejection");
+    if (v === "Implausible") {
+      must(await db.rpc("pn_register_rejection", { p_user: user.id, p_flag_at: MATCH.rejectionsToFlag }), "register rejection");
+    }
   }
   return json(liveAnswer(svc, r));
 });

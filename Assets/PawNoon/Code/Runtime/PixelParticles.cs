@@ -314,6 +314,7 @@ namespace PawNoon.Runtime
                 sr.sortingOrder = order;
                 sr.flipX = false;
                 sr.enabled = true;
+                sr.transform.localScale = Vector3.one;   // pooled slot: a confetti mote leaves a 2x1 / 1x2 scale behind
                 Place(i);
             }
         }

@@ -246,12 +246,14 @@ namespace PawNoon.Runtime
             PawTime.ClearEffects();
             dead[0] = dead[1] = false;
             fallStage[0] = fallStage[1] = 0;
+            // automation (ReviewDirector.StartDuel / auto-tap) is read before ShouldPlay consumes the review flag
+            bool reviewRun = MatchIntro.SkipNextForReview || autoTapNs >= 0;
             bool playIntro = MatchIntro.ShouldPlay(cfg.introEnabled, autoTapNs >= 0);
             if (playIntro) intro.CaptureTitlePose();   // before the standoff switches the cats to "ready"
             hero.ResetPose();
             bandit.ResetPose();
             hud.ShowHolster(true);
-            TownMatchStart(seed - 1);   // town: weather from this match's seed, onlookers + creak (DuelDirector.Town.cs)
+            TownMatchStart(seed - 1, !reviewRun);   // town: weather from this match's seed, onlookers + creak (DuelDirector.Town.cs)
             BeginStandoff(1.4f, BanterContext.MatchStart);
             if (playIntro) intro.Begin(reducedMotion, firstMatch);
             audio.PlayMusic(PawAudio.Track.DuelBed);   // composed standoff bed (falls back to music_standoff)
@@ -358,6 +360,8 @@ namespace PawNoon.Runtime
         /// <summary>App backgrounded / focus lost mid-round: void and go back to standoff.</summary>
         public void VoidForLifecycle()
         {
+            // tutorial: a hold / DRAW cut short by the OS goes back to "thumb on the holster", not to a fail card
+            if (State == Pres.Tutorial) { if (tutorial != null) tutorial.Interrupt(); return; }
             if (State != Pres.Live) return;
             // recorded PvP: never void (the server cannot see it); the attempt plays on and records a no-shot
             if (rules != null) return;
@@ -478,19 +482,7 @@ namespace PawNoon.Runtime
                     }
                     else EnterHold();
                 }
-                if (holdPresented)
-                {
-                    holdT += PawTime.UnscaledDt;
-                    float k = Ease.InOutSine(Mathf.Clamp01(holdT / 3.5f));
-                    pipe.Zoom = 1f + ((float)cfg.holdZoom - 1f) * k;
-                    prepareT -= PawTime.UnscaledDt;
-                    if (prepareT <= 0f) { PawHaptics.Prepare(); prepareT = 1.0f; }
-                    if (sweatT > 0f)
-                    {
-                        sweatT -= PawTime.UnscaledDt;
-                        if (sweatT <= 0f) { sweatT = -1f; SweatDrop(); }
-                    }
-                }
+                TickHold();
             }
 
             // auto tap (review/testing) goes through the same input queue
@@ -514,14 +506,7 @@ namespace PawNoon.Runtime
 
             bool wasClosed = player.Closed;
             player.Tick(frameStartNs);
-            if (player.Closed && !wasClosed && !player.Reported && !noShotShown)
-            {
-                noShotShown = true;
-                TownNoShot();
-                cues.ShowStamp("stamp_no_shot");
-                hud.ShowHintOnce();
-                audio.Play("sfx_misfire", 0.5f);
-            }
+            if (player.Closed && !wasClosed && !player.Reported) PresentNoShot(true);
 
             if (player.HasCue && !resolved)
             {
@@ -550,6 +535,43 @@ namespace PawNoon.Runtime
             // their idle breathing (TickPresentation); only the push-in, the heartbeat and the bot's acting move
             PawTime.HoldAmbient((float)cfg.holdAmbientScale, 0.6f);
             sweatT = Random.value < (float)cfg.holdSweatChance ? Random.Range(0.5f, 1.4f) : -1f;
+        }
+
+        /// <summary>
+        /// Per frame while the hold is on screen (match and tutorial): push-in, the hold vignette clock, the haptic engine
+        /// kept warm for DRAW, the sweat drop. Presentation only; PresentDraw ends it (holdPresented = false).
+        /// </summary>
+        private void TickHold()
+        {
+            if (!holdPresented) return;
+            holdT += PawTime.UnscaledDt;
+            float k = Ease.InOutSine(Mathf.Clamp01(holdT / 3.5f));
+            pipe.Zoom = 1f + ((float)cfg.holdZoom - 1f) * k;
+            prepareT -= PawTime.UnscaledDt;
+            if (prepareT <= 0f) { PawHaptics.Prepare(); prepareT = 1.0f; }
+            if (sweatT > 0f)
+            {
+                sweatT -= PawTime.UnscaledDt;
+                if (sweatT <= 0f) { sweatT = -1f; SweatDrop(); }
+            }
+        }
+
+        private const string NoShotCoach = "SWIPE UP FROM THE HOLSTER";
+        private const float CoachSeconds = 1.8f;
+
+        /// <summary>
+        /// The player's no-shot window closed (client timeout or the authority's NoShot event, whichever comes first;
+        /// once per round): NO SHOT stamp + the coaching line, the onlooker peeks, the swipe hint. misfire = the dry click.
+        /// </summary>
+        private void PresentNoShot(bool misfire)
+        {
+            if (noShotShown) return;
+            noShotShown = true;
+            TownNoShot();
+            cues.ShowStamp("stamp_no_shot");
+            cues.ShowMessage(NoShotCoach, CoachSeconds);
+            hud.ShowHintOnce();
+            if (misfire) audio.Play("sfx_misfire", 0.5f);
         }
 
         /// <summary>DRAW on screen this frame; <paramref name="cuePresentedNs"/> = the client's photon estimate (DRAW sound / haptic lead).</summary>
@@ -606,7 +628,7 @@ namespace PawNoon.Runtime
                         else PresentHeroFoul();
                         break;
                     case DuelEventKind.NoShot:
-                        if (e.slot == 0 && !noShotShown) { noShotShown = true; TownNoShot(); cues.ShowStamp("stamp_no_shot"); cues.ShowMessage("SWIPE UP FROM THE HOLSTER", 1.8f); hud.ShowHintOnce(); }
+                        if (e.slot == 0) PresentNoShot(false);
                         break;
                     case DuelEventKind.RoundVoid:
                         prevHeroEarly = heroFouledThisRound;
