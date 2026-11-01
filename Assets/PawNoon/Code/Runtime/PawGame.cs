@@ -351,6 +351,7 @@ namespace PawNoon.Runtime
             matchScreen.Close();
             settings.Close();
             howTo.Close();
+            title.SetModalOver(false);
             Shop.Close();
             title.Open();
             Street.SetDawn(1f);
@@ -412,6 +413,7 @@ namespace PawNoon.Runtime
             Shop.Close();
             howToThen = then;
             howTo.Open();
+            title.SetModalOver(true);
         }
 
         /// <summary>GOT IT! or SKIP: the first-run lesson counts as done, then whatever the player had asked for.</summary>
@@ -421,6 +423,7 @@ namespace PawNoon.Runtime
             PawSettings.TutorialDone = true;
             PawSettings.Save();
             howTo.Close();
+            title.SetModalOver(false);
             if (howToThen == HowToThen.Play) StartDuel();
             else if (howToThen == HowToThen.Pvp) Online.BeginQuickDuel();
         }

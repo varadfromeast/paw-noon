@@ -29,6 +29,7 @@ namespace PawNoon.Runtime
         private PixelButton friend;
         private bool friendShown;
         private bool onlineBusy;
+        private bool modalOver;   // a full card (HOW TO DUEL comic) is over the title: hide every control under it
         private BitmapText best;
         private float t;
 
@@ -200,7 +201,7 @@ namespace PawNoon.Runtime
         private void ApplyChoiceVisibility()
         {
             choiceRoot.gameObject.SetActive(choiceOpen);
-            bool controls = !choiceOpen && !onlineBusy;
+            bool controls = !choiceOpen && !onlineBusy && !modalOver;
             controlsShown = controls;
             play.SetVisible(controls);
             pvp.SetVisible(controls);
@@ -228,6 +229,14 @@ namespace PawNoon.Runtime
         {
             if (onlineBusy == busy) return;
             onlineBusy = busy;
+            ApplyChoiceVisibility();
+        }
+
+        /// <summary>A modal card (the HOW TO DUEL comic) covers the title: its buttons, toggle, BEST and bounty hide.</summary>
+        public void SetModalOver(bool over)
+        {
+            if (modalOver == over) return;
+            modalOver = over;
             ApplyChoiceVisibility();
         }
 

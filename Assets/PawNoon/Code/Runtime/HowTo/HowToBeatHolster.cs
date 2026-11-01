@@ -9,7 +9,8 @@ namespace PawNoon.Runtime
     /// </summary>
     public sealed class HowToBeatHolster : HowToBeat
     {
-        private const int GripX = 110, GripY = 112;
+        // close-up: holster and thumb drawn at 2x (integer, stays crisp) so the gesture reads at a glance
+        private const int GripX = 110, GripY = 80, Zoom = 2;
         private const float Pat1 = 0.24f, Pat2 = 0.48f, PeekAt = 0.8f, ComfyAt = 0.98f, LiftAt = 1.45f;
         private static readonly int[] Hover = { 18, 12, 7, 3 };
         // after the first contact: squash 1 px, bounce up, second contact, squash, rest
@@ -26,6 +27,8 @@ namespace PawNoon.Runtime
             holsterDef = S.Kit.Ui.TryGet("holster_zone");
             holster = S.NewSprite("Holster1", 3, holsterDef != null ? holsterDef.First : null);
             thumb = S.NewSprite("Thumb1", 7, SwipeCue.ThumbSprite());
+            holster.transform.localScale = new Vector3(Zoom, Zoom, 1f);
+            thumb.transform.localScale = new Vector3(Zoom, Zoom, 1f);
             peeks = HowToStage.Peeks("Art/Characters/Hero/hero_portrait", 36);
             peek = S.NewSprite("Whiskers", 5, null);
             pat1 = S.Word("Pat1", "PAT", Pal.Brass1);
@@ -79,15 +82,16 @@ namespace PawNoon.Runtime
                 // frame 1 = the grip glows while the pad touches it
                 int f = lift <= 0 && holsterDef.Count > 1 ? 1 : 0;
                 holster.sprite = holsterDef.Frames[f];
-                S.Put(holster, GripX - holsterDef.Cell.x / 2 + holsterDef.Pivot.x, GripY - 14 + holsterDef.Pivot.y);
+                // the pivot offset scales with the sprite: top-left lands at (GripX - w, GripY - 28)
+                S.Put(holster, GripX - holsterDef.Cell.x * Zoom / 2 + holsterDef.Pivot.x * Zoom, GripY - 14 * Zoom + holsterDef.Pivot.y * Zoom);
             }
-            S.Put(thumb, GripX - 8, GripY - 9 - lift);
+            S.Put(thumb, GripX - 8 * Zoom, GripY - (9 + lift) * Zoom);   // thumb pivot is its top-left
 
             bool w1 = t >= Pat1 && t < 1.2f, w2 = t >= Pat2 && t < 1.2f;
             pat1.Visible = w1;
             pat2.Visible = w2;
-            if (w1) S.PutText(pat1, 56, 58 + Pop(t - Pat1));
-            if (w2) S.PutText(pat2, 166, 50 + Pop(t - Pat2));
+            if (w1) S.PutText(pat1, GripX - 60, GripY - 46 + Pop(t - Pat1));
+            if (w2) S.PutText(pat2, GripX + 60, GripY - 54 + Pop(t - Pat2));
 
             // Whiskers rises out of the floor in three 12 px steps, then says it
             int step = t < PeekAt ? -1 : Mathf.Min(2, (int)((t - PeekAt) / 0.06f));
